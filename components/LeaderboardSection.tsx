@@ -40,20 +40,17 @@ const LeaderboardSection: React.FC = () => {
                                     }));
                                 }
                             } else if (game.id === 'ritmo-pro') {
-                                // Ritmo Pro usa 'ritmo_pro_ranking' com join em 'players'
+                                // Ritmo Pro usa 'ritmo_pro_ranking' com 'player_name' direto
                                 const { data } = await supabase
                                     .from('ritmo_pro_ranking')
-                                    .select(`
-                                        score,
-                                        players (name)
-                                    `)
+                                    .select('player_name, score')
                                     .order('score', { ascending: false })
                                     .limit(5);
 
                                 if (data) {
                                     formattedRanking = data.map((d: any) => ({
-                                        name: d.players?.name || 'Anônimo',
-                                        score: d.score
+                                        name: d.player_name || 'Anônimo',
+                                        score: Math.floor(d.score || 0)
                                     }));
                                 }
                             } else if (game.id === 'chord-rush') {
