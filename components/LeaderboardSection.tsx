@@ -25,8 +25,8 @@ const LeaderboardSection: React.FC = () => {
                         let formattedRanking: RankedPlayer[] = [];
 
                         // LÓGICA ESPECÍFICA POR JOGO
-                        if (game.id === 'ritmo-pro') {
-                            // Ritmo Pro usa tabela própria 'repita_leaderboard'
+                        if (game.id === 'voice-rush') {
+                            // Voice Rush usa tabela própria 'repita_leaderboard'
                             const { data } = await supabase
                                 .from('repita_leaderboard')
                                 .select('player_name, total_xp')
@@ -40,7 +40,7 @@ const LeaderboardSection: React.FC = () => {
                                 }));
                             }
                         } else {
-                            // Chord Rush e Voice Rush (Default)
+                            // Chord Rush e Ritmo Pro (Default)
                             // Usam tabela 'players' e coluna 'high_score'
                             const { data } = await supabase
                                 .from('players')
