@@ -8,12 +8,16 @@ interface PinEntryProps {
 
 const PinEntry: React.FC<PinEntryProps> = ({ pin, setPin }) => {
   return (
-    <div className="max-w-md mx-auto mb-12">
-      <div className="bg-slate-800 p-6 rounded-2xl border border-slate-700 shadow-xl">
-        <label htmlFor="pin-input" className="block text-slate-400 text-sm font-medium mb-3 text-center uppercase tracking-widest">
-          Insira seu PIN de Aluno
+    <div className="max-w-md mx-auto mb-16 relative group">
+      {/* Glow Effect */}
+      <div className="absolute -inset-1 bg-gradient-to-r from-orange-600 to-amber-600 rounded-2xl blur opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+
+      <div className="relative bg-stone-900 p-8 rounded-2xl border border-stone-800 shadow-2xl">
+        <label htmlFor="pin-input" className="block text-orange-500 text-xs font-bold mb-4 text-center uppercase tracking-[0.3em]">
+          Identificação do Aluno
         </label>
-        <div className="relative">
+
+        <div className="relative flex justify-center">
           <input
             id="pin-input"
             type="text"
@@ -21,21 +25,33 @@ const PinEntry: React.FC<PinEntryProps> = ({ pin, setPin }) => {
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))}
             placeholder="0000"
-            className="w-full bg-slate-900 border-2 border-slate-700 focus:border-blue-500 text-white text-center text-4xl font-mono py-4 rounded-xl outline-none transition-all placeholder:text-slate-800"
+            className="w-full bg-black border-2 border-stone-800 focus:border-orange-500 text-white text-center text-5xl font-mono py-6 rounded-xl outline-none transition-all placeholder:text-stone-800 shadow-inner"
           />
-          <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
-             {pin.length >= 4 ? (
-               <svg className="h-8 w-8 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-               </svg>
-             ) : (
-               <div className="h-2 w-2 rounded-full bg-slate-700 animate-pulse"></div>
-             )}
+
+          <div className="absolute inset-y-0 right-6 flex items-center pointer-events-none">
+            {pin.length >= 4 ? (
+              <div className="bg-green-500/20 p-2 rounded-full">
+                <svg className="h-6 w-6 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            ) : (
+              <div className="flex gap-1">
+                <div className="h-2 w-2 rounded-full bg-orange-500/50 animate-pulse delay-75"></div>
+                <div className="h-2 w-2 rounded-full bg-orange-500/50 animate-pulse delay-150"></div>
+                <div className="h-2 w-2 rounded-full bg-orange-500/50 animate-pulse delay-300"></div>
+              </div>
+            )}
           </div>
         </div>
-        <p className="mt-4 text-xs text-slate-500 text-center">
-          Este PIN será usado para acompanhar seu progresso em todos os jogos.
-        </p>
+
+        <div className="mt-6 flex justify-between items-center text-xs text-stone-500">
+          <span>Acesso Seguro</span>
+          <span className="flex items-center gap-1">
+            <div className={`h-2 w-2 rounded-full ${pin.length >= 4 ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            {pin.length >= 4 ? 'Conectado' : 'Aguardando'}
+          </span>
+        </div>
       </div>
     </div>
   );

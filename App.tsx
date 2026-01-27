@@ -60,17 +60,30 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 py-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-black text-stone-100 py-12 px-4 sm:px-6 lg:px-8 selection:bg-orange-500 selection:text-white">
       {/* Seção de Cabeçalho */}
-      <div className="max-w-7xl mx-auto text-center mb-16">
-        <h1 className="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500 mb-4">
-          Acorde Gallery
+      <div className="max-w-7xl mx-auto flex flex-col items-center mb-16">
+
+        {/* LOGO */}
+        <div className="mb-8 w-64 md:w-80 hover:scale-105 transition-transform duration-500 drop-shadow-2xl">
+          <img src="/logo.png" alt="Acorde Gallery Logo" className="w-full h-auto object-contain" />
+        </div>
+
+        <h1 className="text-5xl md:text-7xl font-black text-white tracking-tight mb-4 uppercase">
+          Acorde <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600">Gallery</span>
         </h1>
-        <p className="text-slate-400 max-w-2xl mx-auto text-lg">
+
+        <div className="w-32 h-2 bg-gradient-to-r from-transparent via-orange-600 to-transparent rounded-full mb-8 opacity-80"></div>
+
+        <p className="text-stone-400 max-w-2xl mx-auto text-lg text-center font-light">
           {studentName
-            ? <span className="text-green-400 font-bold text-2xl animate-fade-in block mb-2">Olá, {studentName}!</span>
-            : "Insira seu PIN para acessar seus jogos."}
-          <span className="block text-sm opacity-75">Suas pontuações serão sincronizadas automaticamente.</span>
+            ? (
+              <span className="flex flex-col items-center animate-fade-in">
+                <span className="text-stone-500 text-sm uppercase tracking-[0.2em] mb-2">Bem-vindo ao palco</span>
+                <span className="text-orange-500 font-bold text-4xl drop-shadow-lg">{studentName}</span>
+              </span>
+            )
+            : "Insira seu PIN para liberar seu acesso."}
         </p>
       </div>
 
@@ -78,10 +91,10 @@ const App: React.FC = () => {
         {/* Área de Entrada de PIN */}
         <PinEntry pin={pin} setPin={setPin} />
 
-        {isLoading && <p className="text-center text-blue-400 mb-8 animate-pulse">Verificando PIN...</p>}
+        {isLoading && <div className="text-center mb-8"><div className="w-8 h-8 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto"></div></div>}
 
-        {/* Grade de Jogos - Só mostra "ativa" se tiver nome, mas deixa visível para instigar */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 transition-opacity duration-500 ${!studentName && pin.length > 0 ? 'opacity-50' : 'opacity-100'}`}>
+        {/* Grade de Jogos */}
+        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 transition-all duration-700 ${!studentName && pin.length > 0 ? 'opacity-40 grayscale' : 'opacity-100'}`}>
           {GAMES.map((game) => (
             <GameCard
               key={game.id}
@@ -97,8 +110,8 @@ const App: React.FC = () => {
       </div>
 
       {/* Rodapé */}
-      <footer className="max-w-7xl mx-auto mt-20 pt-8 border-t border-slate-800 text-center text-slate-500 text-sm">
-        <p>© {new Date().getFullYear()} Galeria de Jogos Educativos. Sistema Unificado.</p>
+      <footer className="max-w-7xl mx-auto mt-24 pt-10 border-t border-stone-900 text-center text-stone-600 text-sm">
+        <p>© {new Date().getFullYear()} Acorde Gallery. Todos os direitos reservados.</p>
       </footer>
     </div>
   );
