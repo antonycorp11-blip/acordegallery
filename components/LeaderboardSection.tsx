@@ -22,39 +22,37 @@ const LeaderboardSection: React.FC = () => {
             try {
                 const results = await Promise.all(
                     GAMES.map(async (game) => {
-                        // LÓGICA DE DADOS:
-                        // Idealmente, teríamos uma tabela 'game_scores' com 'game_id'.
-                        // Como estamos migrando, vamos tentar ser flexíveis.
-
-                        // Tenta buscar da tabela oficial de scores primeiro (se existir)
-                        let { data, error } = await supabase
-                            .from('game_scores')
-                            .select('player:player_id(name), score')
-                            .eq('game_id', game.id)
-                            .order('score', { ascending: false })
-                            .limit(5);
-
                         let formattedRanking: RankedPlayer[] = [];
 
-                        if (data && data.length > 0) {
-                            formattedRanking = data.map((item: any) => ({
-                                name: item.player?.name || 'Anônimo',
-                                score: item.score
-                            }));
-                        } else {
-                            // FALLBACK: Se não tiver scores na tabela nova,
-                            // tenta pegar da tabela 'players' (usando XP total como proxy)
-                            // Isso é provisório para não mostrar vazio
-                            const { data: playersData } = await supabase
-                                .from('players')
-                                .select('name, total_xp')
+                        // LÓGICA ESPECÍFICA POR JOGO
+                        if (game.id === 'ritmo-pro') {
+                            // Ritmo Pro usa tabela própria 'repita_leaderboard'
+                            const { data } = await supabase
+                                .from('repita_leaderboard')
+                                .select('player_name, total_xp')
                                 .order('total_xp', { ascending: false })
                                 .limit(5);
 
-                            if (playersData) {
-                                formattedRanking = playersData.map((p: any) => ({
-                                    name: p.name,
-                                    score: p.total_xp || 0
+                            if (data) {
+                                formattedRanking = data.map((d: any) => ({
+                                    name: d.player_name,
+                                    score: d.total_xp // Aqui o XP atua como Score
+                                }));
+                            }
+                        } else {
+                            // Chord Rush e Voice Rush (Default)
+                            // Usam tabela 'players' e coluna 'high_score'
+                            const { data } = await supabase
+                                .from('players')
+                                .select('name, high_score')
+                                .gt('high_score', 0) // Só pega quem tem pontuação
+                                .order('high_score', { ascending: false })
+                                .limit(5);
+
+                            if (data) {
+                                formattedRanking = data.map((d: any) => ({
+                                    name: d.name,
+                                    score: d.high_score
                                 }));
                             }
                         }
