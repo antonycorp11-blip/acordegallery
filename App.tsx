@@ -61,62 +61,122 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-stone-100 py-12 px-4 sm:px-6 lg:px-8 selection:bg-orange-500 selection:text-white">
-      {/* Seção de Cabeçalho */}
-      <div className="max-w-7xl mx-auto flex flex-col items-center mb-16">
-
-        {/* LOGO */}
-        <div className="mb-8 w-64 md:w-80 hover:scale-105 transition-transform duration-500 drop-shadow-2xl">
-          <img src="/logo.png" alt="Acorde Gallery Logo" className="w-full h-auto object-contain" />
-        </div>
-
-        <h1 className="text-5xl md:text-7xl font-black text-white tracking-tight mb-4 uppercase">
-          Acorde <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 via-amber-500 to-orange-600">Gallery</span>
-        </h1>
-
-        <div className="w-32 h-2 bg-gradient-to-r from-transparent via-orange-600 to-transparent rounded-full mb-8 opacity-80"></div>
-
-        <p className="text-stone-400 max-w-2xl mx-auto text-lg text-center font-light">
-          {studentName
-            ? (
-              <span className="flex flex-col items-center animate-fade-in">
-                <span className="text-stone-500 text-sm uppercase tracking-[0.2em] mb-2">Bem-vindo ao palco</span>
-                <span className="text-orange-500 font-bold text-4xl drop-shadow-lg">{studentName}</span>
-              </span>
-            )
-            : "Insira seu PIN para liberar seu acesso."}
-        </p>
+    <div className="min-h-screen bg-[#050505] text-stone-100 font-sans selection:bg-orange-600">
+      {/* Background Decorative Element */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20">
+        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-orange-950/30 rounded-full blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-stone-900 rounded-full blur-[100px]"></div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
-        {/* Área de Entrada de PIN */}
-        <PinEntry pin={pin} setPin={setPin} />
+      {/* Main Dashboard Layout */}
+      <div className="relative z-10 max-w-[1600px] mx-auto py-10 px-6 lg:px-12">
 
-        {isLoading && <div className="text-center mb-8"><div className="w-8 h-8 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto"></div></div>}
+        {/* TOP BAR / NAVIGATION STYLE */}
+        <header className="flex flex-col md:flex-row items-center justify-between mb-16 border-b border-stone-800/50 pb-8">
+          <div className="flex items-center gap-6 mb-6 md:mb-0">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-700 p-3 shadow-[0_0_30px_rgba(249,115,22,0.3)]">
+              <img src="/gallery_icon.png" alt="Icon" className="w-full h-full object-contain brightness-110" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black uppercase tracking-tighter text-white">
+                Acorde <span className="text-orange-500">Gallery</span>
+              </h1>
+              <p className="text-stone-500 text-xs font-bold uppercase tracking-[0.3em]">Game Intelligence Hub</p>
+            </div>
+          </div>
 
-        {/* RANKING GLOBAL EM DESTAQUE */}
-        <LeaderboardSection />
+          <div className="flex items-center gap-4 bg-stone-900/50 p-2 rounded-2xl border border-stone-800">
+            {studentName ? (
+              <div className="flex items-center gap-4 px-4 py-2">
+                <div className="flex flex-col items-end">
+                  <span className="text-[10px] text-stone-500 uppercase font-black tracking-widest leading-none mb-1">Authenticated Player</span>
+                  <span className="text-white font-black uppercase text-xl italic tracking-tight">{studentName}</span>
+                </div>
+                <div className="w-12 h-12 rounded-xl bg-orange-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-orange-900/40">
+                  {studentName.charAt(0)}
+                </div>
+              </div>
+            ) : (
+              <div className="px-6 py-2 text-stone-500 text-xs font-bold uppercase tracking-widest animate-pulse">
+                System Awaiting Identification...
+              </div>
+            )}
+          </div>
+        </header>
 
-        {/* Grade de Jogos */}
-        <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 transition-all duration-700 ${!studentName && pin.length > 0 ? 'opacity-40 grayscale' : 'opacity-100'}`}>
-          {GAMES.map((game) => (
-            <GameCard
-              key={game.id}
-              game={game}
-              studentPin={studentName ? pin : ''}
-              onLaunch={handleLaunchGame}
-            />
-          ))}
-        </div>
+        <main>
+          {/* IDENTIFICATION ZONE */}
+          {!studentName && (
+            <section className="mb-20">
+              <div className="max-w-xl mx-auto text-center mb-10">
+                <h2 className="text-5xl font-black text-white mb-4 italic uppercase tracking-tighter">Enter the Arena</h2>
+                <p className="text-stone-400">Log in with your unique player PIN to sync your progress and unlock the leaderboard.</p>
+              </div>
+              <PinEntry pin={pin} setPin={setPin} />
+              {isLoading && (
+                <div className="flex justify-center -mt-8">
+                  <div className="flex gap-1">
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce"></div>
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce delay-100"></div>
+                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce delay-200"></div>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
-        {/* Instruções para Desenvolvedores/Administradores */}
-        <IntegrationGuide />
+          {/* HALL OF FAME - EPIC VIEW */}
+          <section className="mb-24">
+            <LeaderboardSection />
+          </section>
+
+          {/* GAME LIBRARY */}
+          <section className="mb-24">
+            <div className="flex items-center justify-between mb-10">
+              <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter flex items-center gap-4">
+                <div className="w-2 h-8 bg-orange-600 skew-x-[-20deg]"></div>
+                Available Missions
+              </h2>
+              <div className="text-stone-500 text-xs font-bold uppercase tracking-widest lg:block hidden">
+                Select a title to begin your training session
+              </div>
+            </div>
+
+            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 transition-all duration-1000 ${!studentName ? 'opacity-30 blur-sm pointer-events-none grayscale' : 'opacity-100'}`}>
+              {GAMES.map((game) => (
+                <GameCard
+                  key={game.id}
+                  game={game}
+                  studentPin={studentName ? pin : ''}
+                  onLaunch={handleLaunchGame}
+                />
+              ))}
+            </div>
+
+            {!studentName && (
+              <div className="mt-[-200px] relative z-20 flex flex-col items-center">
+                <div className="bg-orange-600/10 backdrop-blur-md border border-orange-500/20 px-8 py-4 rounded-xl text-orange-500 font-bold uppercase tracking-widest">
+                  🔒 Identification Required to Play
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* DEVELOPER CONSOLE */}
+          <div className="opacity-50 hover:opacity-100 transition-opacity">
+            <IntegrationGuide />
+          </div>
+        </main>
+
+        <footer className="mt-32 pt-10 border-t border-stone-900 flex flex-col md:flex-row justify-between items-center text-stone-600 text-[10px] font-bold uppercase tracking-[0.3em]">
+          <p>© {new Date().getFullYear()} Acorde Studio Intelligence Division</p>
+          <div className="flex gap-8 mt-4 md:mt-0">
+            <span className="hover:text-orange-500 cursor-pointer transition-colors">Security Protocol</span>
+            <span className="hover:text-orange-500 cursor-pointer transition-colors">Server Status: Online</span>
+            <span className="text-orange-600">v2.0 Console Edition</span>
+          </div>
+        </footer>
       </div>
-
-      {/* Rodapé */}
-      <footer className="max-w-7xl mx-auto mt-24 pt-10 border-t border-stone-900 text-center text-stone-600 text-sm">
-        <p>© {new Date().getFullYear()} Acorde Gallery. Todos os direitos reservados.</p>
-      </footer>
     </div>
   );
 };
