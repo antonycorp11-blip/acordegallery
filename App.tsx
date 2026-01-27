@@ -10,7 +10,7 @@ import StorePage from './components/StorePage';
 import RankingGeralPage from './components/RankingGeralPage';
 import { supabase } from './lib/supabase';
 
-type View = 'gallery' | 'ranking' | 'store';
+type View = 'gallery' | 'ranking';
 
 const App: React.FC = () => {
   const [pin, setPin] = useState<string>('');
@@ -112,7 +112,6 @@ const App: React.FC = () => {
               <nav className="flex items-center bg-stone-900/50 p-1.5 rounded-2xl border border-stone-800">
                 <NavBtn active={currentView === 'gallery'} onClick={() => setCurrentView('gallery')} icon="🎮" label="Galeria" />
                 <NavBtn active={currentView === 'ranking'} onClick={() => setCurrentView('ranking')} icon="🏆" label="Ranking" />
-                <NavBtn active={currentView === 'store'} onClick={() => setCurrentView('store')} icon="🛒" label="Loja" />
               </nav>
             ) : (
               <div className="bg-stone-900 px-4 py-2 border border-stone-800 rounded-lg text-[9px] font-black uppercase tracking-widest text-stone-500 animate-pulse">
@@ -178,13 +177,6 @@ const App: React.FC = () => {
               )}
 
               {currentView === 'ranking' && <RankingGeralPage />}
-
-              {currentView === 'store' && (
-                <StorePage
-                  player={playerData}
-                  onUpdate={() => fetchStudentData(pin)}
-                />
-              )}
             </div>
           )}
 
