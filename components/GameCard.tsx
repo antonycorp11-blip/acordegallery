@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { Game } from '../types';
+import Ranking from './Ranking';
 
 interface GameCardProps {
   game: Game;
@@ -39,8 +40,8 @@ const GameCard: React.FC<GameCardProps> = ({ game, studentPin, onLaunch }) => {
             onClick={() => onLaunch(finalUrl)}
             disabled={!isPinReady}
             className={`w-full py-4 px-6 rounded-lg font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all duration-300 ${isPinReady
-                ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-lg hover:shadow-orange-500/25 transform active:scale-95 cursor-pointer'
-                : 'bg-stone-800 text-stone-600 cursor-not-allowed border border-stone-700'
+              ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-500 hover:to-amber-500 text-white shadow-lg hover:shadow-orange-500/25 transform active:scale-95 cursor-pointer'
+              : 'bg-stone-800 text-stone-600 cursor-not-allowed border border-stone-700'
               }`}
           >
             {isPinReady ? (
