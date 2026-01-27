@@ -108,8 +108,8 @@ const LeaderboardSection: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto mb-24 animate-fade-in">
-            <div className="flex items-center gap-6 mb-12">
-                <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter flex items-center gap-4">
+            <div className="flex items-center gap-6 mb-8">
+                <h2 className="text-2xl md:text-4xl font-black text-white italic uppercase tracking-tighter flex items-center gap-4">
                     <div className="w-2 h-10 bg-orange-600 skew-x-[-20deg]"></div>
                     Global Standings
                 </h2>
@@ -122,7 +122,7 @@ const LeaderboardSection: React.FC = () => {
                     const ranking = board?.ranking || [];
 
                     return (
-                        <div key={game.id} className="bg-stone-900/30 backdrop-blur-xl border border-stone-800/50 rounded-3xl p-8 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-500 shadow-2xl">
+                        <div key={game.id} className="bg-stone-900/30 backdrop-blur-xl border border-stone-800/50 rounded-3xl p-6 md:p-8 relative overflow-hidden group hover:border-orange-500/20 transition-all duration-500 shadow-2xl">
                             {/* Background Glow */}
                             <div className="absolute top-0 right-0 w-32 h-32 bg-orange-600/5 rounded-full blur-[60px] group-hover:bg-orange-600/10 transition-colors"></div>
 

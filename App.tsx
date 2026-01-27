@@ -64,8 +64,8 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#050505] text-stone-100 font-sans selection:bg-orange-600">
       {/* Background Decorative Element */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20">
-        <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-orange-950/30 rounded-full blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-stone-900 rounded-full blur-[100px]"></div>
+        <div className="absolute top-[-10%] right-[-10%] w-[80%] md:w-[50%] h-[50%] bg-orange-950/20 md:bg-orange-950/30 rounded-full blur-[80px] md:blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[70%] md:w-[40%] h-[40%] bg-stone-900 rounded-full blur-[60px] md:blur-[100px]"></div>
       </div>
 
       {/* Main Dashboard Layout */}

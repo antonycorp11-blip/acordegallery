@@ -25,7 +25,7 @@ const PinEntry: React.FC<PinEntryProps> = ({ pin, setPin }) => {
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/[^0-9]/g, ''))}
             placeholder="— — — —"
-            className="relative w-full bg-black border border-stone-800 group-hover:border-orange-500/50 text-white text-center text-6xl font-black py-8 rounded-2xl outline-none transition-all placeholder:text-stone-900 tracking-[0.2em] shadow-inner"
+            className="relative w-full bg-black border border-stone-800 group-hover:border-orange-500/50 text-white text-center text-4xl md:text-6xl font-black py-4 md:py-8 rounded-2xl outline-none transition-all placeholder:text-stone-900 tracking-[0.2em] shadow-inner"
           />
         </div>
 
