@@ -24,37 +24,69 @@ const LeaderboardSection: React.FC = () => {
                     GAMES.map(async (game) => {
                         let formattedRanking: RankedPlayer[] = [];
 
-                        // LÓGICA ESPECÍFICA POR JOGO
-                        if (game.id === 'voice-rush') {
-                            // Voice Rush usa tabela própria 'repita_leaderboard'
-                            const { data } = await supabase
-                                .from('repita_leaderboard')
-                                .select('player_name, total_xp')
-                                .order('total_xp', { ascending: false })
-                                .limit(5);
+                        try {
+                            if (game.id === 'voice-rush') {
+                                // Voice Rush usa 'repita_leaderboard'
+                                const { data } = await supabase
+                                    .from('repita_leaderboard')
+                                    .select('player_name, total_xp')
+                                    .order('total_xp', { ascending: false })
+                                    .limit(5);
 
-                            if (data) {
-                                formattedRanking = data.map((d: any) => ({
-                                    name: d.player_name,
-                                    score: d.total_xp // Aqui o XP atua como Score
-                                }));
-                            }
-                        } else {
-                            // Chord Rush e Ritmo Pro (Default)
-                            // Usam tabela 'players' e coluna 'high_score'
-                            const { data } = await supabase
-                                .from('players')
-                                .select('name, high_score')
-                                .gt('high_score', 0) // Só pega quem tem pontuação
-                                .order('high_score', { ascending: false })
-                                .limit(5);
+                                if (data) {
+                                    formattedRanking = data.map((d: any) => ({
+                                        name: d.player_name,
+                                        score: d.total_xp
+                                    }));
+                                }
+                            } else if (game.id === 'ritmo-pro') {
+                                // Ritmo Pro usa 'ritmo_pro_ranking' com join em 'players'
+                                const { data } = await supabase
+                                    .from('ritmo_pro_ranking')
+                                    .select(`
+                                        score,
+                                        players (name)
+                                    `)
+                                    .order('score', { ascending: false })
+                                    .limit(5);
 
-                            if (data) {
-                                formattedRanking = data.map((d: any) => ({
-                                    name: d.name,
-                                    score: d.high_score
-                                }));
+                                if (data) {
+                                    formattedRanking = data.map((d: any) => ({
+                                        name: d.players?.name || 'Anônimo',
+                                        score: d.score
+                                    }));
+                                }
+                            } else if (game.id === 'chord-rush') {
+                                // Chord Rush usa 'players' e 'high_score'
+                                const { data } = await supabase
+                                    .from('players')
+                                    .select('name, high_score')
+                                    .gt('high_score', 0)
+                                    .order('high_score', { ascending: false })
+                                    .limit(5);
+
+                                if (data) {
+                                    formattedRanking = data.map((d: any) => ({
+                                        name: d.name,
+                                        score: d.high_score
+                                    }));
+                                }
+                            } else {
+                                // Fallback genérico para novos jogos
+                                const { data } = await supabase
+                                    .from('players')
+                                    .select('name, high_score')
+                                    .order('high_score', { ascending: false })
+                                    .limit(5);
+                                if (data) {
+                                    formattedRanking = data.map((d: any) => ({
+                                        name: d.name,
+                                        score: d.high_score
+                                    }));
+                                }
                             }
+                        } catch (e) {
+                            console.error(`Error loading ranking for ${game.id}`, e);
                         }
 
                         return {
