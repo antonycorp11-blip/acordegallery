@@ -7,7 +7,7 @@ export const GAMES: Game[] = [
     title: 'Chord Rush',
     description: 'Treine seus acordes e agilidade neste desafio musical acelerado.',
     url: 'https://chordrush.vercel.app/',
-    thumbnail: 'https://picsum.photos/seed/music/600/400',
+    thumbnail: 'https://chordrush.vercel.app/logo.png',
     category: 'Teclado'
   },
   {
@@ -15,7 +15,7 @@ export const GAMES: Game[] = [
     title: 'Voice Rush',
     description: 'Use sua voz para controlar o jogo e atingir as notas certas.',
     url: 'https://voicerush.vercel.app/',
-    thumbnail: 'https://picsum.photos/seed/voice/600/400',
+    thumbnail: 'https://voicerush.vercel.app/assets/icon-B_CoIytw.png',
     category: 'Canto'
   },
   {
@@ -23,7 +23,7 @@ export const GAMES: Game[] = [
     title: 'Ritmo Pro',
     description: 'Um jogo de ritmo intenso para testar sua coordenação.',
     url: 'https://ritmopro.vercel.app/',
-    thumbnail: 'https://picsum.photos/seed/rhythm/600/400',
+    thumbnail: 'https://ritmopro.vercel.app/apple-touch-icon.png',
     category: 'Ritmo'
   }
 ];
