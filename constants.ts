@@ -7,7 +7,7 @@ export const GAMES: Game[] = [
     title: 'Chord Rush',
     description: 'Treine seus acordes e agilidade neste desafio musical acelerado.',
     url: 'https://chordrush.vercel.app/',
-    thumbnail: 'https://chordrush.vercel.app/logo.png',
+    thumbnail: '/chord_icon.png',
     category: 'Teclado'
   },
   {
