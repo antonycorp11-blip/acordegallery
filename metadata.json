@@ -1,0 +1,6 @@
+
+{
+  "name": "Galeria de Jogos dos Alunos",
+  "description": "Um hub centralizado para os alunos acessarem múltiplos jogos de VR e física usando um sistema de PIN unificado. Projetado para integração perfeita com Supabase e implantações no Vercel.",
+  "requestFramePermissions": []
+}
