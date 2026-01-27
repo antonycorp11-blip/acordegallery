@@ -4,6 +4,7 @@ import { GAMES } from './constants';
 import GameCard from './components/GameCard';
 import PinEntry from './components/PinEntry';
 import IntegrationGuide from './components/IntegrationGuide';
+import LeaderboardSection from './components/LeaderboardSection';
 import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
@@ -92,6 +93,9 @@ const App: React.FC = () => {
         <PinEntry pin={pin} setPin={setPin} />
 
         {isLoading && <div className="text-center mb-8"><div className="w-8 h-8 border-4 border-orange-600 border-t-transparent rounded-full animate-spin mx-auto"></div></div>}
+
+        {/* RANKING GLOBAL EM DESTAQUE */}
+        <LeaderboardSection />
 
         {/* Grade de Jogos */}
         <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 transition-all duration-700 ${!studentName && pin.length > 0 ? 'opacity-40 grayscale' : 'opacity-100'}`}>

@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { Game } from '../types';
-import Ranking from './Ranking';
 
 interface GameCardProps {
   game: Game;
@@ -59,9 +58,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, studentPin, onLaunch }) => {
             )}
           </button>
 
-          <div className="mt-6 border-t border-stone-800 pt-4">
-            <Ranking gameId={game.id} />
-          </div>
+
         </div>
       </div>
     </div>
