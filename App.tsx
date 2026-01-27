@@ -5,175 +5,179 @@ import GameCard from './components/GameCard';
 import PinEntry from './components/PinEntry';
 import IntegrationGuide from './components/IntegrationGuide';
 import LeaderboardSection from './components/LeaderboardSection';
+import PlayerProfile from './components/PlayerProfile';
 import { supabase } from './lib/supabase';
 
 const App: React.FC = () => {
   const [pin, setPin] = useState<string>('');
   const [studentName, setStudentName] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [errorCount, setErrorCount] = useState<number>(0);
+  const [playerStats, setPlayerStats] = useState<any>(null);
 
   useEffect(() => {
-    const fetchStudent = async () => {
+    const fetchStudentData = async () => {
       if (pin.length < 4) {
         setStudentName(null);
+        setPlayerStats(null);
         return;
       }
 
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
+        const { data: player, error } = await supabase
           .from('players')
-          .select('name')
+          .select('*')
           .eq('recovery_pin', pin)
           .maybeSingle();
 
-        if (error) {
-          console.error('Error fetching student:', error);
-          // Don't show technical error to user, just fail quietly or show generic invalid
-        }
+        if (player) {
+          setStudentName(player.name);
 
-        if (data) {
-          setStudentName(data.name);
-          setErrorCount(0);
+          // Fetch stats from game_scores
+          const { data: scores } = await supabase
+            .from('game_scores')
+            .select('game_id')
+            .eq('player_id', player.id);
+
+          let mostPlayed = 'N/A';
+          if (scores && scores.length > 0) {
+            const counts = scores.reduce((acc: any, curr: any) => {
+              acc[curr.game_id] = (acc[curr.game_id] || 0) + 1;
+              return acc;
+            }, {});
+            mostPlayed = Object.keys(counts).reduce((a, b) => (counts[a] || 0) > (counts[b] || 0) ? a : b);
+            const gameObj = GAMES.find(g => g.id === mostPlayed);
+            if (gameObj) mostPlayed = gameObj.title;
+          }
+
+          const created = new Date(player.created_at);
+          const now = new Date();
+          const diffDays = Math.ceil(Math.abs(now.getTime() - created.getTime()) / (1000 * 60 * 60 * 24));
+
+          setPlayerStats({
+            name: player.name,
+            total_xp: player.total_xp || 0,
+            games_played: player.games_played || 0,
+            most_played_game: mostPlayed,
+            high_score: player.high_score || 0,
+            days_active: diffDays || 1
+          });
         } else {
           setStudentName(null);
-          // Only increment error count if it was a "complete" attempt (simple logic here)
+          setPlayerStats(null);
         }
       } catch (err) {
-        console.error('Unexpected error:', err);
+        console.error('Fetch error:', err);
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Debounce checking
-    const timeoutId = setTimeout(() => {
-      fetchStudent();
-    }, 500);
-
+    const timeoutId = setTimeout(fetchStudentData, 500);
     return () => clearTimeout(timeoutId);
   }, [pin]);
 
   const handleLaunchGame = (url: string) => {
-    // Abrir em uma nova aba para preservar o estado da galeria
     window.open(url, '_blank');
   };
 
   return (
-    <div className="min-h-screen bg-[#050505] text-stone-100 font-sans selection:bg-orange-600">
-      {/* Background Decorative Element */}
+    <div className="min-h-screen bg-[#050505] text-stone-100 font-sans selection:bg-orange-600 overflow-x-hidden">
+      {/* Dynamic Background */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none opacity-20">
-        <div className="absolute top-[-10%] right-[-10%] w-[80%] md:w-[50%] h-[50%] bg-orange-950/20 md:bg-orange-950/30 rounded-full blur-[80px] md:blur-[120px]"></div>
-        <div className="absolute bottom-[-10%] left-[-10%] w-[70%] md:w-[40%] h-[40%] bg-stone-900 rounded-full blur-[60px] md:blur-[100px]"></div>
+        <div className="absolute top-[-10%] right-[-10%] w-[100%] md:w-[50%] h-[50%] bg-orange-950/20 rounded-full blur-[60px] md:blur-[120px]"></div>
+        <div className="absolute bottom-[-10%] left-[-10%] w-[100%] md:w-[40%] h-[40%] bg-stone-900/40 rounded-full blur-[60px] md:blur-[100px]"></div>
       </div>
 
-      {/* Main Dashboard Layout */}
-      <div className="relative z-10 max-w-[1600px] mx-auto py-10 px-6 lg:px-12">
-
-        {/* TOP BAR / NAVIGATION STYLE */}
-        <header className="flex flex-col md:flex-row items-center justify-between mb-16 border-b border-stone-800/50 pb-8">
-          <div className="flex items-center gap-6 mb-6 md:mb-0">
-            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-700 p-3 shadow-[0_0_30px_rgba(249,115,22,0.3)]">
+      <div className="relative z-10 max-w-[1400px] mx-auto py-6 md:py-10 px-4 md:px-12">
+        {/* COMPACT TOP BAR */}
+        <header className="flex flex-col sm:flex-row items-center justify-between mb-8 border-b border-stone-800/30 pb-6">
+          <div className="flex items-center gap-4 mb-4 sm:mb-0">
+            <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-orange-500 to-orange-700 p-2.5 shadow-[0_0_20px_rgba(249,115,22,0.2)]">
               <img src="/gallery_icon.png" alt="Icon" className="w-full h-full object-contain brightness-110" />
             </div>
             <div>
-              <h1 className="text-3xl font-black uppercase tracking-tighter text-white">
-                Acorde <span className="text-orange-500">Gallery</span>
+              <h1 className="text-xl md:text-2xl font-black uppercase tracking-tighter text-white">
+                Acorde <span className="text-orange-500 font-black">Gallery</span>
               </h1>
-              <p className="text-stone-500 text-xs font-bold uppercase tracking-[0.3em]">Game Intelligence Hub</p>
+              <p className="text-stone-600 text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em]">Console Edition v3.0</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-4 bg-stone-900/50 p-2 rounded-2xl border border-stone-800">
-            {studentName ? (
-              <div className="flex items-center gap-4 px-4 py-2">
-                <div className="flex flex-col items-end">
-                  <span className="text-[10px] text-stone-500 uppercase font-black tracking-widest leading-none mb-1">Authenticated Player</span>
-                  <span className="text-white font-black uppercase text-xl italic tracking-tight">{studentName}</span>
-                </div>
-                <div className="w-12 h-12 rounded-xl bg-orange-600 flex items-center justify-center text-white font-black text-xl shadow-lg shadow-orange-900/40">
-                  {studentName.charAt(0)}
-                </div>
-              </div>
-            ) : (
-              <div className="px-6 py-2 text-stone-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-                System Awaiting Identification...
-              </div>
-            )}
-          </div>
+          {!studentName && (
+            <div className="bg-stone-900 px-4 py-2 border border-stone-800 rounded-lg text-[9px] font-black uppercase tracking-widest text-stone-500 animate-pulse">
+              Awaiting Player Identity...
+            </div>
+          )}
         </header>
 
         <main>
-          {/* IDENTIFICATION ZONE */}
-          {!studentName && (
-            <section className="mb-20">
-              <div className="max-w-xl mx-auto text-center mb-10">
-                <h2 className="text-5xl font-black text-white mb-4 italic uppercase tracking-tighter">Enter the Arena</h2>
-                <p className="text-stone-400">Log in with your unique player PIN to sync your progress and unlock the leaderboard.</p>
-              </div>
-              <PinEntry pin={pin} setPin={setPin} />
-              {isLoading && (
-                <div className="flex justify-center -mt-8">
-                  <div className="flex gap-1">
-                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce"></div>
-                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce delay-100"></div>
-                    <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce delay-200"></div>
-                  </div>
+          {/* PROFILE / AUTH SECTION */}
+          <section className="mb-12">
+            {!studentName ? (
+              <div className="animate-fade-in-up">
+                <div className="max-w-xl mx-auto text-center mb-6 px-2">
+                  <h2 className="text-3xl md:text-4xl font-black text-white italic uppercase tracking-tighter leading-none mb-2">Access Portal</h2>
+                  <p className="text-stone-500 text-xs md:text-sm uppercase font-bold tracking-widest">Identify yourself to unlock missions</p>
                 </div>
-              )}
-            </section>
-          )}
-
-          {/* HALL OF FAME - EPIC VIEW */}
-          <section className="mb-24">
-            <LeaderboardSection />
+                <PinEntry pin={pin} setPin={setPin} />
+                {isLoading && (
+                  <div className="flex justify-center -mt-8">
+                    <div className="text-orange-500 font-black uppercase text-[10px] tracking-widest animate-bounce">Scanning Network...</div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              playerStats && <PlayerProfile stats={playerStats} />
+            )}
           </section>
 
-          {/* GAME LIBRARY */}
-          <section className="mb-24">
-            <div className="flex items-center justify-between mb-10">
-              <h2 className="text-3xl font-black text-white italic uppercase tracking-tighter flex items-center gap-4">
-                <div className="w-2 h-8 bg-orange-600 skew-x-[-20deg]"></div>
-                Available Missions
-              </h2>
-              <div className="text-stone-500 text-xs font-bold uppercase tracking-widest lg:block hidden">
-                Select a title to begin your training session
+          {/* MISSIONS GRID */}
+          <section className="mb-16">
+            <div className={`transition-all duration-700 ${!studentName ? 'opacity-20 blur-sm pointer-events-none' : 'opacity-100'}`}>
+              <div className="flex items-center gap-4 mb-8 px-2">
+                <div className="w-1.5 h-6 bg-orange-600 skew-x-[-20deg]"></div>
+                <h2 className="text-xl md:text-3xl font-black text-white italic uppercase tracking-tighter">Mission Library</h2>
+                <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-transparent"></div>
               </div>
-            </div>
 
-            <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 transition-all duration-1000 ${!studentName ? 'opacity-30 blur-sm pointer-events-none grayscale' : 'opacity-100'}`}>
-              {GAMES.map((game) => (
-                <GameCard
-                  key={game.id}
-                  game={game}
-                  studentPin={studentName ? pin : ''}
-                  onLaunch={handleLaunchGame}
-                />
-              ))}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                {GAMES.map((game) => (
+                  <GameCard
+                    key={game.id}
+                    game={game}
+                    studentPin={studentName ? pin : ''}
+                    onLaunch={handleLaunchGame}
+                  />
+                ))}
+              </div>
             </div>
 
             {!studentName && (
-              <div className="mt-[-200px] relative z-20 flex flex-col items-center">
-                <div className="bg-orange-600/10 backdrop-blur-md border border-orange-500/20 px-8 py-4 rounded-xl text-orange-500 font-bold uppercase tracking-widest">
-                  🔒 Identification Required to Play
+              <div className="mt-[-250px] relative z-20 flex flex-col items-center">
+                <div className="bg-orange-600 text-white px-8 py-3 rounded-xl font-black uppercase text-[10px] tracking-[0.2em] shadow-[0_10px_40px_rgba(249,115,22,0.4)]">
+                  Identity Verification Required
                 </div>
               </div>
             )}
           </section>
 
-          {/* DEVELOPER CONSOLE */}
-          <div className="opacity-50 hover:opacity-100 transition-opacity">
+          {/* STANDINGS */}
+          <section className="mb-16 opacity-90">
+            <LeaderboardSection />
+          </section>
+
+          {/* SYSTEM GUIDE */}
+          <div className="opacity-20 hover:opacity-100 transition-opacity pb-10">
             <IntegrationGuide />
           </div>
         </main>
 
-        <footer className="mt-32 pt-10 border-t border-stone-900 flex flex-col md:flex-row justify-between items-center text-stone-600 text-[10px] font-bold uppercase tracking-[0.3em]">
-          <p>© {new Date().getFullYear()} Acorde Studio Intelligence Division</p>
-          <div className="flex gap-8 mt-4 md:mt-0">
-            <span className="hover:text-orange-500 cursor-pointer transition-colors">Security Protocol</span>
-            <span className="hover:text-orange-500 cursor-pointer transition-colors">Server Status: Online</span>
-            <span className="text-orange-600">v2.0 Console Edition</span>
+        <footer className="pt-8 border-t border-stone-900 flex flex-col md:flex-row justify-between items-center text-stone-700 text-[8px] font-black uppercase tracking-[0.4em] gap-4">
+          <p>© {new Date().getFullYear()} Acorde Studio Division</p>
+          <div className="flex gap-8">
+            <span className="text-orange-700">Protocol: Secure</span>
+            <span className="hidden sm:inline">Server: Online</span>
           </div>
         </footer>
       </div>
