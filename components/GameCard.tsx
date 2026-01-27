@@ -14,7 +14,7 @@ const GameCard: React.FC<GameCardProps> = ({ game, studentPin, onLaunch }) => {
 
   return (
     <div className="group relative bg-[#0a0a0a] rounded-3xl overflow-hidden border border-stone-800 transition-all duration-500 hover:border-orange-500/40 shadow-xl flex flex-col h-full">
-      {/* Cinematic Thumbnail - Reduced Height */}
+      {/* Cinematic Thumbnail */}
       <div className="relative h-48 md:h-56 overflow-hidden">
         <img
           src={game.thumbnail}
@@ -23,13 +23,13 @@ const GameCard: React.FC<GameCardProps> = ({ game, studentPin, onLaunch }) => {
         />
         <div className="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-transparent opacity-80"></div>
 
-        {/* Category Badge - Smaller */}
+        {/* Categoria */}
         <div className="absolute top-4 left-4 z-20 bg-stone-900/90 backdrop-blur-md px-3 py-1 rounded-lg border border-stone-700/50">
           <span className="text-[8px] font-black uppercase tracking-widest text-orange-500">{game.category}</span>
         </div>
       </div>
 
-      {/* Content Area - Compact */}
+      {/* Área de Conteúdo */}
       <div className="p-5 flex flex-col flex-1 relative z-20">
         <h3 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter mb-2 group-hover:text-orange-500 transition-colors leading-tight">
           {game.title}
@@ -41,12 +41,12 @@ const GameCard: React.FC<GameCardProps> = ({ game, studentPin, onLaunch }) => {
         <button
           onClick={() => onLaunch(finalUrl)}
           disabled={!isPinReady}
-          className={`w-full py-3.5 px-6 rounded-xl font-black uppercase tracking-widest text-[10px] flex items-center justify-between transition-all duration-300 group/btn ${isPinReady
+          className={`w-full py-3.5 px-6 rounded-xl font-black uppercase tracking-widest text-[9px] md:text-[10px] flex items-center justify-between transition-all duration-300 group/btn ${isPinReady
             ? 'bg-white text-black hover:bg-orange-600 hover:text-white shadow-lg active:scale-95'
             : 'bg-stone-900 text-stone-700 border border-stone-800 cursor-not-allowed'
             }`}
         >
-          <span>{isPinReady ? 'Launch Mission' : 'Mission Locked'}</span>
+          <span>{isPinReady ? 'Iniciar Missão' : 'Missão Bloqueada'}</span>
           {isPinReady && (
             <svg className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M14 5l7 7m0 0l-7 7m7-7H3" />
