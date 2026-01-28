@@ -164,6 +164,40 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
         }
     };
 
+    const handleGiveXP = async (playerId: string, amount: number) => {
+        const player = players.find(p => p.id === playerId);
+        if (!player) return;
+
+        log(`INJETANDO ${amount} XP PARA ${player.name}...`);
+
+        // Inserimos na tabela scores para que o gatilho de sincronização detecte e salve permanentemente
+        const { error } = await supabase
+            .from('scores')
+            .insert([{
+                player_id: playerId,
+                score: amount,
+                level: 1,
+                xp_earned: amount
+            }]);
+
+        if (error) log(`Erro ao dar XP p/ ${player.name}: ${error.message}`);
+        else {
+            log(`SUCESSO: ${amount} XP ADICIONADO PARA ${player.name}`);
+            fetchPlayers();
+            onUpdate();
+        }
+    };
+
+    const handleGiveXPManual = async (playerId: string) => {
+        const player = players.find(p => p.id === playerId);
+        if (!player) return;
+
+        const amount = prompt(`Quanto XP deseja injetar para ${player.name}?`);
+        if (amount && !isNaN(Number(amount))) {
+            handleGiveXP(playerId, Number(amount));
+        }
+    };
+
     const handlePurgePlayers = async () => {
         const confirmText = prompt("DIGITE 'DELETAR' PARA CONFIRMAR A EXCLUSÃO DE TODOS OS ALUNOS (MENOS VOCÊ). ISSO É IRREVERSÍVEL.");
         if (confirmText !== 'DELETAR') return;
@@ -286,14 +320,23 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
                                 <div className="font-bold text-white uppercase">{p.name}</div>
                                 <div className="text-stone-500 font-mono">PIN: {p.recovery_pin}</div>
                             </div>
-                            <div className="flex items-center gap-4">
-                                <span className="text-orange-500 font-bold">{p.acorde_coins || 0} Coins</span>
-                                <button onClick={() => handleGiveCoins(p.id, 500)} className="px-3 py-1 bg-green-900 text-green-200 rounded hover:bg-green-700">
-                                    +500
-                                </button>
-                                <button onClick={() => handleGiveCoins(p.id, 5000)} className="px-3 py-1 bg-green-900 text-green-200 rounded hover:bg-green-700">
-                                    +5k
-                                </button>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded">
+                                    <span className="text-orange-500 font-bold">{p.acorde_coins || 0} C</span>
+                                    <button onClick={() => handleGiveCoins(p.id, 500)} className="px-2 py-0.5 bg-green-900/40 text-green-400 text-[10px] rounded hover:bg-green-700 hover:text-white transition-all">
+                                        +500 C
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded border border-orange-500/20">
+                                    <span className="text-blue-400 font-bold">{p.accumulated_xp || 0} XP</span>
+                                    <button onClick={() => handleGiveXP(p.id, 1000)} className="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[10px] rounded hover:bg-blue-700 hover:text-white transition-all">
+                                        +1k XP
+                                    </button>
+                                    <button onClick={() => handleGiveXPManual(p.id)} className="px-2 py-0.5 bg-stone-800 text-stone-400 text-[10px] rounded hover:bg-orange-600 hover:text-white transition-all">
+                                        Manual
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ))}
