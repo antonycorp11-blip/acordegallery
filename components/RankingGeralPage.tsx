@@ -327,7 +327,7 @@ const RankingGeralPage: React.FC = () => {
                                         xpBreakdown.map(game => (
                                             <div key={game.id} className="bg-stone-800/40 border border-stone-800 p-4 rounded-2xl flex items-center gap-4 group hover:border-orange-500/50 transition-all">
                                                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-black/40 flex items-center justify-center shrink-0 border border-stone-700 overflow-hidden">
-                                                    {game.icon.startsWith('/') ? (
+                                                    {(game.icon.startsWith('/') || game.icon.startsWith('http')) ? (
                                                         <img src={game.icon} alt={game.title} className="w-full h-full object-cover" />
                                                     ) : (
                                                         <span className="text-xl md:text-2xl">{game.icon}</span>
