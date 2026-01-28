@@ -97,7 +97,7 @@ const RankingGeralPage: React.FC = () => {
             // 1. Ritmo Pro (Tabela Dedicada)
             const ritmoXp = ritmoPro.data?.reduce((sum, curr) => sum + (curr.score || 0), 0) || 0;
             if (ritmoXp > 0) {
-                const game = GAMES.find(g => g.id === 'ritmo-pro');
+                const game = GAMES_LIST.find(g => g.id === 'ritmo-pro');
                 breakdown.push({
                     id: 'ritmo-pro',
                     title: game?.title || 'Ritmo Pro',
@@ -127,7 +127,7 @@ const RankingGeralPage: React.FC = () => {
                 }, {});
                 Object.keys(aggregated).forEach(gid => {
                     if (gamesCovered.has(gid)) return;
-                    const game = GAMES.find(g => g.id === gid);
+                    const game = GAMES_LIST.find(g => g.id === gid);
                     breakdown.push({
                         id: gid,
                         title: game?.title || gid,
@@ -143,7 +143,7 @@ const RankingGeralPage: React.FC = () => {
             if (genericXp > 0) {
                 // Tentamos atribuir ao Chord Rush se ele não tiver XP via game_scores (comum em migrações)
                 if (!gamesCovered.has('chord-rush')) {
-                    const game = GAMES.find(g => g.id === 'chord-rush');
+                    const game = GAMES_LIST.find(g => g.id === 'chord-rush');
                     breakdown.push({
                         id: 'chord-rush',
                         title: game?.title || 'Chord Rush',
