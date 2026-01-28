@@ -125,6 +125,45 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
         }
     };
 
+    const handleResetMyXP = async () => {
+        if (!confirm("ISSO VAI ZERAR APENAS AS SUAS ESTATÍSTICAS (XP/RECORDE). VOCÊ FICARÁ EM ÚLTIMO NO RANKING. CONTINUAR?")) return;
+        setLoading(true);
+        log("LIMPANDO PROGRESSO DO CRIADOR...");
+
+        try {
+            // 1. Limpar Tabelas de Scores por ID
+            await supabase.from('game_scores').delete().eq('player_id', adminPlayer.id);
+            await supabase.from('scores').delete().eq('player_id', adminPlayer.id);
+
+            // 2. Limpar Tabelas de Scores por PIN (Repita/Ritmo)
+            await supabase.from('repita_leaderboard').delete().eq('pin', adminPlayer.recovery_pin);
+            await supabase.from('ritmo_pro_ranking').delete().eq('pin', adminPlayer.recovery_pin);
+
+            // 3. Resetar Atributos do Player
+            const { error } = await supabase
+                .from('players')
+                .update({
+                    accumulated_xp: 0,
+                    xp: 0,
+                    total_xp: 0,
+                    high_score: 0,
+                    games_played: 0,
+                    last_viewed_xp: 0
+                })
+                .eq('id', adminPlayer.id);
+
+            if (error) throw error;
+
+            log("PROGRESSO DO CRIADOR ZERADO COM SUCESSO.");
+            fetchPlayers();
+            onUpdate();
+        } catch (err: any) {
+            log("ERRO AO ZERAR XP: " + err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handlePurgePlayers = async () => {
         const confirmText = prompt("DIGITE 'DELETAR' PARA CONFIRMAR A EXCLUSÃO DE TODOS OS ALUNOS (MENOS VOCÊ). ISSO É IRREVERSÍVEL.");
         if (confirmText !== 'DELETAR') return;
@@ -227,6 +266,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
                     </button>
                     <button onClick={handleResetAdmin} className="bg-stone-800 hover:bg-blue-900 text-white py-3 rounded-xl font-bold text-xs uppercase border border-stone-700">
                         Resetar Meu Admin (Zero Coins/Items)
+                    </button>
+                    <button onClick={handleResetMyXP} disabled={loading} className="bg-orange-600/10 hover:bg-orange-600 text-orange-500 hover:text-white py-3 rounded-xl font-black text-xs uppercase border border-orange-500/50 transition-all">
+                        🚀 ZERAR MEU XP (SAIR DO RANKING)
                     </button>
                 </div>
             </div>
