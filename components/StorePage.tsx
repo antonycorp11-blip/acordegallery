@@ -119,37 +119,41 @@ const StorePage: React.FC<StorePageProps> = ({ player, exchangeRate, onUpdate })
     const availableXp = player.accumulated_xp - spentXp;
 
     return (
-        <div className="max-w-6xl mx-auto px-1 md:px-4 py-4 md:py-8 animate-fade-in">
-            <div className="flex flex-col lg:flex-row justify-between items-center mb-8 md:mb-16 gap-4 md:gap-8">
+        <div className="max-w-6xl mx-auto px-1 md:px-4 py-2 md:py-8 animate-fade-in">
+            {/* Cabeçalho Compacto */}
+            <div className="flex flex-col lg:flex-row justify-between items-center mb-4 md:mb-10 gap-3 md:gap-8 bg-stone-900/40 p-3 md:p-6 rounded-[1.5rem] border border-stone-800/50">
                 <div className="text-center lg:text-left">
-                    <h2 className="text-3xl md:text-5xl font-black text-white italic uppercase tracking-tighter mb-1 md:mb-2 leading-none">
+                    <h2 className="text-xl md:text-4xl font-black text-white italic uppercase tracking-tighter leading-none mb-1">
                         Loja <span className="text-orange-500 font-black">Central</span>
                     </h2>
-                    <p className="text-stone-500 text-[8px] md:text-[10px] font-black uppercase tracking-widest italic leading-none">Taxa: {exchangeRate} XP = 1 Moeda</p>
+                    <p className="text-stone-600 text-[7px] md:text-[10px] font-black uppercase tracking-widest italic leading-none">Câmbio: {exchangeRate} XP = 1 🪙</p>
                 </div>
 
-                <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 w-full lg:w-auto px-2 md:px-0">
-                    <div className="bg-stone-950 border border-stone-800 p-2.5 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-3 md:gap-4 shadow-xl flex-1 md:flex-initial">
-                        <div className="flex flex-col items-end">
-                            <span className="text-[8px] md:text-[10px] text-stone-600 font-black uppercase leading-none mb-1">XP para Troca</span>
-                            <span className="text-white font-black text-base md:text-xl italic tracking-tighter">
-                                {formatNumber(availableXp)} <span className="text-[8px] uppercase ml-1">Pts</span>
-                            </span>
+                <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 w-full lg:w-auto">
+                    <div className="flex gap-2 w-full md:w-auto">
+                        <div className="bg-stone-950/80 border border-stone-800 p-2 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-2 md:gap-4 shadow-xl flex-1 md:flex-initial justify-between md:justify-end">
+                            <div className="flex flex-col items-start md:items-end">
+                                <span className="text-[7px] md:text-[10px] text-stone-600 font-black uppercase leading-none mb-1">Disponível</span>
+                                <span className="text-white font-black text-xs md:text-xl italic tracking-tighter">
+                                    {formatNumber(availableXp)} <span className="text-[6px] md:text-[8px] uppercase">XP</span>
+                                </span>
+                            </div>
+                            <div className="text-xs md:text-2xl">⚡</div>
                         </div>
-                        <div className="text-xl md:text-2xl">⚡</div>
+
+                        <div className="bg-stone-950/80 border border-stone-800 p-2 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-2 md:gap-4 shadow-xl flex-1 md:flex-initial justify-between md:justify-end">
+                            <div className="flex flex-col items-start md:items-end">
+                                <span className="text-[7px] md:text-[10px] text-stone-500 font-black uppercase leading-none mb-1">Saldo</span>
+                                <span className="text-orange-500 font-black text-xs md:text-2xl italic tracking-tighter">
+                                    {formatNumber(player.acorde_coins || 0)} <span className="text-[7px] md:text-[10px] uppercase">🪙</span>
+                                </span>
+                            </div>
+                            <div className="text-xs md:text-2xl">🪙</div>
+                        </div>
                     </div>
 
-                    <div className="bg-stone-900 border border-stone-800 p-2.5 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-3 md:gap-4 shadow-xl flex-1 md:flex-initial">
-                        <div className="flex flex-col items-end">
-                            <span className="text-[8px] md:text-[10px] text-stone-500 font-black uppercase leading-none mb-1">Seu Saldo</span>
-                            <span className="text-orange-500 font-black text-lg md:text-2xl italic tracking-tighter">
-                                {formatNumber(player.acorde_coins || 0)} <span className="text-[10px] uppercase ml-1">Coins</span>
-                            </span>
-                        </div>
-                        <div className="text-xl md:text-2xl">🪙</div>
-                    </div>
-                    <button onClick={handleConvert} className="w-full md:w-auto bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 md:px-8 md:py-4 rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95 shadow-lg shadow-orange-900/40">
-                        Trocar XP ({exchangeRate}:1)
+                    <button onClick={handleConvert} className="w-full md:w-auto bg-orange-600 hover:bg-orange-500 text-white px-4 py-2.5 md:px-8 md:py-4 rounded-xl md:rounded-2xl font-black uppercase text-[9px] md:text-[10px] tracking-widest transition-all active:scale-95 shadow-lg shadow-orange-900/40">
+                        Converter XP
                     </button>
                 </div>
             </div>

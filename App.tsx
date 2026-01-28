@@ -214,19 +214,23 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-10%] left-[-10%] w-[100%] md:w-[40%] h-[40%] bg-stone-900/40 rounded-full blur-[60px] md:blur-[100px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto py-4 md:py-10 px-2 md:px-12">
+      <div className="relative z-10 max-w-[1400px] mx-auto py-4 md:py-10 px-2 md:px-6">
         {/* BARRA SUPERIOR */}
         <header className="flex flex-col border-b border-stone-800/30 pb-4 md:pb-6 mb-4 md:mb-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-orange-500 to-orange-700 p-2.5 shadow-[0_0_20px_rgba(249,115,22,0.2)]">
-                <img src="/gallery_icon.png" alt="Icone" className="w-full h-full object-contain brightness-110" />
+            <div className="flex items-center gap-5">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-tr from-orange-600 to-orange-400 rounded-2xl blur-md opacity-25 group-hover:opacity-50 transition duration-1000"></div>
+                <div className="relative w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-black border border-stone-800 p-2 shadow-2xl overflow-hidden">
+                  <img src="/gallery_icon.png" alt="Icone" className="w-full h-full object-contain brightness-125 contrast-110 drop-shadow-[0_0_8px_rgba(249,115,22,0.5)]" />
+                  <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-orange-500/10 to-transparent"></div>
+                </div>
               </div>
               <div>
-                <h1 className="text-xl md:text-2xl font-black uppercase tracking-tighter text-white">
-                  Acorde <span className="text-orange-500 font-black">Gallery</span>
+                <h1 className="text-xl md:text-3xl font-black uppercase italic tracking-tighter text-white leading-none">
+                  Acorde <span className="text-orange-500 font-extrabold not-italic">Gallery</span>
                 </h1>
-                <p className="text-stone-600 text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em]">Divisão de Elite v5.0</p>
+                <p className="text-stone-600 text-[8px] md:text-[10px] font-black uppercase tracking-[0.4em] mt-1">Elite Division v5.1 Platinum</p>
               </div>
             </div>
 
