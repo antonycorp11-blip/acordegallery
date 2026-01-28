@@ -58,14 +58,21 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
     const handleSaveEquipment = async () => {
         setIsSaving(true);
         try {
-            const { error } = await supabase
+            if (!player?.id) throw new Error("Identificação do jogador não encontrada. Tente sair e entrar novamente.");
+
+            const { error, count } = await supabase
                 .from('players')
                 .update({
                     equipped_items: localEquipped
-                })
+                }, { count: 'exact' })
                 .eq('id', player.id);
 
             if (error) throw new Error(error.message);
+
+            if (count === 0) {
+                console.warn("Nenhuma linha atualizada pelo ID. Tentando pelo PIN...");
+                await supabase.from('players').update({ equipped_items: localEquipped }).eq('recovery_pin', player.recovery_pin);
+            }
 
             alert('Configurações de Elite salvas! Seu card foi atualizado no ranking.');
             onUpdate();

@@ -42,6 +42,24 @@ const App: React.FC = () => {
       setPin(savedPin);
       fetchStudentData(savedPin);
     }
+
+    // LISTENER DE FOCO: Sincroniza dados automaticamente ao voltar para a galeria (ex: após fechar um jogo)
+    const handleFocus = () => {
+      const activePin = localStorage.getItem('acorde_gallery_pin');
+      if (activePin) {
+        fetchStudentData(activePin);
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    window.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') handleFocus();
+    });
+
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('visibilitychange', handleFocus);
+    };
   }, []);
 
   const fetchStudentData = async (forcePin?: string) => {
