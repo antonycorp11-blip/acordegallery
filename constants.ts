@@ -30,7 +30,7 @@ export const GAMES: Game[] = [
     id: 'acorde-maker',
     title: 'Acorde Maker',
     description: 'Domine o braço do violão montando acordes em tempo real. Desafio de elite para músicos.',
-    url: '#', // Em breve
+    url: 'https://acordemaker.vercel.app/',
     thumbnail: '/acorde_maker_icon.png',
     category: 'Violão'
   }
