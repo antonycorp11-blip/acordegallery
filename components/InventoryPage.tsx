@@ -13,7 +13,8 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
 
     // Estado local para o "Preview" antes de salvar
     const inventoryIds = player.inventory || [];
-    const [localEquipped, setLocalEquipped] = useState(player.equipped_items || {});
+    const initialEquipped = player.equipped_items || {}; // Restaurado para evitar erro
+    const [localEquipped, setLocalEquipped] = useState(initialEquipped);
 
     // Sincronizar estado local caso o player mude (ex: após salvar e o App.tsx disparar onUpdate)
     React.useEffect(() => {
