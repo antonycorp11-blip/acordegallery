@@ -1,6 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
+import { STORE_ITEMS } from '../constants';
 
 interface PlayerRank {
     id: string;
@@ -8,6 +9,7 @@ interface PlayerRank {
     accumulated_xp: number;
     acorde_coins: number;
     selected_card_id: string;
+    equipped_items: any;
     high_score: number;
 }
 
@@ -15,95 +17,138 @@ const RankingGeralPage: React.FC = () => {
     const [rankings, setRankings] = useState<PlayerRank[]>([]);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        const fetchRankings = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('players')
-                    .select('id, name, accumulated_xp, acorde_coins, selected_card_id, high_score')
-                    .order('accumulated_xp', { ascending: false })
-                    .limit(50);
+    const fetchRankings = async () => {
+        try {
+            // Buscamos todos os jogadores (até 200 para garantir que pegamos os duplicados)
+            const { data, error } = await supabase
+                .from('players')
+                .select('id, name, accumulated_xp, acorde_coins, selected_card_id, equipped_items, high_score')
+                .order('accumulated_xp', { ascending: false })
+                .limit(200);
 
-                if (error) throw error;
-                setRankings(data || []);
-            } catch (err) {
-                console.error(err);
-            } finally {
-                setLoading(false);
+            if (error) throw error;
+
+            if (data) {
+                // Lógica de De-duplicação: Mantemos apenas a entrada com maior XP para cada nome único
+                const uniquePlayers: Record<string, PlayerRank> = {};
+
+                data.forEach(player => {
+                    const nameKey = player.name.trim().toUpperCase();
+                    if (!uniquePlayers[nameKey] || (player.accumulated_xp > uniquePlayers[nameKey].accumulated_xp)) {
+                        uniquePlayers[nameKey] = player;
+                    }
+                });
+
+                // Converte de volta para array e ordena novamente por XP (limita ao Top 50)
+                const finalRankings = Object.values(uniquePlayers)
+                    .sort((a, b) => b.accumulated_xp - a.accumulated_xp)
+                    .slice(0, 50);
+
+                setRankings(finalRankings);
             }
-        };
+        } catch (err) {
+            console.error("Erro ao carregar ranking:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
+    useEffect(() => {
         fetchRankings();
     }, []);
 
-    if (loading) return (
-        <div className="flex justify-center items-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
-        </div>
-    );
-
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in">
+        <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in pb-20">
             <div className="text-center mb-12">
                 <h2 className="text-4xl md:text-5xl font-black text-white italic uppercase tracking-tighter mb-4">
-                    Hall da <span className="text-orange-500">Fama Geral</span>
+                    Hall da <span className="text-orange-500 font-black">Fama Geral</span>
                 </h2>
-                <p className="text-stone-500 text-xs md:text-sm font-black uppercase tracking-[0.3em]">
-                    Os maiores guerreiros da Acorde Studio
-                </p>
-            </div>
-
-            <div className="space-y-4">
-                {rankings.map((player, idx) => (
-                    <div
-                        key={player.id}
-                        className={`
-              relative overflow-hidden group transition-all duration-500
-              ${player.selected_card_id === 'epic-red' ? 'bg-gradient-to-r from-red-950/40 to-stone-900/40' :
-                                player.selected_card_id === 'cyber-aqua' ? 'bg-gradient-to-r from-cyan-950/40 to-stone-900/40' :
-                                    'bg-stone-900/30'} 
-              border-2 
-              ${player.selected_card_id === 'neon-orange' ? 'border-orange-500/50 shadow-[0_0_20px_rgba(249,115,22,0.2)]' : 'border-stone-800/50'}
-              rounded-3xl p-4 md:p-6 flex items-center gap-4 md:gap-8
-            `}
+                <div className="flex flex-col items-center gap-4">
+                    <p className="text-stone-500 text-[10px] font-black uppercase tracking-[0.3em]">RANKING ÚNICO DE ELITE</p>
+                    <button
+                        onClick={() => { setLoading(true); fetchRankings(); }}
+                        className="bg-stone-900 border border-stone-800 px-6 py-2 rounded-xl text-[9px] text-stone-400 hover:text-orange-500 font-black uppercase tracking-widest transition-all active:scale-95 flex items-center gap-2"
                     >
-                        {/* Posição */}
-                        <div className={`
-              w-10 h-10 md:w-14 md:h-14 flex items-center justify-center rounded-2xl font-black text-xl md:text-2xl italic shrink-0
-              ${idx === 0 ? 'bg-orange-600 text-white shadow-lg rotate-[-10deg]' :
-                                idx === 1 ? 'bg-stone-700 text-stone-300' :
-                                    idx === 2 ? 'bg-stone-800 text-stone-500' : 'text-stone-700 border border-stone-800'}
-            `}>
-                            #{idx + 1}
-                        </div>
-
-                        {/* Avatar & Nome */}
-                        <div className="flex items-center gap-4 grow min-w-0">
-                            <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-stone-800 flex items-center justify-center text-white text-xl md:text-2xl font-black shrink-0 border border-stone-700">
-                                {player.name.charAt(0)}
-                            </div>
-                            <div className="min-w-0">
-                                <h3 className={`text-lg md:text-2xl font-extrabold uppercase italic truncate leading-none mb-1 ${player.selected_card_id === 'gold-name' ? 'text-yellow-400 drop-shadow-md' : 'text-white'}`}>
-                                    {player.name}
-                                </h3>
-                                <span className="text-[8px] md:text-[10px] text-stone-600 font-black uppercase tracking-widest">Player Profile v1.0</span>
-                            </div>
-                        </div>
-
-                        {/* Stats */}
-                        <div className="flex items-center gap-6 md:gap-12 shrink-0">
-                            <div className="flex flex-col items-end">
-                                <span className="text-[8px] md:text-[10px] text-stone-600 font-black uppercase leading-none mb-1">XP Total</span>
-                                <span className="text-orange-500 font-black text-lg md:text-2xl italic tracking-tighter">{player.accumulated_xp?.toLocaleString() || 0}</span>
-                            </div>
-                            <div className="hidden sm:flex flex-col items-end">
-                                <span className="text-[8px] md:text-[10px] text-stone-600 font-black uppercase leading-none mb-1">Coins</span>
-                                <span className="text-white font-black text-lg md:text-2xl italic tracking-tighter">{player.acorde_coins || 0}</span>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                        ↻ Sincronizar Galeria
+                    </button>
+                </div>
             </div>
+
+            {loading ? (
+                <div className="flex justify-center items-center py-20">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+                </div>
+            ) : (
+                <div className="space-y-4">
+                    {rankings.map((player, idx) => {
+                        const equipped = player.equipped_items || {};
+                        // Busca o item completo do catálogo para garantir estilo exclusivo
+                        const cardItem = STORE_ITEMS.find(i => i.id === (equipped.card || player.selected_card_id));
+                        const borderItem = STORE_ITEMS.find(i => i.id === equipped.border);
+                        const fontItem = STORE_ITEMS.find(i => i.id === equipped.font);
+                        const iconItem = STORE_ITEMS.find(i => i.id === equipped.icon);
+                        const cardBaseClass = cardItem ? `${cardItem.preview} card-bg-optimized` : 'bg-stone-900/40 border-stone-800/60';
+                        const borderActive = borderItem ? `${borderItem.preview} scale-[1.01]` : '';
+                        const fontActive = fontItem ? fontItem.preview : 'text-white';
+
+                        return (
+                            <div
+                                key={player.id}
+                                className={`
+                                    relative overflow-hidden group transition-all duration-500 border-2 rounded-3xl p-5 md:p-8 flex items-center gap-4 md:gap-8
+                                    ${cardBaseClass} ${borderActive}
+                                `}
+                            >
+                                {/* Overlays para Atmosfera e Efeitos */}
+                                <div className="absolute inset-0 card-overlay-elite z-0"></div>
+                                {(cardItem?.rarity === 'lendário' || borderItem?.rarity === 'lendário' || iconItem?.rarity === 'lendário' || fontItem?.rarity === 'lendário') && <div className="legendary-particle-overlay"></div>}
+                                {([cardItem, borderItem, iconItem, fontItem].some(item => item && ['raro', 'épico', 'lendário'].includes(item.rarity))) && <div className="shimmer-overlay"></div>}
+
+                                <div className={`
+                                  w-14 h-14 md:w-20 md:h-20 flex items-center justify-center rounded-2xl font-black text-2xl md:text-5xl italic shrink-0 z-10
+                                  ${idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-orange-600 text-white rotate-[-8deg] shadow-[0_10px_30px_rgba(249,115,22,0.4)] scale-110' :
+                                        idx === 1 ? 'bg-stone-700 text-stone-200' :
+                                            idx === 2 ? 'bg-stone-800 text-stone-400' : 'bg-black/40 text-stone-700 border border-stone-800'}
+                                `}>
+                                    #{idx + 1}
+                                </div>
+
+                                <div className="flex items-center gap-4 grow min-w-0 z-10">
+                                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-stone-800 flex items-center justify-center text-white text-xl md:text-2xl font-black shrink-0 border border-stone-700 shadow-inner overflow-hidden">
+                                        {iconItem ? (
+                                            iconItem.preview.startsWith('/') ? (
+                                                <img src={iconItem.preview} alt={iconItem.name} className="w-full h-full object-cover" />
+                                            ) : (
+                                                <span className="text-2xl md:text-4xl">{iconItem.preview}</span>
+                                            )
+                                        ) : (
+                                            player.name.charAt(0)
+                                        )}
+                                    </div>
+                                    <div className="min-w-0 transition-all duration-500">
+                                        <h3 className={`text-xl md:text-2xl font-black uppercase italic truncate leading-none mb-1 tracking-tighter transition-all ${fontActive}`}>
+                                            {player.name}
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[8px] md:text-[10px] text-stone-300 font-black uppercase tracking-[0.2em] bg-black/20 px-2 py-0.5 rounded">
+                                                {cardItem || borderItem || fontItem || iconItem ? '🌟 JOGADOR ELITE' : '🔰 JOGADOR RECRUTA'}
+                                            </span>
+                                            {(borderItem || iconItem) && <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping"></div>}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col items-end shrink-0 z-10">
+                                    <span className="text-[8px] md:text-[10px] text-stone-400 font-black uppercase leading-none mb-1 tracking-widest">XP GLOBAL</span>
+                                    <span className="text-orange-500 font-black text-3xl md:text-6xl italic tracking-tighter drop-shadow-[0_4px_10px_rgba(249,115,22,0.3)]">
+                                        {player.accumulated_xp?.toLocaleString('pt-BR') || 0}
+                                    </span>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            )}
         </div>
     );
 };

@@ -1,4 +1,3 @@
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -16,8 +15,385 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom selection color */
-::selection {
-  background: #ea580c;
+@keyframes fade-in-up {
+  0% {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes float-up {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+
+  20% {
+    opacity: 1;
+  }
+
+  80% {
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(-50px) scale(1.5);
+    opacity: 0;
+  }
+}
+
+@keyframes glow-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+  }
+
+  50% {
+    box-shadow: 0 0 30px 10px rgba(249, 115, 22, 0.4);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(249, 115, 22, 0);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes breath {
+
+  0%,
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
+}
+
+.shimmer-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  background-size: 200% 100%;
+  animation: shimmer 4s infinite linear;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes breath {
+
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+}
+
+.animate-breath {
+  animation: breath 4s ease-in-out infinite;
+}
+
+.border-rare-sapphire {
+  border-color: #3b82f6;
+  box-shadow: 0 0 15px rgba(59, 130, 246, 0.4), inset 0 0 10px rgba(59, 130, 246, 0.2);
+}
+
+.border-rare-emerald {
+  border-color: #10b981;
+  box-shadow: 0 0 15px rgba(16, 185, 129, 0.4), inset 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.border-rare-bronze {
+  border-color: #cd7f32;
+  background: linear-gradient(135deg, #cd7f32 0%, #a0522d 100%);
+  -webkit-background-clip: padding-box;
+  background-clip: padding-box;
+}
+
+/* Epic Borders - High Visibility & Thick */
+.border-epic-plasma {
+  border-width: 6px !important;
+  border-color: #a855f7;
+  box-shadow: 0 0 30px rgba(168, 85, 247, 0.8), inset 0 0 20px rgba(168, 85, 247, 0.5);
+  background: linear-gradient(90deg, #a855f7, #ec4899, #3b82f6, #a855f7);
+  background-size: 300% 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+.border-epic-lava {
+  border-width: 6px !important;
+  border-color: #f97316;
+  box-shadow: 0 0 35px rgba(249, 115, 22, 0.9), inset 0 0 15px rgba(239, 68, 68, 0.6);
+  background: linear-gradient(45deg, #7f1d1d, #f97316, #ef4444, #7f1d1d);
+  background-size: 200% 200%;
+  animation: lava-flow 3s ease infinite;
+}
+
+@keyframes lava-flow {
+  0% {
+    background-position: 0% 50%;
+  }
+
+  50% {
+    background-position: 100% 50%;
+  }
+
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.border-epic-crystal {
+  border-width: 6px !important;
+  border-color: #ffffff;
+  box-shadow: 0 0 40px rgba(255, 255, 255, 0.6), inset 0 0 20px rgba(255, 255, 255, 0.4);
+  backdrop-filter: brightness(1.5) contrast(1.2) b;
+  animation: breath 2s ease-in-out infinite;
+}
+
+/* Base Card Background Rule - Clean & Impactful */
+.card-bg-optimized {
+  background-size: cover !important;
+  background-position: center !important;
+  background-repeat: no-repeat !important;
+  background-color: #0c0a09;
+}
+
+.card-overlay-elite {
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.5) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+
+/* Rare Typography Styles */
+.font-rare-neon {
+  color: #22d3ee;
+  text-shadow: 0 0 10px rgba(34, 211, 238, 0.8), 0 0 20px rgba(34, 211, 238, 0.4);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+}
+
+.font-rare-gold {
+  background: linear-gradient(to bottom, #fde047 0%, #ca8a04 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+  font-weight: 900;
+}
+
+.font-rare-emerald {
+  color: #34d399;
+  text-shadow: 0 0 12px rgba(52, 211, 153, 0.6);
+  font-style: italic;
+  font-weight: 900;
+}
+
+/* Legendary Effects - GIF-like animations */
+.border-legendary-god {
+  border-width: 10px !important;
+  border-style: solid;
+  border-image: linear-gradient(var(--angle), #fbbf24, #ef4444, #3b82f6, #fbbf24) 1;
+  animation: rotate-angle 3s linear infinite;
+  box-shadow: 0 0 50px rgba(251, 191, 36, 0.4), inset 0 0 30px rgba(251, 191, 36, 0.2);
+}
+
+.border-legendary-eclipse {
+  border-width: 10px !important;
+  border-color: #000;
+  box-shadow: 0 0 40px rgba(255, 255, 255, 0.8), inset 0 0 25px rgba(255, 255, 255, 0.4);
+  background: black;
+  animation: breath 1.5s ease-in-out infinite;
+  filter: drop-shadow(0 0 15px white);
+}
+
+@property --angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes rotate-angle {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* Legendary Engineered Backgrounds (Pure CSS Art) */
+.bg-legendary-gold-portal {
+  background:
+    radial-gradient(circle at center, #fde047 0%, transparent 70%),
+    conic-gradient(from var(--angle), #ca8a04, #fde047, #fef9c3, #ca8a04);
+  animation: rotate-angle 4s linear infinite;
+  filter: contrast(1.2) brightness(1.1);
+}
+
+.bg-legendary-void-nexus {
+  background:
+    radial-gradient(circle at center, #c026d3 0%, #000000 80%),
+    repeating-conic-gradient(from var(--angle), #2e1065 0%, #000 10%, #2e1065 20%);
+  animation: rotate-angle 10s linear infinite reverse;
+  mix-blend-mode: screen;
+}
+
+/* Enhanced Particle Overlay for 'GIF' effect */
+.legendary-particle-overlay {
+  position: absolute;
+  inset: 0;
+  background-image:
+    radial-gradient(circle at 2px 2px, white 1px, transparent 1px),
+    radial-gradient(circle at 5px 10px, rgba(253, 224, 71, 0.5) 1px, transparent 1px);
+  background-size: 40px 40px, 60px 60px;
+  opacity: 0.5;
+  animation: particle-float 15s linear infinite;
+  pointer-events: none;
+  z-index: 5;
+}
+
+@keyframes particle-float {
+  from {
+    background-position: 0 0, 0 0;
+  }
+
+  to {
+    background-position: 500px 1000px, -500px 1000px;
+  }
+}
+
+.animate-cosmic-zoom {
+  animation: cosmic-zoom 15s ease-in-out infinite alternate;
+}
+
+@keyframes cosmic-zoom {
+  0% {
+    transform: scale(1) rotate(0deg);
+    filter: hue-rotate(0deg) brightness(1);
+  }
+
+  100% {
+    transform: scale(1.1) rotate(2deg);
+    filter: hue-rotate(20deg) brightness(1.2);
+  }
+}
+
+.font-legendary-rainbow {
+  background: linear-gradient(to right, #fbbf24, #ef4444, #ec4899, #8b5cf6, #3b82f6, #fbbf24);
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: shimmer 2s linear infinite;
+  font-weight: 900;
+  filter: drop-shadow(0 0 10px rgba(251, 191, 36, 0.5));
+}
+
+.font-legendary-cursive {
+  font-family: 'Brush Script MT', 'Dancing Script', cursive;
+  color: #fff;
+  font-size: 1.4em !important;
+  font-weight: 400;
+  text-transform: none !important;
+  background: linear-gradient(to bottom, #fff 0%, #cbd5e1 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 15px rgba(255, 255, 255, 0.8));
+  letter-spacing: normal;
+  line-height: 1.1;
+}
+
+.font-legendary-typewriter {
+  font-family: 'Courier New', Courier, monospace;
+  color: #22c55e;
+  font-weight: 900;
+  text-shadow: 0 0 8px rgba(34, 197, 94, 0.8), 2px 2px 0px #000;
+  animation: crt-flicker 0.1s infinite alternate;
+  letter-spacing: -1px;
+}
+
+@keyframes crt-flicker {
+  0% {
+    opacity: 0.9;
+    transform: skewX(0.5deg);
+  }
+
+  100% {
+    opacity: 1;
+    transform: skewX(-0.5deg);
+  }
+}
+
+/* Epic Typography */
+.font-epic-glitch {
+  text-shadow: 2px 0 #ff00c1, -2px 0 #00fff9;
+  letter-spacing: 0.1em;
+  font-weight: 900;
   color: white;
+}
+
+.font-epic-calligraphy {
+  font-family: 'Georgia', serif;
+  background: linear-gradient(to right, #fde047, #fdf9f3, #fde047);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-style: italic;
+  font-weight: 900;
+  filter: drop-shadow(0 0 8px rgba(253, 224, 71, 0.5));
+}
+
+.font-epic-vibration {
+  color: #fb7185;
+  text-shadow: 0 0 10px rgba(251, 113, 133, 0.8);
+  font-weight: 900;
+  letter-spacing: 0.15em;
+}
+
+.font-epic-8bit {
+  font-family: 'Courier New', Courier, monospace;
+  color: #4ade80;
+  text-shadow: 2px 2px 0px #166534;
+  letter-spacing: -0.05em;
+  font-weight: 900;
+  text-transform: uppercase;
 }
