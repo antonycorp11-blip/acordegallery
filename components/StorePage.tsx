@@ -19,6 +19,16 @@ const StorePage: React.FC<StorePageProps> = ({ player, exchangeRate, onUpdate })
     const allCategories = ['Todos', ...categories];
 
     const rarityOrder: Record<string, number> = {
+        'lendário': 1, // Will sort ascending? No, descending usually
+        'épico': 2,
+        'raro': 3,
+        'comum': 4
+    };
+
+    // Correct sorting logic: (a, b) => (rarityOrder[a.rarity] || 99) - (rarityOrder[b.rarity] || 99)
+    // To have Lendário first, its order should be smallest if sorting ascending, or largest if descending.
+    // Let's use 4, 3, 2, 1 and sort (b - a).
+    const fixedRarityOrder: Record<string, number> = {
         'lendário': 4,
         'épico': 3,
         'raro': 2,
@@ -27,7 +37,7 @@ const StorePage: React.FC<StorePageProps> = ({ player, exchangeRate, onUpdate })
 
     const sortedItems = [...STORE_ITEMS]
         .filter(item => activeFilter === 'Todos' || item.category === activeFilter)
-        .sort((a, b) => (rarityOrder[b.rarity] || 0) - (rarityOrder[a.rarity] || 0));
+        .sort((a, b) => (fixedRarityOrder[b.rarity] || 0) - (fixedRarityOrder[a.rarity] || 0));
 
     const formatNumber = (num: number) => num.toLocaleString('pt-BR');
 
@@ -109,36 +119,36 @@ const StorePage: React.FC<StorePageProps> = ({ player, exchangeRate, onUpdate })
     const availableXp = player.accumulated_xp - spentXp;
 
     return (
-        <div className="max-w-6xl mx-auto px-4 py-8 animate-fade-in">
-            <div className="flex flex-col lg:flex-row justify-between items-center mb-16 gap-8">
-                <div>
-                    <h2 className="text-4xl md:text-5xl font-black text-white italic uppercase tracking-tighter mb-2">
+        <div className="max-w-6xl mx-auto px-1 md:px-4 py-4 md:py-8 animate-fade-in">
+            <div className="flex flex-col lg:flex-row justify-between items-center mb-8 md:mb-16 gap-4 md:gap-8">
+                <div className="text-center lg:text-left">
+                    <h2 className="text-3xl md:text-5xl font-black text-white italic uppercase tracking-tighter mb-1 md:mb-2 leading-none">
                         Loja <span className="text-orange-500 font-black">Central</span>
                     </h2>
-                    <p className="text-stone-500 text-[10px] font-black uppercase tracking-widest italic">Taxa de Câmbio Atual: {exchangeRate} XP = 1 Moeda</p>
+                    <p className="text-stone-500 text-[8px] md:text-[10px] font-black uppercase tracking-widest italic leading-none">Taxa: {exchangeRate} XP = 1 Moeda</p>
                 </div>
 
-                <div className="flex flex-col md:flex-row items-center gap-4 w-full lg:w-auto">
-                    <div className="bg-stone-950 border border-stone-800 p-4 rounded-2xl flex items-center gap-4 shadow-xl flex-1 md:flex-initial">
+                <div className="flex flex-col md:flex-row items-center gap-2 md:gap-4 w-full lg:w-auto px-2 md:px-0">
+                    <div className="bg-stone-950 border border-stone-800 p-2.5 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-3 md:gap-4 shadow-xl flex-1 md:flex-initial">
                         <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-stone-600 font-black uppercase leading-none mb-1">XP para Troca</span>
-                            <span className="text-white font-black text-xl italic tracking-tighter">
-                                {formatNumber(availableXp)} <span className="text-[10px] uppercase ml-1">Pontos</span>
+                            <span className="text-[8px] md:text-[10px] text-stone-600 font-black uppercase leading-none mb-1">XP para Troca</span>
+                            <span className="text-white font-black text-base md:text-xl italic tracking-tighter">
+                                {formatNumber(availableXp)} <span className="text-[8px] uppercase ml-1">Pts</span>
                             </span>
                         </div>
-                        <div className="text-2xl">⚡</div>
+                        <div className="text-xl md:text-2xl">⚡</div>
                     </div>
 
-                    <div className="bg-stone-900 border border-stone-800 p-4 rounded-2xl flex items-center gap-4 shadow-xl flex-1 md:flex-initial">
+                    <div className="bg-stone-900 border border-stone-800 p-2.5 md:p-4 rounded-xl md:rounded-2xl flex items-center gap-3 md:gap-4 shadow-xl flex-1 md:flex-initial">
                         <div className="flex flex-col items-end">
-                            <span className="text-[10px] text-stone-500 font-black uppercase leading-none mb-1">Seu Saldo</span>
-                            <span className="text-orange-500 font-black text-2xl italic tracking-tighter">
-                                {formatNumber(player.acorde_coins || 0)} <span className="text-xs uppercase ml-1">Moedas</span>
+                            <span className="text-[8px] md:text-[10px] text-stone-500 font-black uppercase leading-none mb-1">Seu Saldo</span>
+                            <span className="text-orange-500 font-black text-lg md:text-2xl italic tracking-tighter">
+                                {formatNumber(player.acorde_coins || 0)} <span className="text-[10px] uppercase ml-1">Coins</span>
                             </span>
                         </div>
-                        <div className="text-2xl">🪙</div>
+                        <div className="text-xl md:text-2xl">🪙</div>
                     </div>
-                    <button onClick={handleConvert} className="w-full md:w-auto bg-orange-600 hover:bg-orange-500 text-white px-8 py-4 rounded-2xl font-black uppercase text-xs tracking-widest transition-all active:scale-95 shadow-lg shadow-orange-900/40">
+                    <button onClick={handleConvert} className="w-full md:w-auto bg-orange-600 hover:bg-orange-500 text-white px-6 py-3 md:px-8 md:py-4 rounded-xl md:rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all active:scale-95 shadow-lg shadow-orange-900/40">
                         Trocar XP ({exchangeRate}:1)
                     </button>
                 </div>
@@ -169,45 +179,45 @@ const StorePage: React.FC<StorePageProps> = ({ player, exchangeRate, onUpdate })
                             <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-transparent"></div>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-6">
+                        <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-2 md:gap-6">
                             {itemsInCat.map((item) => {
                                 const owns = inventory.includes(item.id);
                                 return (
                                     <div
                                         key={item.id}
                                         onClick={() => setSelectedItem(item)}
-                                        className="bg-stone-900/40 border-2 border-stone-800/50 rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col items-center group transition-all duration-500 hover:border-stone-700 hover:bg-stone-900/60 cursor-pointer active:scale-95 md:active:scale-100"
+                                        className="bg-stone-900/40 border-2 border-stone-800/50 rounded-xl md:rounded-3xl p-2 md:p-5 flex flex-col items-center group transition-all duration-500 hover:border-stone-700 hover:bg-stone-900/60 cursor-pointer active:scale-95 md:active:scale-100"
                                     >
-                                        <div className="w-full flex justify-between items-center mb-2 md:mb-4">
-                                            <span className={`px-1.5 py-0.5 rounded text-[6px] md:text-[7px] font-black uppercase tracking-widest border ${getRarityColor(item.rarity)}`}>
-                                                {item.rarity}
+                                        <div className="w-full flex justify-between items-center mb-1.5 md:mb-4">
+                                            <span className={`px-1 py-0.5 rounded text-[5px] md:text-[7px] font-black uppercase tracking-widest border ${getRarityColor(item.rarity)}`}>
+                                                {item.rarity.substring(0, 3)}
                                             </span>
-                                            <span className="text-orange-500 font-black text-[10px] md:text-xs italic tracking-tighter">{formatNumber(item.price)} <span className="hidden md:inline">Moedas</span></span>
+                                            <span className="text-orange-500 font-black text-[9px] md:text-xs italic tracking-tighter">{formatNumber(item.price)}</span>
                                         </div>
 
-                                        <div className="w-full h-24 md:h-40 rounded-xl md:rounded-3xl mb-3 md:mb-5 relative overflow-hidden flex items-center justify-center border border-stone-800/50">
+                                        <div className="w-full h-16 md:h-40 rounded-lg md:rounded-3xl mb-2 md:mb-5 relative overflow-hidden flex items-center justify-center border border-stone-800/50 shadow-inner">
                                             <div className={`absolute inset-0 card-bg-optimized ${item.type === 'card' ? item.preview : 'bg-black'}`}></div>
-                                            {item.rarity === 'lendário' && <div className="legendary-particle-overlay"></div>}
+                                            {item.rarity === 'lendário' && <div className="legendary-particle-overlay scale-50 md:scale-100"></div>}
                                             {(item.rarity === 'raro' || item.rarity === 'épico' || item.rarity === 'lendário') && <div className="shimmer-overlay"></div>}
 
-                                            <div className="relative z-10 w-full h-full flex items-center justify-center p-2 md:p-4">
-                                                {item.type === 'font' && <span className={item.preview + " text-xs md:text-sm"}>Abc</span>}
+                                            <div className="relative z-10 w-full h-full flex items-center justify-center p-1 md:p-4">
+                                                {item.type === 'font' && <span className={item.preview + " text-[8px] md:text-sm"}>Aa</span>}
                                                 {item.type === 'icon' && (
                                                     item.preview.startsWith('/') ? (
-                                                        <img src={item.preview} alt={item.name} className="w-12 h-12 md:w-20 md:h-20 object-contain drop-shadow-2xl" />
+                                                        <img src={item.preview} alt={item.name} className="w-8 h-8 md:w-20 md:h-20 object-contain drop-shadow-2xl" />
                                                     ) : (
-                                                        <span className="text-4xl md:text-6xl drop-shadow-2xl">{item.preview}</span>
+                                                        <span className="text-2xl md:text-6xl drop-shadow-2xl">{item.preview}</span>
                                                     )
                                                 )}
                                                 {item.type === 'border' && (
-                                                    <div className={`w-3/4 h-3/4 rounded-xl border-2 md:border-4 ${item.preview} flex items-center justify-center`}>
-                                                        <div className="w-4 h-4 md:w-8 md:h-8 rounded-full bg-stone-800"></div>
+                                                    <div className={`w-3/4 h-3/4 rounded-lg border md:border-4 ${item.preview} flex items-center justify-center`}>
+                                                        <div className="w-2 h-2 md:w-8 md:h-8 rounded-full bg-stone-800"></div>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
 
-                                        <h3 className="text-[10px] md:text-sm font-black text-white uppercase italic mb-1 text-center truncate w-full">{item.name}</h3>
+                                        <h3 className="text-[8px] md:text-sm font-black text-white uppercase italic mb-1 text-center truncate w-full tracking-tighter">{item.name}</h3>
 
                                         {/* Desktop Description */}
                                         <p className="hidden md:block text-stone-600 text-[8px] font-black uppercase tracking-widest text-center mb-6 h-8 line-clamp-2">
@@ -266,10 +276,10 @@ const StorePage: React.FC<StorePageProps> = ({ player, exchangeRate, onUpdate })
                                 onClick={() => { handlePurchase(selectedItem); setSelectedItem(null); }}
                                 disabled={inventory.includes(selectedItem.id) || isBuying === selectedItem.id}
                                 className={`w-full py-4 rounded-xl font-black uppercase text-xs tracking-[0.2em] transition-all shadow-xl ${inventory.includes(selectedItem.id)
-                                        ? 'bg-stone-800 text-green-500/50'
-                                        : player.acorde_coins >= selectedItem.price
-                                            ? 'bg-orange-600 text-white hover:bg-orange-500' // Available
-                                            : 'bg-stone-800 text-stone-600' // Unavailable
+                                    ? 'bg-stone-800 text-green-500/50'
+                                    : player.acorde_coins >= selectedItem.price
+                                        ? 'bg-orange-600 text-white hover:bg-orange-500' // Available
+                                        : 'bg-stone-800 text-stone-600' // Unavailable
                                     }`}
                             >
                                 {inventory.includes(selectedItem.id) ? 'JÁ POSSUI' : 'CONFIRMAR COMPRA'}

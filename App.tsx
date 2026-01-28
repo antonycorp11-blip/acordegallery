@@ -35,6 +35,15 @@ const App: React.FC = () => {
   const [gamePrize, setGamePrize] = useState<string>('');
   const [exchangeRate, setExchangeRate] = useState<number>(10); // Default 10 XP = 1 Coin
 
+  // Efeito de Persistência: Carregar PIN salvo ao iniciar
+  useEffect(() => {
+    const savedPin = localStorage.getItem('acorde_gallery_pin');
+    if (savedPin) {
+      setPin(savedPin);
+      fetchStudentData(savedPin);
+    }
+  }, []);
+
   const fetchStudentData = async (forcePin?: string) => {
     const activePin = forcePin || pin;
     if (activePin.length < 4) {
@@ -91,12 +100,24 @@ const App: React.FC = () => {
           most_played_game: mostPlayed,
           days_active: diffDays || 1
         });
+
+        // Salvar PIN para persistência
+        localStorage.setItem('acorde_gallery_pin', activePin);
       }
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('acorde_gallery_pin');
+    setPin('');
+    setStudentName(null);
+    setPlayerData(null);
+    setCurrentView('gallery');
+    setAuthMode('login');
   };
 
   // Fetch Game of Week & Economy Config (From Admin Player)
@@ -193,9 +214,9 @@ const App: React.FC = () => {
         <div className="absolute bottom-[-10%] left-[-10%] w-[100%] md:w-[40%] h-[40%] bg-stone-900/40 rounded-full blur-[60px] md:blur-[100px]"></div>
       </div>
 
-      <div className="relative z-10 max-w-[1400px] mx-auto py-6 md:py-10 px-4 md:px-12">
+      <div className="relative z-10 max-w-[1400px] mx-auto py-4 md:py-10 px-2 md:px-12">
         {/* BARRA SUPERIOR */}
-        <header className="flex flex-col border-b border-stone-800/30 pb-6 mb-8">
+        <header className="flex flex-col border-b border-stone-800/30 pb-4 md:pb-6 mb-4 md:mb-8">
           <div className="flex flex-col sm:flex-row items-center justify-between gap-6 mb-8">
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-orange-500 to-orange-700 p-2.5 shadow-[0_0_20px_rgba(249,115,22,0.2)]">
@@ -216,6 +237,12 @@ const App: React.FC = () => {
                 <NavBtn active={currentView === 'store'} onClick={() => setCurrentView('store')} icon="🛒" label="Loja" />
                 <NavBtn active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} icon="🎒" label="Inventário" />
                 {isAdmin && <NavBtn active={currentView === 'admin'} onClick={() => setCurrentView('admin')} icon="👑" label="ADMIN" />}
+                <button
+                  onClick={handleLogout}
+                  className="px-4 py-2.5 text-red-500 hover:bg-red-500/10 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all flex items-center gap-2"
+                >
+                  🚪 Sair
+                </button>
               </nav>
             ) : (
               <div className="bg-stone-900 px-4 py-2 border border-stone-800 rounded-lg text-[9px] font-black uppercase tracking-widest text-stone-500 animate-pulse text-center">
@@ -306,8 +333,8 @@ const App: React.FC = () => {
           {studentName && playerData && (
             <div className="animate-fade-in pb-24 md:pb-0"> {/* Padding bottom for mobile nav */}
 
-              {/* Profile visible only on Gallery or Store */}
-              {(currentView === 'gallery' || currentView === 'store') && (
+              {/* Profile visible only on Gallery */}
+              {currentView === 'gallery' && (
                 <PlayerProfile
                   stats={{
                     name: playerData.name,
@@ -402,6 +429,10 @@ const App: React.FC = () => {
             <NavBtnMobile active={currentView === 'store'} onClick={() => setCurrentView('store')} icon="🛒" label="Loja" />
             <NavBtnMobile active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} icon="🎒" label="Items" />
             {isAdmin && <NavBtnMobile active={currentView === 'admin'} onClick={() => setCurrentView('admin')} icon="👑" label="Admin" />}
+            <button onClick={handleLogout} className="flex flex-col items-center justify-center gap-1 min-w-[60px] p-2 rounded-xl text-red-500">
+              <span className="text-xl">🚪</span>
+              <span className="text-[9px] font-black uppercase tracking-wider">Sair</span>
+            </button>
           </div>
         )}
 

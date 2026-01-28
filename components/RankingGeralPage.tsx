@@ -58,9 +58,9 @@ const RankingGeralPage: React.FC = () => {
     }, []);
 
     return (
-        <div className="max-w-4xl mx-auto px-4 py-8 animate-fade-in pb-20">
-            <div className="text-center mb-12">
-                <h2 className="text-4xl md:text-5xl font-black text-white italic uppercase tracking-tighter mb-4">
+        <div className="max-w-4xl mx-auto px-1 md:px-4 py-4 md:py-8 animate-fade-in pb-20">
+            <div className="text-center mb-6 md:mb-12">
+                <h2 className="text-2xl md:text-5xl font-black text-white italic uppercase tracking-tighter mb-2 md:mb-4">
                     Hall da <span className="text-orange-500 font-black">Fama Geral</span>
                 </h2>
                 <div className="flex flex-col items-center gap-4">
@@ -105,7 +105,7 @@ const RankingGeralPage: React.FC = () => {
                                 {([cardItem, borderItem, iconItem, fontItem].some(item => item && ['raro', 'épico', 'lendário'].includes(item.rarity))) && <div className="shimmer-overlay"></div>}
 
                                 <div className={`
-                                  w-10 h-10 md:w-20 md:h-20 flex items-center justify-center rounded-xl md:rounded-2xl font-black text-lg md:text-5xl italic shrink-0 z-10
+                                  w-8 h-8 md:w-20 md:h-20 flex items-center justify-center rounded-lg md:rounded-2xl font-black text-sm md:text-5xl italic shrink-0 z-10
                                   ${idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-orange-600 text-white rotate-[-8deg] shadow-[0_10px_30px_rgba(249,115,22,0.4)] scale-110' :
                                         idx === 1 ? 'bg-stone-700 text-stone-200' :
                                             idx === 2 ? 'bg-stone-800 text-stone-400' : 'bg-black/40 text-stone-700 border border-stone-800'}
@@ -113,13 +113,13 @@ const RankingGeralPage: React.FC = () => {
                                     #{idx + 1}
                                 </div>
 
-                                <div className="flex items-center gap-3 md:gap-4 grow min-w-0 z-10">
-                                    <div className="w-10 h-10 md:w-16 md:h-16 rounded-xl md:rounded-2xl bg-stone-800 flex items-center justify-center text-white text-lg md:text-2xl font-black shrink-0 border border-stone-700 shadow-inner overflow-hidden">
+                                <div className="flex items-center gap-2 md:gap-4 grow min-w-0 z-10">
+                                    <div className="w-8 h-8 md:w-16 md:h-16 rounded-lg md:rounded-2xl bg-stone-800 flex items-center justify-center text-white text-base md:text-2xl font-black shrink-0 border border-stone-700 shadow-inner overflow-hidden">
                                         {iconItem ? (
                                             iconItem.preview.startsWith('/') ? (
                                                 <img src={iconItem.preview} alt={iconItem.name} className="w-full h-full object-cover" />
                                             ) : (
-                                                <span className="text-xl md:text-4xl">{iconItem.preview}</span>
+                                                <span className="text-lg md:text-4xl">{iconItem.preview}</span>
                                             )
                                         ) : (
                                             player.name.charAt(0)

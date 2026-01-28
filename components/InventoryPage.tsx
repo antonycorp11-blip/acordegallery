@@ -13,8 +13,12 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
 
     // Estado local para o "Preview" antes de salvar
     const inventoryIds = player.inventory || [];
-    const initialEquipped = player.equipped_items || {};
-    const [localEquipped, setLocalEquipped] = useState(initialEquipped);
+    const [localEquipped, setLocalEquipped] = useState(player.equipped_items || {});
+
+    // Sincronizar estado local caso o player mude (ex: após salvar e o App.tsx disparar onUpdate)
+    React.useEffect(() => {
+        setLocalEquipped(player.equipped_items || {});
+    }, [player.equipped_items]);
 
     const rarityOrder: Record<string, number> = {
         'lendário': 4,
@@ -73,20 +77,20 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
     };
 
     return (
-        <div className="max-w-6xl mx-auto px-4 py-8 animate-fade-in pb-32">
+        <div className="max-w-6xl mx-auto px-1 md:px-4 py-4 md:py-8 animate-fade-in pb-32">
             {/* HEADER & SAVE BUTTON */}
-            <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
-                <div>
-                    <h2 className="text-4xl font-black text-white italic uppercase tracking-tighter mb-2">
+            <div className="flex flex-col md:flex-row justify-between items-center mb-6 md:mb-12 gap-4 md:gap-6">
+                <div className="text-center md:text-left">
+                    <h2 className="text-2xl md:text-4xl font-black text-white italic uppercase tracking-tighter mb-1 md:mb-2 leading-none">
                         Arsenal <span className="text-orange-500 font-black">Privado</span>
                     </h2>
-                    <p className="text-stone-500 text-[10px] font-black uppercase tracking-widest text-center md:text-left">Configure e visualize seu card antes de entrar no ranking</p>
+                    <p className="text-stone-500 text-[8px] md:text-[10px] font-black uppercase tracking-widest leading-none">Configure seu card de elite</p>
                 </div>
 
                 <button
                     onClick={handleSaveEquipment}
                     disabled={isSaving}
-                    className={`px-10 py-5 rounded-2xl font-black uppercase text-sm tracking-[0.2em] transition-all shadow-2xl ${isSaving ? 'bg-stone-800 text-stone-600 animate-pulse' : 'bg-orange-600 text-white hover:bg-orange-50 hover:text-orange-600 hover:scale-105 active:scale-95'
+                    className={`w-full md:w-auto px-6 md:px-10 py-3.5 md:py-5 rounded-xl md:rounded-2xl font-black uppercase text-xs md:text-sm tracking-[0.2em] transition-all shadow-2xl ${isSaving ? 'bg-stone-800 text-stone-600 animate-pulse' : 'bg-orange-600 text-white hover:bg-orange-500 shadow-orange-900/20'
                         }`}
                 >
                     {isSaving ? 'Sincronizando...' : 'Publicar Alterações'}
@@ -94,15 +98,15 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
             </div>
 
             {/* LIVE PREVIEW */}
-            <section className="mb-20">
-                <div className="flex items-center gap-4 mb-6">
+            <section className="mb-10 md:mb-20 px-2">
+                <div className="flex items-center gap-3 mb-4 md:mb-6">
                     <div className="w-1.5 h-6 bg-blue-500 skew-x-[-20deg]"></div>
-                    <h3 className="text-xl font-black text-white uppercase italic tracking-tighter">Preview de Batalha (Tempo Real)</h3>
+                    <h3 className="text-base md:text-xl font-black text-white uppercase italic tracking-tighter">Preview em Tempo Real</h3>
                 </div>
 
-                <div className="max-w-2xl mx-auto pointer-events-none">
+                <div className="max-w-2xl mx-auto pointer-events-none scale-90 md:scale-100 flex justify-center">
                     <div className={`
-                relative overflow-hidden border-2 rounded-[2.5rem] p-8 md:p-12 flex items-center gap-8 transition-all duration-700 card-bg-optimized
+                relative overflow-hidden border-2 rounded-2xl md:rounded-[2.5rem] p-4 md:p-12 flex items-center gap-4 md:gap-8 transition-all duration-700 card-bg-optimized w-full
                 ${localEquipped.card ? STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview : 'bg-stone-900/40 border-stone-800/50'}
                 ${localEquipped.border ? `${STORE_ITEMS.find(i => i.id === localEquipped.border)?.preview} scale-[1.02]` : ''}
               `}>
@@ -115,14 +119,14 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                             const item = STORE_ITEMS.find(i => i.id === id);
                             return item && ['raro', 'épico', 'lendário'].includes(item.rarity);
                         }) && <div className="shimmer-overlay"></div>}
-                        <div className="w-20 h-20 rounded-2xl bg-stone-800 flex items-center justify-center text-white text-4xl font-black border border-stone-700 shadow-inner overflow-hidden z-10">
+                        <div className="w-12 h-12 md:w-20 md:h-20 rounded-xl md:rounded-2xl bg-stone-800 flex items-center justify-center text-white text-xl md:text-4xl font-black border border-stone-700 shadow-inner overflow-hidden z-10">
                             {localEquipped.icon ? (
                                 (() => {
                                     const icon = STORE_ITEMS.find(i => i.id === localEquipped.icon);
                                     return icon?.preview.startsWith('/') ? (
                                         <img src={icon.preview} alt="Icon" className="w-full h-full object-cover" />
                                     ) : (
-                                        <span className="text-5xl">{icon?.preview}</span>
+                                        <span className="text-2xl md:text-5xl">{icon?.preview}</span>
                                     );
                                 })()
                             ) : (
@@ -130,16 +134,16 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                             )}
                         </div>
                         <div className="grow z-10">
-                            <h4 className={`text-2xl md:text-5xl font-black uppercase italic tracking-tighter mb-1 transition-all
+                            <h4 className={`text-base md:text-5xl font-black uppercase italic tracking-tighter mb-0 md:mb-1 transition-all
                         ${localEquipped.font ? STORE_ITEMS.find(i => i.id === localEquipped.font)?.preview : 'text-white'}
                     `}>
                                 {player.name}
                             </h4>
-                            <span className="text-[10px] text-stone-500 font-black uppercase tracking-[0.3em]">Player Elite v5.0</span>
+                            <span className="text-[7px] md:text-[10px] text-stone-500 font-black uppercase tracking-[0.3em]">Player Elite v5.0</span>
                         </div>
                     </div>
-                    <p className="text-center mt-6 text-[9px] text-stone-600 font-black uppercase tracking-widest italic">Acima está uma simulação fiel de como seu card aparecerá no Ranking Geral</p>
                 </div>
+                <p className="text-center mt-4 text-[7px] md:text-[9px] text-stone-600 font-black uppercase tracking-widest italic">Simulação fiel para o Ranking Geral</p>
             </section>
 
             {/* CATEGORY FILTERS */}
@@ -175,7 +179,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                     <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-transparent"></div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 md:gap-8">
+                                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
                                     {itemsInCat.map(item => {
                                         const isSelected = localEquipped[item.type] === item.id;
                                         const isActuallyEquipped = initialEquipped[item.type] === item.id;
@@ -185,57 +189,56 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                                 key={item.id}
                                                 onClick={() => toggleLocalEquip(item)}
                                                 className={`
-                                                  cursor-pointer bg-stone-900/40 border-2 rounded-3xl p-6 flex flex-col items-center transition-all duration-300 group
+                                                  cursor-pointer bg-stone-900/40 border-2 rounded-2xl md:rounded-3xl p-3 md:p-6 flex flex-col items-center transition-all duration-300 group
                                                   ${isSelected ? 'border-orange-500 bg-orange-500/5 shadow-2xl scale-105' : 'border-stone-800 hover:border-stone-700'}
                                                 `}
                                             >
-                                                <div className="w-full flex justify-between items-center mb-4">
-                                                    <span className={`px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border ${getRarityColor(item.rarity)}`}>
-                                                        {item.rarity}
+                                                <div className="w-full flex justify-between items-center mb-2 md:mb-4">
+                                                    <span className={`px-1.5 py-0.5 rounded text-[6px] md:text-[7px] font-black uppercase tracking-widest border ${getRarityColor(item.rarity)}`}>
+                                                        {item.rarity.substring(0, 3)}
                                                     </span>
                                                 </div>
 
-                                                <div className="w-full h-40 rounded-3xl mb-6 relative overflow-hidden flex items-center justify-center border border-stone-800/50">
+                                                <div className="w-full h-24 md:h-40 rounded-xl md:rounded-3xl mb-3 md:mb-6 relative overflow-hidden flex items-center justify-center border border-stone-800/50">
                                                     <div className={`absolute inset-0 card-bg-optimized ${item.type === 'card' ? item.preview : 'bg-black'}`}></div>
-                                                    {item.rarity === 'lendário' && <div className="legendary-particle-overlay"></div>}
+                                                    {item.rarity === 'lendário' && <div className="legendary-particle-overlay scale-50 md:scale-100"></div>}
                                                     {(item.rarity === 'raro' || item.rarity === 'épico' || item.rarity === 'lendário') && <div className="shimmer-overlay"></div>}
-                                                    <div className="relative z-10 flex items-center justify-center w-full h-full p-4">
-                                                        {item.type === 'font' && <span className={item.preview + " text-sm"}>PREVIEW</span>}
+                                                    <div className="relative z-10 flex items-center justify-center w-full h-full p-2 md:p-4">
+                                                        {item.type === 'font' && <span className={item.preview + " text-[10px] md:text-sm"}>Abc</span>}
                                                         {item.type === 'icon' && (
                                                             item.preview.startsWith('/') ? (
-                                                                <img src={item.preview} alt={item.name} className="w-20 h-20 object-contain drop-shadow-2xl" />
+                                                                <img src={item.preview} alt={item.name} className="w-12 h-12 md:w-20 md:h-20 object-contain drop-shadow-2xl" />
                                                             ) : (
-                                                                <span className="text-6xl drop-shadow-2xl">{item.preview}</span>
+                                                                <span className="text-3xl md:text-6xl drop-shadow-2xl">{item.preview}</span>
                                                             )
                                                         )}
                                                         {item.type === 'border' && (
-                                                            <div className={`w-4/5 h-4/5 rounded-2xl border-4 ${item.preview} flex items-center justify-center`}>
-                                                                <div className="w-8 h-8 rounded-full bg-stone-800"></div>
+                                                            <div className={`w-3/4 h-3/4 rounded-xl border-2 md:border-4 ${item.preview} flex items-center justify-center`}>
+                                                                <div className="w-4 h-4 md:w-8 md:h-8 rounded-full bg-stone-800"></div>
                                                             </div>
                                                         )}
                                                     </div>
 
                                                     {isSelected && (
-                                                        <div className="absolute top-2 right-2 bg-orange-600 text-white text-[8px] font-black px-2 py-1 rounded-md shadow-lg animate-bounce">
-                                                            SELECIONADO
+                                                        <div className="absolute top-1 right-1 bg-orange-600 text-white text-[6px] md:text-[8px] font-black px-1.5 py-0.5 rounded-md shadow-lg animate-bounce">
+                                                            OK
                                                         </div>
                                                     )}
                                                 </div>
 
-                                                <h3 className="text-lg font-black text-white uppercase italic mb-1 text-center truncate w-full">{item.name}</h3>
-                                                <p className="text-[9px] text-stone-600 font-bold uppercase tracking-widest text-center mb-6 h-8 line-clamp-2">{item.description}</p>
+                                                <h3 className="text-[10px] md:text-lg font-black text-white uppercase italic mb-0.5 md:mb-1 text-center truncate w-full tracking-tighter">{item.name}</h3>
 
                                                 <div className={`
-                                                  w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest text-center transition-all
+                                                  w-full py-2.5 md:py-3 rounded-lg md:rounded-xl font-black uppercase text-[8px] md:text-[10px] tracking-widest text-center transition-all
                                                   ${isSelected ? 'bg-orange-600 text-white' : 'bg-stone-800 text-stone-500 group-hover:bg-stone-700 group-hover:text-white'}
                                                 `}>
-                                                    {isSelected ? 'Pronto para Publicar' : 'Selecionar'}
+                                                    {isSelected ? 'Equipado' : 'Equipar'}
                                                 </div>
 
                                                 {isActuallyEquipped && (
-                                                    <div className="mt-4 flex items-center gap-2">
-                                                        <div className="w-1.5 h-1.5 rounded-full bg-green-500"></div>
-                                                        <span className="text-[8px] text-green-500 font-black uppercase tracking-widest">Atualmente no Ranking</span>
+                                                    <div className="mt-2 md:mt-4 flex items-center gap-1.5">
+                                                        <div className="w-1 h-1 rounded-full bg-green-500"></div>
+                                                        <span className="text-[6px] md:text-[8px] text-green-500 font-black uppercase tracking-widest">No Card</span>
                                                     </div>
                                                 )}
                                             </div>
