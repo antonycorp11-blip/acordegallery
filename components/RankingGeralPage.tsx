@@ -107,16 +107,17 @@ const RankingGeralPage: React.FC = () => {
                 gamesCovered.add('ritmo-pro');
             }
 
-            // 2. Repita a Nota
+            // 2. Voice Rush (Antigo Repita a Nota)
             const repitaXp = repita.data?.reduce((sum, curr) => sum + (curr.total_xp || 0), 0) || 0;
             if (repitaXp > 0) {
+                const game = GAMES_LIST.find(g => g.id === 'voice-rush');
                 breakdown.push({
-                    id: 'repita-a-nota',
-                    title: 'Repita a Nota',
+                    id: 'voice-rush',
+                    title: game?.title || 'Voice Rush',
                     xp: Math.round(repitaXp),
-                    icon: '🎵'
+                    icon: game?.thumbnail || '🎤'
                 });
-                gamesCovered.add('repita-a-nota');
+                gamesCovered.add('voice-rush');
             }
 
             // 3. Game Scores (Agregado)
