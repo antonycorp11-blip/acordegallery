@@ -131,8 +131,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
         log("LIMPANDO PROGRESSO DO CRIADOR...");
 
         try {
-            // 1. Limpar Tabelas de Scores por ID
+            // 1. Limpar Tabelas de Scores por ID e por game_id de teste
             await supabase.from('game_scores').delete().eq('player_id', adminPlayer.id);
+            await supabase.from('game_scores').delete().eq('game_id', 'god-mode-test');
             await supabase.from('scores').delete().eq('player_id', adminPlayer.id);
 
             // 2. Limpar Tabelas de Scores por PIN (Repita/Ritmo)
