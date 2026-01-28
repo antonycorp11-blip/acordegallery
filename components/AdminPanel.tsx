@@ -149,7 +149,9 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
                     total_xp: 0,
                     high_score: 0,
                     games_played: 0,
-                    last_viewed_xp: 0
+                    last_viewed_xp: 0,
+                    total_spent_xp: 0,
+                    acorde_coins: 2000
                 })
                 .eq('id', adminPlayer.id);
 
