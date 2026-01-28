@@ -10,12 +10,18 @@ interface GameCardProps {
 
 const GameCard: React.FC<GameCardProps> = ({ game, studentPin, onLaunch }) => {
   const isPinReady = studentPin.length >= 4;
-  const finalUrl = `${game.url}${game.url.includes('?') ? '&' : '?'}pin=${studentPin}`;
+  const isComingSoon = game.url === '#';
+  const finalUrl = isComingSoon ? '#' : `${game.url}${game.url.includes('?') ? '&' : '?'}pin=${studentPin}`;
 
   return (
-    <div className="group relative bg-[#0a0a0a] rounded-3xl overflow-hidden border border-stone-800 transition-all duration-500 hover:border-orange-500/40 shadow-xl flex flex-col h-full">
+    <div className={`group relative bg-[#0a0a0a] rounded-3xl overflow-hidden border border-stone-800 transition-all duration-500 hover:border-orange-500/40 shadow-xl flex flex-col h-full ${isComingSoon ? 'opacity-70 grayscale-[0.5]' : ''}`}>
       {/* Cinematic Thumbnail */}
       <div className="relative h-48 md:h-56 overflow-hidden">
+        {isComingSoon && (
+          <div className="absolute inset-0 bg-black/60 z-10 flex items-center justify-center">
+            <span className="bg-orange-600 text-white px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest shadow-2xl animate-pulse">Em Breve</span>
+          </div>
+        )}
         <img
           src={game.thumbnail}
           alt={game.title}
@@ -39,15 +45,15 @@ const GameCard: React.FC<GameCardProps> = ({ game, studentPin, onLaunch }) => {
         </p>
 
         <button
-          onClick={() => onLaunch(finalUrl)}
-          disabled={!isPinReady}
-          className={`w-full py-3.5 px-6 rounded-xl font-black uppercase tracking-widest text-[9px] md:text-[10px] flex items-center justify-between transition-all duration-300 group/btn ${isPinReady
+          onClick={() => !isComingSoon && onLaunch(finalUrl)}
+          disabled={!isPinReady || isComingSoon}
+          className={`w-full py-3.5 px-6 rounded-xl font-black uppercase tracking-widest text-[9px] md:text-[10px] flex items-center justify-between transition-all duration-300 group/btn ${isPinReady && !isComingSoon
             ? 'bg-white text-black hover:bg-orange-600 hover:text-white shadow-lg active:scale-95'
             : 'bg-stone-900 text-stone-700 border border-stone-800 cursor-not-allowed'
             }`}
         >
-          <span>{isPinReady ? 'Iniciar Missão' : 'Missão Bloqueada'}</span>
-          {isPinReady && (
+          <span>{isComingSoon ? 'Desenvolvimento...' : isPinReady ? 'Iniciar Missão' : 'Missão Bloqueada'}</span>
+          {isPinReady && !isComingSoon && (
             <svg className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>

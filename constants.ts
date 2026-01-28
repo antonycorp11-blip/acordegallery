@@ -25,6 +25,14 @@ export const GAMES: Game[] = [
     url: 'https://ritmopro.vercel.app/',
     thumbnail: 'https://ritmopro.vercel.app/apple-touch-icon.png',
     category: 'Ritmo'
+  },
+  {
+    id: 'acorde-maker',
+    title: 'Acorde Maker',
+    description: 'Domine o braço do violão montando acordes em tempo real. Desafio de elite para músicos.',
+    url: '#', // Em breve
+    thumbnail: '/acorde_maker_icon.png',
+    category: 'Violão'
   }
 ];
 
