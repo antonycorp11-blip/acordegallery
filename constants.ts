@@ -42,6 +42,28 @@ export interface StoreItem {
 }
 
 export const STORE_ITEMS: StoreItem[] = [
+  // --- ICONES LENDÁRIOS ---
+  {
+    id: 'legendary-icon-piano',
+    name: 'Piano dos Deuses',
+    price: 15000,
+    type: 'icon',
+    preview: "/assets/legendary_icon_piano.png",
+    description: 'Um piano majestoso forjado em marfim divino e ouro puro. (Classe Lendária)',
+    category: 'Ícones',
+    rarity: 'lendário'
+  },
+  {
+    id: 'legendary-icon-guitar',
+    name: 'Guitarra da Fênix',
+    price: 15000,
+    type: 'icon',
+    preview: "/assets/legendary_icon_guitar.png",
+    description: 'Uma guitarra lendária feita de fogo vivo e penas de fênix. (Classe Lendária)',
+    category: 'Ícones',
+    rarity: 'lendário'
+  },
+
   // --- ICONES (Raros e Comuns) ---
   {
     id: 'rare-icon-guitar',
