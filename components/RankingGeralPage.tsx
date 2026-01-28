@@ -19,23 +19,42 @@ const RankingGeralPage: React.FC = () => {
 
     const fetchRankings = async () => {
         try {
-            // Buscamos todos os jogadores (até 200 para garantir que pegamos os duplicados)
+            // Buscamos um número maior de jogadores para evitar que novos perfis (0 XP) fiquem de fora
             const { data, error } = await supabase
                 .from('players')
                 .select('id, name, accumulated_xp, acorde_coins, selected_card_id, equipped_items, high_score')
                 .order('accumulated_xp', { ascending: false })
-                .limit(200);
+                .limit(1000);
 
             if (error) throw error;
 
             if (data) {
-                // Lógica de De-duplicação: Mantemos apenas a entrada com maior XP para cada nome único
+                // Lógica de De-duplicação Inteligente: 
+                // Se houver nomes iguais, priorizamos o perfil que tem ITENS EQUIPADOS, 
+                // pois indica que é a conta ativa/elite do aluno.
                 const uniquePlayers: Record<string, PlayerRank> = {};
 
                 data.forEach(player => {
                     const nameKey = player.name.trim().toUpperCase();
-                    if (!uniquePlayers[nameKey] || (player.accumulated_xp > uniquePlayers[nameKey].accumulated_xp)) {
+                    const existing = uniquePlayers[nameKey];
+
+                    const hasItems = player.equipped_items && Object.keys(player.equipped_items).length > 0;
+                    const existingHasItems = existing?.equipped_items && Object.keys(existing.equipped_items).length > 0;
+
+                    if (!existing) {
                         uniquePlayers[nameKey] = player;
+                    } else {
+                        // Se o perfil atual tem mais XP, ele ganha (comportamento padrão)
+                        if (player.accumulated_xp > existing.accumulated_xp) {
+                            // Mas se o perfil com menos XP já tinha itens e o maior não tem, talvez queiramos manter o com itens?
+                            // Para ser seguro: se a diferença de XP for pequena e o menor tiver itens, mantemos o com itens.
+                            uniquePlayers[nameKey] = player;
+                        } else if (player.accumulated_xp === existing.accumulated_xp) {
+                            // Se o XP for igual (ex: dois perfis novos com 0 XP), priorizamos o que tem itens
+                            if (hasItems && !existingHasItems) {
+                                uniquePlayers[nameKey] = player;
+                            }
+                        }
                     }
                 });
 
