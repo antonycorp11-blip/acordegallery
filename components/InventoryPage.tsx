@@ -131,7 +131,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                     );
                                 })()
                             ) : (
-                                player.name.charAt(0)
+                                <img src="/gallery_icon.png" alt="Icon" className="w-full h-full object-contain p-1.5 brightness-110" />
                             )}
                         </div>
                         <div className="grow z-10">
@@ -180,7 +180,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                     <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-transparent"></div>
                                 </div>
 
-                                <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-8">
+                                <div className="grid grid-cols-3 md:grid-cols-2 lg:grid-cols-4 gap-2 md:gap-8">
                                     {itemsInCat.map(item => {
                                         const isSelected = localEquipped[item.type] === item.id;
                                         const isActuallyEquipped = initialEquipped[item.type] === item.id;
@@ -190,7 +190,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                                 key={item.id}
                                                 onClick={() => toggleLocalEquip(item)}
                                                 className={`
-                                                  cursor-pointer bg-stone-900/40 border-2 rounded-2xl md:rounded-3xl p-3 md:p-6 flex flex-col items-center transition-all duration-300 group
+                                                  cursor-pointer bg-stone-900/40 border-2 rounded-xl md:rounded-3xl p-1.5 md:p-6 flex flex-col items-center transition-all duration-300 group
                                                   ${isSelected ? 'border-orange-500 bg-orange-500/5 shadow-2xl scale-105' : 'border-stone-800 hover:border-stone-700'}
                                                 `}
                                             >
@@ -200,7 +200,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                                     </span>
                                                 </div>
 
-                                                <div className="w-full h-24 md:h-40 rounded-xl md:rounded-3xl mb-3 md:mb-6 relative overflow-hidden flex items-center justify-center border border-stone-800/50">
+                                                <div className="w-full h-16 md:h-40 rounded-lg md:rounded-3xl mb-1.5 md:mb-6 relative overflow-hidden flex items-center justify-center border border-stone-800/50">
                                                     <div className={`absolute inset-0 card-bg-optimized ${item.type === 'card' ? item.preview : 'bg-black'}`}></div>
                                                     {item.rarity === 'lendário' && <div className="legendary-particle-overlay scale-50 md:scale-100"></div>}
                                                     {(item.rarity === 'raro' || item.rarity === 'épico' || item.rarity === 'lendário') && <div className="shimmer-overlay"></div>}
@@ -208,9 +208,9 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                                         {item.type === 'font' && <span className={item.preview + " text-[10px] md:text-sm"}>Abc</span>}
                                                         {item.type === 'icon' && (
                                                             item.preview.startsWith('/') ? (
-                                                                <img src={item.preview} alt={item.name} className="w-12 h-12 md:w-20 md:h-20 object-contain drop-shadow-2xl" />
+                                                                <img src={item.preview} alt={item.name} className="w-8 h-8 md:w-20 md:h-20 object-contain drop-shadow-2xl" />
                                                             ) : (
-                                                                <span className="text-3xl md:text-6xl drop-shadow-2xl">{item.preview}</span>
+                                                                <span className="text-xl md:text-6xl drop-shadow-2xl">{item.preview}</span>
                                                             )
                                                         )}
                                                         {item.type === 'border' && (
@@ -230,7 +230,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                                 <h3 className="text-[10px] md:text-lg font-black text-white uppercase italic mb-0.5 md:mb-1 text-center truncate w-full tracking-tighter">{item.name}</h3>
 
                                                 <div className={`
-                                                  w-full py-2.5 md:py-3 rounded-lg md:rounded-xl font-black uppercase text-[8px] md:text-[10px] tracking-widest text-center transition-all
+                                                  w-full py-1.5 md:py-3 rounded-lg md:rounded-xl font-black uppercase text-[7px] md:text-[10px] tracking-widest text-center transition-all
                                                   ${isSelected ? 'bg-orange-600 text-white' : 'bg-stone-800 text-stone-500 group-hover:bg-stone-700 group-hover:text-white'}
                                                 `}>
                                                     {isSelected ? 'Equipado' : 'Equipar'}

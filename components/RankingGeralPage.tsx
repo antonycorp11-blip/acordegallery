@@ -122,7 +122,7 @@ const RankingGeralPage: React.FC = () => {
                                                 <span className="text-lg md:text-4xl">{iconItem.preview}</span>
                                             )
                                         ) : (
-                                            player.name.charAt(0)
+                                            <img src="/gallery_icon.png" alt="Icon" className="w-full h-full object-contain p-1 brightness-110" />
                                         )}
                                     </div>
                                     <div className="min-w-0 transition-all duration-500">
