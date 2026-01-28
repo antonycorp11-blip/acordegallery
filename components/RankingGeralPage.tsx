@@ -95,7 +95,7 @@ const RankingGeralPage: React.FC = () => {
                             <div
                                 key={player.id}
                                 className={`
-                                    relative overflow-hidden group transition-all duration-500 border-2 rounded-3xl p-5 md:p-8 flex items-center gap-4 md:gap-8
+                                    relative overflow-hidden group transition-all duration-500 border-2 rounded-2xl md:rounded-3xl p-3 md:p-8 flex items-center gap-3 md:gap-8
                                     ${cardBaseClass} ${borderActive}
                                 `}
                             >
@@ -105,7 +105,7 @@ const RankingGeralPage: React.FC = () => {
                                 {([cardItem, borderItem, iconItem, fontItem].some(item => item && ['raro', 'épico', 'lendário'].includes(item.rarity))) && <div className="shimmer-overlay"></div>}
 
                                 <div className={`
-                                  w-14 h-14 md:w-20 md:h-20 flex items-center justify-center rounded-2xl font-black text-2xl md:text-5xl italic shrink-0 z-10
+                                  w-10 h-10 md:w-20 md:h-20 flex items-center justify-center rounded-xl md:rounded-2xl font-black text-lg md:text-5xl italic shrink-0 z-10
                                   ${idx === 0 ? 'bg-gradient-to-br from-yellow-400 to-orange-600 text-white rotate-[-8deg] shadow-[0_10px_30px_rgba(249,115,22,0.4)] scale-110' :
                                         idx === 1 ? 'bg-stone-700 text-stone-200' :
                                             idx === 2 ? 'bg-stone-800 text-stone-400' : 'bg-black/40 text-stone-700 border border-stone-800'}
@@ -113,34 +113,37 @@ const RankingGeralPage: React.FC = () => {
                                     #{idx + 1}
                                 </div>
 
-                                <div className="flex items-center gap-4 grow min-w-0 z-10">
-                                    <div className="w-12 h-12 md:w-16 md:h-16 rounded-2xl bg-stone-800 flex items-center justify-center text-white text-xl md:text-2xl font-black shrink-0 border border-stone-700 shadow-inner overflow-hidden">
+                                <div className="flex items-center gap-3 md:gap-4 grow min-w-0 z-10">
+                                    <div className="w-10 h-10 md:w-16 md:h-16 rounded-xl md:rounded-2xl bg-stone-800 flex items-center justify-center text-white text-lg md:text-2xl font-black shrink-0 border border-stone-700 shadow-inner overflow-hidden">
                                         {iconItem ? (
                                             iconItem.preview.startsWith('/') ? (
                                                 <img src={iconItem.preview} alt={iconItem.name} className="w-full h-full object-cover" />
                                             ) : (
-                                                <span className="text-2xl md:text-4xl">{iconItem.preview}</span>
+                                                <span className="text-xl md:text-4xl">{iconItem.preview}</span>
                                             )
                                         ) : (
                                             player.name.charAt(0)
                                         )}
                                     </div>
                                     <div className="min-w-0 transition-all duration-500">
-                                        <h3 className={`text-xl md:text-2xl font-black uppercase italic truncate leading-none mb-1 tracking-tighter transition-all ${fontActive}`}>
+                                        <h3 className={`text-sm md:text-2xl font-black uppercase italic truncate leading-none mb-0.5 md:mb-1 tracking-tighter transition-all ${fontActive}`}>
                                             {player.name}
                                         </h3>
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[8px] md:text-[10px] text-stone-300 font-black uppercase tracking-[0.2em] bg-black/20 px-2 py-0.5 rounded">
+                                            <span className="hidden md:inline text-[8px] md:text-[10px] text-stone-300 font-black uppercase tracking-[0.2em] bg-black/20 px-2 py-0.5 rounded">
                                                 {cardItem || borderItem || fontItem || iconItem ? '🌟 JOGADOR ELITE' : '🔰 JOGADOR RECRUTA'}
                                             </span>
-                                            {(borderItem || iconItem) && <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping"></div>}
+                                            <span className="md:hidden text-[7px] text-stone-400 font-black uppercase tracking-wider">
+                                                XP TOTAL
+                                            </span>
+                                            {(borderItem || iconItem) && <div className="hidden md:block w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping"></div>}
                                         </div>
                                     </div>
                                 </div>
 
                                 <div className="flex flex-col items-end shrink-0 z-10">
-                                    <span className="text-[8px] md:text-[10px] text-stone-400 font-black uppercase leading-none mb-1 tracking-widest">XP GLOBAL</span>
-                                    <span className="text-orange-500 font-black text-3xl md:text-6xl italic tracking-tighter drop-shadow-[0_4px_10px_rgba(249,115,22,0.3)]">
+                                    <span className="hidden md:block text-[8px] md:text-[10px] text-stone-400 font-black uppercase leading-none mb-1 tracking-widest">XP GLOBAL</span>
+                                    <span className="text-orange-500 font-black text-xl md:text-6xl italic tracking-tighter drop-shadow-[0_4px_10px_rgba(249,115,22,0.3)]">
                                         {player.accumulated_xp?.toLocaleString('pt-BR') || 0}
                                     </span>
                                 </div>

@@ -11,6 +11,7 @@ interface StorePageProps {
 
 const StorePage: React.FC<StorePageProps> = ({ player, exchangeRate, onUpdate }) => {
     const [isBuying, setIsBuying] = React.useState<string | null>(null);
+    const [selectedItem, setSelectedItem] = React.useState<StoreItem | null>(null); // For mobile details
     const inventory = player.inventory || [];
     const [activeFilter, setActiveFilter] = React.useState<string>('Todos');
 
@@ -168,49 +169,56 @@ const StorePage: React.FC<StorePageProps> = ({ player, exchangeRate, onUpdate })
                             <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-transparent"></div>
                         </div>
 
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-6">
+                        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3 md:gap-6">
                             {itemsInCat.map((item) => {
                                 const owns = inventory.includes(item.id);
                                 return (
-                                    <div key={item.id} className="bg-stone-900/40 border-2 border-stone-800/50 rounded-3xl p-5 flex flex-col items-center group transition-all duration-500 hover:border-stone-700 hover:bg-stone-900/60">
-                                        <div className="w-full flex justify-between items-center mb-4">
-                                            <span className={`px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border ${getRarityColor(item.rarity)}`}>
+                                    <div
+                                        key={item.id}
+                                        onClick={() => setSelectedItem(item)}
+                                        className="bg-stone-900/40 border-2 border-stone-800/50 rounded-2xl md:rounded-3xl p-3 md:p-5 flex flex-col items-center group transition-all duration-500 hover:border-stone-700 hover:bg-stone-900/60 cursor-pointer active:scale-95 md:active:scale-100"
+                                    >
+                                        <div className="w-full flex justify-between items-center mb-2 md:mb-4">
+                                            <span className={`px-1.5 py-0.5 rounded text-[6px] md:text-[7px] font-black uppercase tracking-widest border ${getRarityColor(item.rarity)}`}>
                                                 {item.rarity}
                                             </span>
-                                            <span className="text-orange-500 font-black text-xs italic tracking-tighter">{formatNumber(item.price)} Moedas</span>
+                                            <span className="text-orange-500 font-black text-[10px] md:text-xs italic tracking-tighter">{formatNumber(item.price)} <span className="hidden md:inline">Moedas</span></span>
                                         </div>
 
-                                        <div className="w-full h-40 rounded-3xl mb-5 relative overflow-hidden flex items-center justify-center border border-stone-800/50">
+                                        <div className="w-full h-24 md:h-40 rounded-xl md:rounded-3xl mb-3 md:mb-5 relative overflow-hidden flex items-center justify-center border border-stone-800/50">
                                             <div className={`absolute inset-0 card-bg-optimized ${item.type === 'card' ? item.preview : 'bg-black'}`}></div>
                                             {item.rarity === 'lendário' && <div className="legendary-particle-overlay"></div>}
                                             {(item.rarity === 'raro' || item.rarity === 'épico' || item.rarity === 'lendário') && <div className="shimmer-overlay"></div>}
 
-                                            <div className="relative z-10 w-full h-full flex items-center justify-center p-4">
-                                                {item.type === 'font' && <span className={item.preview + " text-sm"}>NOME EXEMPLO</span>}
+                                            <div className="relative z-10 w-full h-full flex items-center justify-center p-2 md:p-4">
+                                                {item.type === 'font' && <span className={item.preview + " text-xs md:text-sm"}>Abc</span>}
                                                 {item.type === 'icon' && (
                                                     item.preview.startsWith('/') ? (
-                                                        <img src={item.preview} alt={item.name} className="w-20 h-20 object-contain drop-shadow-2xl" />
+                                                        <img src={item.preview} alt={item.name} className="w-12 h-12 md:w-20 md:h-20 object-contain drop-shadow-2xl" />
                                                     ) : (
-                                                        <span className="text-6xl drop-shadow-2xl">{item.preview}</span>
+                                                        <span className="text-4xl md:text-6xl drop-shadow-2xl">{item.preview}</span>
                                                     )
                                                 )}
                                                 {item.type === 'border' && (
-                                                    <div className={`w-4/5 h-4/5 rounded-2xl border-4 ${item.preview} flex items-center justify-center`}>
-                                                        <div className="w-8 h-8 rounded-full bg-stone-800"></div>
+                                                    <div className={`w-3/4 h-3/4 rounded-xl border-2 md:border-4 ${item.preview} flex items-center justify-center`}>
+                                                        <div className="w-4 h-4 md:w-8 md:h-8 rounded-full bg-stone-800"></div>
                                                     </div>
                                                 )}
                                             </div>
                                         </div>
 
-                                        <h3 className="text-sm font-black text-white uppercase italic mb-1 text-center truncate w-full">{item.name}</h3>
-                                        <p className="text-stone-600 text-[8px] font-black uppercase tracking-widest text-center mb-6 h-8 line-clamp-2">
+                                        <h3 className="text-[10px] md:text-sm font-black text-white uppercase italic mb-1 text-center truncate w-full">{item.name}</h3>
+
+                                        {/* Desktop Description */}
+                                        <p className="hidden md:block text-stone-600 text-[8px] font-black uppercase tracking-widest text-center mb-6 h-8 line-clamp-2">
                                             {item.description}
                                         </p>
 
+                                        {/* Desktop Button */}
                                         <button
-                                            onClick={() => handlePurchase(item)}
+                                            onClick={(e) => { e.stopPropagation(); handlePurchase(item); }}
                                             disabled={owns || isBuying === item.id}
-                                            className={`w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${owns ? 'bg-stone-800/50 text-green-500/40 cursor-not-allowed border border-stone-800' :
+                                            className={`hidden md:block w-full py-3 rounded-xl font-black uppercase text-[10px] tracking-widest transition-all ${owns ? 'bg-stone-800/50 text-green-500/40 cursor-not-allowed border border-stone-800' :
                                                 player.acorde_coins >= item.price
                                                     ? 'bg-white text-black hover:bg-orange-500 hover:text-white shadow-lg'
                                                     : 'bg-stone-800 text-stone-700 cursor-not-allowed border border-stone-800'
@@ -225,6 +233,52 @@ const StorePage: React.FC<StorePageProps> = ({ player, exchangeRate, onUpdate })
                     </div>
                 );
             })}
+
+            {/* MOBILE ITEM DETAILS MODAL */}
+            {selectedItem && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center px-4 md:hidden">
+                    <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setSelectedItem(null)}></div>
+                    <div className="bg-stone-900 border border-stone-700 rounded-3xl p-6 w-full max-w-sm relative animate-scale-in shadow-2xl">
+                        <button onClick={() => setSelectedItem(null)} className="absolute top-4 right-4 text-stone-500 text-xl font-bold">✕</button>
+
+                        <div className="flex flex-col items-center">
+                            <div className="w-32 h-32 rounded-3xl mb-6 relative overflow-hidden flex items-center justify-center border border-stone-700 bg-black">
+                                <div className={`absolute inset-0 ${selectedItem.type === 'card' ? selectedItem.preview : ''}`}></div>
+                                <div className="relative z-10 p-4">
+                                    {selectedItem.type === 'icon' && !selectedItem.preview.startsWith('/') && <span className="text-6xl">{selectedItem.preview}</span>}
+                                    {selectedItem.type === 'icon' && selectedItem.preview.startsWith('/') && <img src={selectedItem.preview} className="w-20 h-20 object-contain" />}
+                                    {selectedItem.type === 'font' && <span className={`text-2xl text-white ${selectedItem.preview}`}>Abc</span>}
+                                </div>
+                            </div>
+
+                            <h3 className="text-2xl font-black text-white italic uppercase text-center mb-2">{selectedItem.name}</h3>
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border mb-6 ${getRarityColor(selectedItem.rarity)}`}>
+                                {selectedItem.rarity}
+                            </span>
+
+                            <p className="text-stone-400 text-xs font-bold uppercase text-center mb-8 leading-relaxed">
+                                {selectedItem.description}
+                            </p>
+
+                            <div className="text-orange-500 font-black text-3xl italic tracking-tighter mb-8">{formatNumber(selectedItem.price)} Moedas</div>
+
+                            <button
+                                onClick={() => { handlePurchase(selectedItem); setSelectedItem(null); }}
+                                disabled={inventory.includes(selectedItem.id) || isBuying === selectedItem.id}
+                                className={`w-full py-4 rounded-xl font-black uppercase text-xs tracking-[0.2em] transition-all shadow-xl ${inventory.includes(selectedItem.id)
+                                        ? 'bg-stone-800 text-green-500/50'
+                                        : player.acorde_coins >= selectedItem.price
+                                            ? 'bg-orange-600 text-white hover:bg-orange-500' // Available
+                                            : 'bg-stone-800 text-stone-600' // Unavailable
+                                    }`}
+                            >
+                                {inventory.includes(selectedItem.id) ? 'JÁ POSSUI' : 'CONFIRMAR COMPRA'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
         </div>
     );
 };

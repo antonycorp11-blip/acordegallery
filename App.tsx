@@ -210,7 +210,7 @@ const App: React.FC = () => {
             </div>
 
             {studentName ? (
-              <nav className="flex items-center bg-stone-900/50 p-1.5 rounded-2xl border border-stone-800 overflow-x-auto max-w-full">
+              <nav className="hidden md:flex items-center bg-stone-900/50 p-1.5 rounded-2xl border border-stone-800 overflow-x-auto max-w-full">
                 <NavBtn active={currentView === 'gallery'} onClick={() => setCurrentView('gallery')} icon="🎮" label="Galeria" />
                 <NavBtn active={currentView === 'ranking'} onClick={() => setCurrentView('ranking')} icon="🏆" label="Ranking" />
                 <NavBtn active={currentView === 'store'} onClick={() => setCurrentView('store')} icon="🛒" label="Loja" />
@@ -304,50 +304,55 @@ const App: React.FC = () => {
 
           {/* CONTEÚDO PÓS-AUTH */}
           {studentName && playerData && (
-            <div className="animate-fade-in">
-              <PlayerProfile
-                stats={{
-                  name: playerData.name,
-                  total_xp: playerData.accumulated_xp || 0,
-                  games_played: playerData.games_played || 0,
-                  most_played_game: playerData.most_played_game,
-                  high_score: playerData.high_score || 0,
-                  days_active: playerData.days_active || 1,
-                  pin: pin,
-                  icon: STORE_ITEMS.find(i => i.id === (playerData.equipped_items?.icon))?.preview,
-                  cardPreview: STORE_ITEMS.find(i => i.id === (playerData.equipped_items?.card))?.preview,
-                  fontClass: STORE_ITEMS.find(i => i.id === (playerData.equipped_items?.font))?.preview,
-                  isElite: Object.values(playerData.equipped_items || {}).some(id => {
-                    const item = STORE_ITEMS.find(i => i.id === id);
-                    return item && ['raro', 'épico', 'lendário'].includes(item.rarity);
-                  })
-                }}
-                xpGain={xpGain}
-              />
+            <div className="animate-fade-in pb-24 md:pb-0"> {/* Padding bottom for mobile nav */}
+
+              {/* Profile visible only on Gallery or Store */}
+              {(currentView === 'gallery' || currentView === 'store') && (
+                <PlayerProfile
+                  stats={{
+                    name: playerData.name,
+                    total_xp: playerData.accumulated_xp || 0,
+                    games_played: playerData.games_played || 0,
+                    most_played_game: playerData.most_played_game,
+                    high_score: playerData.high_score || 0,
+                    days_active: playerData.days_active || 1,
+                    pin: pin,
+                    icon: STORE_ITEMS.find(i => i.id === (playerData.equipped_items?.icon))?.preview,
+                    cardPreview: STORE_ITEMS.find(i => i.id === (playerData.equipped_items?.card))?.preview,
+                    fontClass: STORE_ITEMS.find(i => i.id === (playerData.equipped_items?.font))?.preview,
+                    isElite: Object.values(playerData.equipped_items || {}).some(id => {
+                      const item = STORE_ITEMS.find(i => i.id === id);
+                      return item && ['raro', 'épico', 'lendário'].includes(item.rarity);
+                    })
+                  }}
+                  xpGain={xpGain}
+                />
+              )}
 
               <nav className="mb-12">
                 {/* JOGO DA SEMANA BANNER */}
                 {currentView === 'gallery' && gameOfWeekId && GAMES.find(g => g.id === gameOfWeekId) && (
-                  <div className="mb-12 relative group cursor-pointer" onClick={() => handleLaunchGame(GAMES.find(g => g.id === gameOfWeekId)?.url || '')}>
+                  <div className="mb-8 md:mb-12 relative group cursor-pointer" onClick={() => handleLaunchGame(GAMES.find(g => g.id === gameOfWeekId)?.url || '')}>
                     <div className="absolute inset-0 bg-gradient-to-r from-red-600 to-orange-600 rounded-3xl opacity-75 blur-lg group-hover:opacity-100 transition-all duration-700 animate-pulse"></div>
-                    <div className="relative bg-[#1a0505] border-2 border-red-500 rounded-3xl p-8 md:p-12 flex flex-col md:flex-row items-center justify-between gap-8 overflow-hidden">
+                    <div className="relative bg-[#1a0505] border-2 border-red-500 rounded-3xl p-6 md:p-12 flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8 overflow-hidden">
+                      {/* Compact Mobile Banner Layout */}
                       <div className="absolute top-0 right-0 w-64 h-64 bg-red-600/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
 
-                      <div className="z-10 text-center md:text-left">
-                        <span className="inline-block bg-red-600 text-white text-[10px] font-black uppercase tracking-[0.3em] px-3 py-1 rounded-lg mb-4 animate-bounce">
-                          🔥 Jogo da Semana Valendo Prêmio
+                      <div className="z-10 text-center md:text-left flex-1">
+                        <span className="inline-block bg-red-600 text-white text-[8px] md:text-[10px] font-black uppercase tracking-[0.3em] px-3 py-1 rounded-lg mb-2 md:mb-4 animate-bounce">
+                          🔥 Jogo da Semana
                         </span>
-                        <h2 className="text-3xl md:text-5xl font-black text-white italic uppercase tracking-tighter mb-2">
+                        <h2 className="text-2xl md:text-5xl font-black text-white italic uppercase tracking-tighter mb-1 md:mb-2 leading-none">
                           {GAMES.find(g => g.id === gameOfWeekId)?.title}
                         </h2>
-                        <p className="text-orange-500 text-sm md:text-xl font-bold uppercase tracking-widest max-w-lg">
+                        <p className="text-orange-500 text-xs md:text-xl font-bold uppercase tracking-widest max-w-lg mx-auto md:mx-0">
                           {gamePrize || "Jogue agora e conquiste a glória!"}
                         </p>
                       </div>
 
-                      <div className="z-10 shrink-0">
-                        <button className="bg-white text-red-600 px-8 py-4 rounded-xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl">
-                          JOGAR AGORA
+                      <div className="z-10 shrink-0 w-full md:w-auto">
+                        <button className="w-full md:w-auto bg-white text-red-600 px-6 py-3 md:px-8 md:py-4 rounded-xl font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl text-[10px] md:text-xs">
+                          JOGAR
                         </button>
                       </div>
                     </div>
@@ -361,7 +366,7 @@ const App: React.FC = () => {
                       <h2 className="text-xl md:text-3xl font-black text-white italic uppercase tracking-tighter">Missões da Arena</h2>
                       <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-transparent"></div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
+                    <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
                       {GAMES.map((game) => (
                         <GameCard
                           key={game.id}
@@ -389,6 +394,17 @@ const App: React.FC = () => {
           )}
         </main>
 
+        {/* BOTTOM NAV MOBILE */}
+        {studentName && (
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-stone-950/90 backdrop-blur-xl border-t border-stone-800 z-50 px-4 py-3 flex justify-between items-center overflow-x-auto shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+            <NavBtnMobile active={currentView === 'gallery'} onClick={() => setCurrentView('gallery')} icon="🎮" label="Jogos" />
+            <NavBtnMobile active={currentView === 'ranking'} onClick={() => setCurrentView('ranking')} icon="🏆" label="Rank" />
+            <NavBtnMobile active={currentView === 'store'} onClick={() => setCurrentView('store')} icon="🛒" label="Loja" />
+            <NavBtnMobile active={currentView === 'inventory'} onClick={() => setCurrentView('inventory')} icon="🎒" label="Items" />
+            {isAdmin && <NavBtnMobile active={currentView === 'admin'} onClick={() => setCurrentView('admin')} icon="👑" label="Admin" />}
+          </div>
+        )}
+
         <footer className="pt-8 border-t border-stone-900 flex flex-col md:flex-row justify-between items-center text-stone-700 text-[8px] font-black uppercase tracking-[0.4em] gap-4">
           <p>© {new Date().getFullYear()} Acorde Studio Intelligence</p>
           <div className="flex gap-8">
@@ -409,6 +425,16 @@ const NavBtn = ({ active, onClick, icon, label }: { active: boolean; onClick: ()
   >
     <span>{icon}</span>
     <span>{label}</span>
+  </button>
+);
+
+const NavBtnMobile = ({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: string; label: string }) => (
+  <button
+    onClick={onClick}
+    className={`flex flex-col items-center justify-center gap-1 min-w-[60px] p-2 rounded-xl transition-all ${active ? 'text-orange-500 bg-orange-500/10' : 'text-stone-500'}`}
+  >
+    <span className="text-xl">{icon}</span>
+    <span className="text-[9px] font-black uppercase tracking-wider">{label}</span>
   </button>
 );
 
