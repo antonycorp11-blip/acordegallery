@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { STORE_ITEMS } from '../constants';
+import { STORE_ITEMS, GAMES } from '../constants';
 
 interface PlayerRank {
     id: string;
