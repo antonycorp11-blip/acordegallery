@@ -41,7 +41,15 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain }) => {
 
             <div className={`bg-stone-900/40 backdrop-blur-xl border rounded-[1.5rem] md:rounded-[2rem] overflow-hidden shadow-2xl transition-all duration-700 ${xpGain ? 'border-orange-500 animate-glow-pulse scale-[1.02]' : 'border-stone-800/50'}`}>
                 {/* Cabeçalho do Perfil */}
-                <div className={`p-3 md:p-8 border-b border-stone-800/50 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6 transition-all duration-700 relative card-bg-optimized ${stats.cardPreview || ''}`}>
+                <div
+                    className={`p-3 md:p-8 border-b border-stone-800/50 flex flex-col md:flex-row items-center justify-between gap-3 md:gap-6 transition-all duration-700 relative card-bg-optimized ${stats.cardPreview && !stats.cardPreview.startsWith('/') ? stats.cardPreview : ''}`}
+                    style={stats.cardPreview?.startsWith('/') ? {
+                        backgroundImage: `url(${stats.cardPreview})`,
+                        backgroundSize: stats.cardPreview.includes('exclusive') ? '50% !important' : 'cover !important',
+                        backgroundPosition: 'center',
+                        backgroundRepeat: 'no-repeat'
+                    } : {}}
+                >
                     <div className="absolute inset-0 card-overlay-elite z-0"></div>
                     {stats.isElite && stats.icon && STORE_ITEMS.find(i => i.preview === stats.icon || i.preview === stats.cardPreview || i.preview === stats.fontClass)?.rarity === 'lendário' && <div className="legendary-particle-overlay"></div>}
                     {stats.isElite && <div className="shimmer-overlay"></div>}

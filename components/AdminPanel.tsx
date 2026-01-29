@@ -15,6 +15,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
     const [gameOfWeekId, setGameOfWeekId] = useState<string>('');
     const [gamePrize, setGamePrize] = useState<string>('');
     const [exchangeRate, setExchangeRate] = useState<string>('10');
+    const [exclusiveCollectionName, setExclusiveCollectionName] = useState<string>('Times de Futebol');
+    const [exclusiveDeadline, setExclusiveDeadline] = useState<string>('2026-02-15T23:59:59');
 
     // Configurações persistidas no inventário do admin
     useEffect(() => {
@@ -22,6 +24,8 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
             setGameOfWeekId(adminPlayer.equipped_items.game_settings.id || '');
             setGamePrize(adminPlayer.equipped_items.game_settings.prize || '');
             setExchangeRate(adminPlayer.equipped_items.game_settings.exchange_rate || '10');
+            setExclusiveCollectionName(adminPlayer.equipped_items.game_settings.exclusive_collection_name || 'Times de Futebol');
+            setExclusiveDeadline(adminPlayer.equipped_items.game_settings.exclusive_deadline || '2026-02-15T23:59:59');
         }
         fetchPlayers();
     }, [adminPlayer]);
@@ -90,7 +94,13 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
 
     const handleSetGameOfWeek = async () => {
         setLoading(true);
-        const newSettings = { id: gameOfWeekId, prize: gamePrize, exchange_rate: exchangeRate };
+        const newSettings = {
+            id: gameOfWeekId,
+            prize: gamePrize,
+            exchange_rate: exchangeRate,
+            exclusive_collection_name: exclusiveCollectionName,
+            exclusive_deadline: exclusiveDeadline
+        };
 
         // Salvar nas configurações do Admin (hack para persistencia sem tabela nova)
         const newEquipped = {
@@ -104,7 +114,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
             .eq('id', adminPlayer.id);
 
         if (error) log("Erro ao salvar Configurações.");
-        else log(`CONFIGURAÇÕES GLOBAIS ATUALIZADAS. Taxa: ${exchangeRate}:1`);
+        else log(`CONFIGURAÇÕES GLOBAIS ATUALIZADAS. Coleção: ${exclusiveCollectionName}`);
 
         setLoading(false);
         onUpdate();
@@ -284,8 +294,24 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
                             className="w-full bg-black border border-stone-700 text-white p-3 rounded-lg text-xs font-bold uppercase"
                         />
                     </div>
+                    <div className="mb-4 p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl">
+                        <h3 className="text-[10px] text-orange-500 font-bold uppercase tracking-widest mb-3">Gerenciar Coleção Exclusiva</h3>
+                        <input
+                            type="text"
+                            placeholder="Nome da Coleção (ex: Times de Futebol)"
+                            value={exclusiveCollectionName}
+                            onChange={(e) => setExclusiveCollectionName(e.target.value)}
+                            className="w-full bg-black border border-stone-700 text-white p-3 rounded-lg mb-2 text-[10px] font-bold uppercase"
+                        />
+                        <input
+                            type="datetime-local"
+                            value={exclusiveDeadline.substring(0, 16)}
+                            onChange={(e) => setExclusiveDeadline(e.target.value)}
+                            className="w-full bg-black border border-stone-700 text-white p-3 rounded-lg text-[10px] font-bold uppercase"
+                        />
+                    </div>
                     <button onClick={handleSetGameOfWeek} disabled={loading} className="w-full bg-red-600 hover:bg-red-500 text-white font-black py-3 rounded-xl uppercase tracking-widest text-xs">
-                        Atualizar Configurações Globais
+                        Salvar Todas Configurações
                     </button>
                 </div>
 

@@ -36,7 +36,7 @@ export const GAMES: Game[] = [
   }
 ];
 
-export type ItemRarity = 'comum' | 'raro' | 'épico' | 'lendário';
+export type ItemRarity = 'comum' | 'raro' | 'épico' | 'lendário' | 'exclusivo';
 
 export interface StoreItem {
   id: string;
@@ -47,9 +47,60 @@ export interface StoreItem {
   description: string;
   category: string;
   rarity: ItemRarity;
+  collection?: string;
+  availableUntil?: string; // ISO Date String
 }
 
 export const STORE_ITEMS: StoreItem[] = [
+  // --- COLEÇÃO EXCLUSIVA: TIMES DE FUTEBOL (TEMPO LIMITADO) ---
+  {
+    id: 'exclusive-card-spfc',
+    name: 'Manto Tricolor Elite',
+    price: 30000,
+    type: 'card',
+    preview: '/assets/exclusive/cards/spfc.png',
+    description: 'A elegância e o peso da história tricolor no seu perfil. (Coleção Exclusiva)',
+    category: 'Cards',
+    rarity: 'exclusivo',
+    collection: 'Times de Futebol',
+    availableUntil: '2026-02-15T23:59:59Z'
+  },
+  {
+    id: 'exclusive-card-fla',
+    name: 'Manto Rubro-Negro',
+    price: 30000,
+    type: 'card',
+    preview: '/assets/exclusive/cards/fla.png',
+    description: 'A força e a paixão da nação rubro-negra. (Coleção Exclusiva)',
+    category: 'Cards',
+    rarity: 'exclusivo',
+    collection: 'Times de Futebol',
+    availableUntil: '2026-02-15T23:59:59Z'
+  },
+  {
+    id: 'exclusive-card-sccp',
+    name: 'Armadura Alvinegra',
+    price: 30000,
+    type: 'card',
+    preview: '/assets/exclusive/cards/cor.png',
+    description: 'Garra e tradição alvinegra em cada pixel. (Coleção Exclusiva)',
+    category: 'Cards',
+    rarity: 'exclusivo',
+    collection: 'Times de Futebol',
+    availableUntil: '2026-02-15T23:59:59Z'
+  },
+  {
+    id: 'exclusive-card-sep',
+    name: 'Manto Alviverde Imponente',
+    price: 30000,
+    type: 'card',
+    preview: '/assets/exclusive/cards/pal.png',
+    description: 'A academia de futebol representada com classe. (Coleção Exclusiva)',
+    category: 'Cards',
+    rarity: 'exclusivo',
+    collection: 'Times de Futebol',
+    availableUntil: '2026-02-15T23:59:59Z'
+  },
   // --- ICONES LENDÁRIOS ---
   {
     id: 'legendary-icon-piano',

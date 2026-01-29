@@ -193,7 +193,7 @@ body {
 
 /* Base Card Background Rule - Clean & Impactful */
 .card-bg-optimized {
-  background-size: cover !important;
+  background-size: cover;
   background-position: center !important;
   background-repeat: no-repeat !important;
   background-color: #0c0a09;

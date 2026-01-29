@@ -207,7 +207,13 @@ const RankingGeralPage: React.FC = () => {
                         const borderItem = STORE_ITEMS.find(i => i.id === equipped.border);
                         const fontItem = STORE_ITEMS.find(i => i.id === equipped.font);
                         const iconItem = STORE_ITEMS.find(i => i.id === equipped.icon);
-                        const cardBaseClass = cardItem ? `${cardItem.preview} card-bg-optimized` : 'bg-stone-900/40 border-stone-800/60';
+                        const cardBaseClass = cardItem && !cardItem.preview.startsWith('/') ? `${cardItem.preview} card-bg-optimized` : 'card-bg-optimized';
+                        const cardStyle = cardItem?.preview.startsWith('/') ? {
+                            backgroundImage: `url(${cardItem.preview})`,
+                            backgroundSize: cardItem.rarity === 'exclusivo' ? '50% !important' : 'cover !important',
+                            backgroundPosition: 'center',
+                            backgroundRepeat: 'no-repeat'
+                        } : {};
                         const borderActive = borderItem ? `${borderItem.preview} scale-[1.01]` : '';
                         const fontActive = fontItem ? fontItem.preview : 'text-white';
 
@@ -217,8 +223,9 @@ const RankingGeralPage: React.FC = () => {
                                 onClick={() => handlePlayerClick(player)}
                                 className={`
                                     relative overflow-hidden group transition-all duration-500 border-2 rounded-2xl md:rounded-3xl p-3 md:p-8 flex items-center gap-3 md:gap-8 cursor-pointer hover:scale-[1.02] active:scale-95
-                                    ${cardBaseClass} ${borderActive}
+                                    ${cardItem ? '' : 'bg-stone-900/40 border-stone-800/60'} ${cardBaseClass} ${borderActive}
                                 `}
+                                style={cardStyle}
                             >
                                 {/* Overlays para Atmosfera e Efeitos */}
                                 <div className="absolute inset-0 card-overlay-elite z-0"></div>
@@ -288,7 +295,15 @@ const RankingGeralPage: React.FC = () => {
                             const fontActive = fontItem ? fontItem.preview : 'text-white';
 
                             return (
-                                <div className={`p-6 md:p-12 relative card-bg-optimized ${cardItem?.preview || ''} border-b border-stone-800/50`}>
+                                <div
+                                    className={`p-6 md:p-12 relative card-bg-optimized ${cardItem && !cardItem.preview.startsWith('/') ? cardItem.preview : ''} border-b border-stone-800/50`}
+                                    style={cardItem?.preview.startsWith('/') ? {
+                                        backgroundImage: `url(${cardItem.preview})`,
+                                        backgroundSize: cardItem.rarity === 'exclusivo' ? '50% !important' : 'cover !important',
+                                        backgroundPosition: 'center',
+                                        backgroundRepeat: 'no-repeat'
+                                    } : {}}
+                                >
                                     <div className="absolute inset-0 card-overlay-elite z-0"></div>
                                     <button
                                         onClick={() => setSelectedPlayer(null)}

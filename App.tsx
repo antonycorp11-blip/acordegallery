@@ -33,7 +33,9 @@ const App: React.FC = () => {
   // Game of Week & Economy State
   const [gameOfWeekId, setGameOfWeekId] = useState<string>('');
   const [gamePrize, setGamePrize] = useState<string>('');
-  const [exchangeRate, setExchangeRate] = useState<number>(10); // Default 10 XP = 1 Coin
+  const [exchangeRate, setExchangeRate] = useState<number>(10);
+  const [exclusiveDeadline, setExclusiveDeadline] = useState<string | null>(null);
+  const [exclusiveCollectionName, setExclusiveCollectionName] = useState<string | null>(null); // Default 10 XP = 1 Coin
 
   // Efeito de Persistência: Carregar PIN salvo ao iniciar
   useEffect(() => {
@@ -150,6 +152,8 @@ const App: React.FC = () => {
       if (admin && admin.equipped_items?.game_settings) {
         setGameOfWeekId(admin.equipped_items.game_settings.id || '');
         setGamePrize(admin.equipped_items.game_settings.prize || '');
+        setExclusiveDeadline(admin.equipped_items.game_settings.exclusive_deadline || null);
+        setExclusiveCollectionName(admin.equipped_items.game_settings.exclusive_collection_name || null);
         if (admin.equipped_items.game_settings.exchange_rate) {
           setExchangeRate(Number(admin.equipped_items.game_settings.exchange_rate));
         }
@@ -429,7 +433,15 @@ const App: React.FC = () => {
                 )}
 
                 {currentView === 'ranking' && <RankingGeralPage />}
-                {currentView === 'store' && <StorePage player={playerData} exchangeRate={exchangeRate} onUpdate={() => fetchStudentData(pin)} />}
+                {currentView === 'store' && (
+                  <StorePage
+                    player={playerData}
+                    exchangeRate={exchangeRate}
+                    onUpdate={() => fetchStudentData(pin)}
+                    exclusiveDeadline={exclusiveDeadline}
+                    exclusiveCollectionName={exclusiveCollectionName}
+                  />
+                )}
                 {currentView === 'inventory' && <InventoryPage player={playerData} onUpdate={() => fetchStudentData(pin)} />}
                 {currentView === 'admin' && isAdmin && <AdminPanel adminPlayer={playerData} onUpdate={() => fetchStudentData(pin)} />}
               </nav>

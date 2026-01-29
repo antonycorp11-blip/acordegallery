@@ -21,7 +21,8 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
         setLocalEquipped(player.equipped_items || {});
     }, [player.equipped_items]);
 
-    const rarityOrder: Record<string, number> = {
+    const fixedRarityOrder: Record<string, number> = {
+        'exclusivo': 5,
         'lendário': 4,
         'épico': 3,
         'raro': 2,
@@ -36,6 +37,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
 
     const getRarityColor = (rarity: string) => {
         switch (rarity) {
+            case 'exclusivo': return 'text-orange-500 border-orange-500/40 bg-orange-500/10 shadow-[0_0_10px_rgba(249,115,22,0.2)] animate-pulse';
             case 'raro': return 'text-blue-400 border-blue-400/30 bg-blue-400/10';
             case 'épico': return 'text-purple-400 border-purple-400/30 bg-purple-400/10';
             case 'lendário': return 'text-yellow-400 border-yellow-400/30 bg-yellow-400/10 shadow-[0_0_10px_rgba(250,204,21,0.2)]';
@@ -113,11 +115,19 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                 </div>
 
                 <div className="max-w-2xl mx-auto pointer-events-none scale-90 md:scale-100 flex justify-center">
-                    <div className={`
-                relative overflow-hidden border-2 rounded-2xl md:rounded-[2.5rem] p-4 md:p-12 flex items-center gap-4 md:gap-8 transition-all duration-700 card-bg-optimized w-full
-                ${localEquipped.card ? STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview : 'bg-stone-900/40 border-stone-800/50'}
-                ${localEquipped.border ? `${STORE_ITEMS.find(i => i.id === localEquipped.border)?.preview} scale-[1.02]` : ''}
-              `}>
+                    <div
+                        className={`
+                            relative overflow-hidden border-2 rounded-2xl md:rounded-[2.5rem] p-4 md:p-12 flex items-center gap-4 md:gap-8 transition-all duration-700 card-bg-optimized w-full
+                            ${localEquipped.card && !STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview.startsWith('/') ? STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview : 'bg-stone-900/40 border-stone-800/50'}
+                            ${localEquipped.border ? `${STORE_ITEMS.find(i => i.id === localEquipped.border)?.preview} scale-[1.02]` : ''}
+                        `}
+                        style={localEquipped.card && STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview.startsWith('/') ? {
+                            backgroundImage: `url(${STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview})`,
+                            backgroundSize: STORE_ITEMS.find(i => i.id === localEquipped.card)?.rarity === 'exclusivo' ? '50% !important' : 'cover !important',
+                            backgroundPosition: 'center',
+                            backgroundRepeat: 'no-repeat'
+                        } : {}}
+                    >
                         <div className="absolute inset-0 card-overlay-elite z-0"></div>
                         {Array.from(Object.values(localEquipped)).some(id => {
                             const item = STORE_ITEMS.find(i => i.id === id);
@@ -207,10 +217,15 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                                     </span>
                                                 </div>
 
-                                                <div className="w-full h-16 md:h-40 rounded-lg md:rounded-3xl mb-1.5 md:mb-6 relative overflow-hidden flex items-center justify-center border border-stone-800/50">
-                                                    <div className={`absolute inset-0 card-bg-optimized ${item.type === 'card' ? item.preview : 'bg-black'}`}></div>
+                                                <div className="w-full h-16 md:h-40 rounded-lg md:rounded-3xl mb-1.5 md:mb-6 relative overflow-hidden flex items-center justify-center border border-stone-800/50 shadow-inner">
+                                                    {item.type === 'card' && item.preview.startsWith('/') ? (
+                                                        <img src={item.preview} className="absolute inset-0 w-full h-full object-cover" alt="" />
+                                                    ) : (
+                                                        <div className={`absolute inset-0 card-bg-optimized ${item.type === 'card' ? item.preview : 'bg-black'}`}></div>
+                                                    )}
                                                     {item.rarity === 'lendário' && <div className="legendary-particle-overlay scale-50 md:scale-100"></div>}
-                                                    {(item.rarity === 'raro' || item.rarity === 'épico' || item.rarity === 'lendário') && <div className="shimmer-overlay"></div>}
+                                                    {item.rarity === 'exclusivo' && <div className="legendary-particle-overlay scale-50 md:scale-100 opacity-40"></div>}
+                                                    {(item.rarity === 'raro' || item.rarity === 'épico' || item.rarity === 'lendário' || item.rarity === 'exclusivo') && <div className="shimmer-overlay"></div>}
                                                     <div className="relative z-10 flex items-center justify-center w-full h-full p-2 md:p-4">
                                                         {item.type === 'font' && <span className={item.preview + " text-[10px] md:text-sm"}>Abc</span>}
                                                         {item.type === 'icon' && (
