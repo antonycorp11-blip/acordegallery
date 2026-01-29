@@ -85,7 +85,7 @@ const RankingGeralPage: React.FC = () => {
         try {
             // Buscamos o histórico de XP de todas as fontes possíveis
             const [gameScores, ritmoPro, repita, genericScores] = await Promise.all([
-                supabase.from('game_scores').select('game_id, score').eq('player_id', player.id),
+                supabase.from('game_scores').select('game_id, score, experience_gained').eq('player_id', player.id),
                 supabase.from('ritmo_pro_ranking').select('score').eq('pin', player.recovery_pin),
                 supabase.from('repita_leaderboard').select('total_xp').eq('pin', player.recovery_pin),
                 supabase.from('scores').select('xp_earned, score').eq('player_id', player.id)
@@ -123,7 +123,11 @@ const RankingGeralPage: React.FC = () => {
             // 3. Game Scores (Agregado)
             if (gameScores.data) {
                 const aggregated = gameScores.data.reduce((acc: any, curr: any) => {
-                    acc[curr.game_id] = (acc[curr.game_id] || 0) + curr.score;
+                    // Priorizamos 'experience_gained', se não houver (jogos antigos), usamos o cálculo padrão score/10
+                    const xpVal = curr.experience_gained !== null && curr.experience_gained !== undefined
+                        ? curr.experience_gained
+                        : (curr.score / 10);
+                    acc[curr.game_id] = (acc[curr.game_id] || 0) + xpVal;
                     return acc;
                 }, {});
                 Object.keys(aggregated).forEach(gid => {
