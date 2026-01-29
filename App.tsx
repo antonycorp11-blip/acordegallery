@@ -420,7 +420,7 @@ const App: React.FC = () => {
                       <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-transparent"></div>
                     </div>
                     <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-8">
-                      {GAMES.filter(game => game.id !== 'acorde-maker' || isAdmin).map((game) => (
+                      {GAMES.map((game) => (
                         <GameCard
                           key={game.id}
                           game={game}
