@@ -12,6 +12,8 @@ interface PlayerRank {
     equipped_items: any;
     high_score: number;
     recovery_pin: string;
+    current_title?: string;
+    reset_count?: number;
 }
 
 const RankingGeralPage: React.FC = () => {
@@ -28,7 +30,7 @@ const RankingGeralPage: React.FC = () => {
             // Buscamos um número maior de jogadores para evitar que novos perfis (0 XP) fiquem de fora
             const { data, error } = await supabase
                 .from('players')
-                .select('id, name, accumulated_xp, acorde_coins, selected_card_id, equipped_items, high_score, recovery_pin')
+                .select('id, name, accumulated_xp, acorde_coins, selected_card_id, equipped_items, high_score, recovery_pin, current_title, reset_count')
                 .order('accumulated_xp', { ascending: false })
                 .limit(1000);
 
@@ -261,6 +263,16 @@ const RankingGeralPage: React.FC = () => {
                                             <span className="hidden md:inline text-[8px] md:text-[10px] text-stone-300 font-black uppercase tracking-[0.2em] bg-black/20 px-2 py-0.5 rounded">
                                                 {cardItem || borderItem || fontItem || iconItem ? '🌟 JOGADOR ELITE' : '🔰 JOGADOR RECRUTA'}
                                             </span>
+                                            {player.current_title && (
+                                                <span className="text-[7px] md:text-[11px] text-orange-400 font-black italic uppercase tracking-tighter drop-shadow-sm">
+                                                    📜 {player.current_title}
+                                                </span>
+                                            )}
+                                            {player.reset_count > 0 && (
+                                                <span className="text-[7px] text-red-500 font-black flex items-center gap-0.5">
+                                                    🔥 x{player.reset_count}
+                                                </span>
+                                            )}
                                             <span className="md:hidden text-[7px] text-stone-400 font-black uppercase tracking-wider">
                                                 XP TOTAL
                                             </span>

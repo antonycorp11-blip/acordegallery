@@ -11,6 +11,8 @@ import InventoryPage from './components/InventoryPage';
 import RankingGeralPage from './components/RankingGeralPage';
 import AdminPanel from './components/AdminPanel';
 import { supabase } from './lib/supabase';
+import confetti from 'canvas-confetti';
+import { TITLES } from './constants';
 
 type View = 'gallery' | 'ranking' | 'store' | 'inventory' | 'admin';
 type AuthMode = 'login' | 'register';
@@ -226,6 +228,65 @@ const App: React.FC = () => {
     window.open(url, '_blank');
   };
 
+  const handleResetPrestigio = async () => {
+    if (!playerData) return;
+    if (playerData.accumulated_xp < 500000) {
+      alert("Você precisa de no mínimo 500.000 XP para resetar e ganhar um Título!");
+      return;
+    }
+
+    const confirmReset = confirm("Deseja realizar o Reset de Prestígio? Seu XP voltará a zero, mas você ganhará um Título Lendário no Ranking!");
+    if (!confirmReset) return;
+
+    setIsLoading(true);
+    try {
+      // Selecionar Título Aleatório que o jogador ainda não tenha (se possível)
+      const availableTitles = TITLES.filter(t => !playerData.titles?.includes(t));
+      const newTitle = availableTitles.length > 0
+        ? availableTitles[Math.floor(Math.random() * availableTitles.length)]
+        : TITLES[Math.floor(Math.random() * TITLES.length)];
+
+      const updatedTitles = [...(playerData.titles || []), newTitle];
+
+      // 1. Zera o XP nas tabelas de scores (para sumir do ranking mas manter moedas no player)
+      await supabase.from('game_scores').delete().eq('player_id', playerData.id);
+      await supabase.from('scores').delete().eq('player_id', playerData.id);
+      await supabase.from('repita_leaderboard').delete().eq('pin', pin);
+      await supabase.from('ritmo_pro_ranking').delete().eq('pin', pin);
+
+      // 2. Atualiza o Perfil do Player
+      const { error } = await supabase
+        .from('players')
+        .update({
+          accumulated_xp: 0,
+          xp: 0,
+          total_xp: 0,
+          last_viewed_xp: 0,
+          reset_count: (playerData.reset_count || 0) + 1,
+          current_title: newTitle,
+          titles: updatedTitles
+        })
+        .eq('id', playerData.id);
+
+      if (error) throw error;
+
+      // Animação de Sucesso!
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#f97316', '#ffffff', '#fbbf24']
+      });
+
+      alert(`🎇 PRESTÍGIO ALCANÇADO! Você agora é: ${newTitle}`);
+      fetchStudentData(pin);
+    } catch (err: any) {
+      alert("Erro ao resetar: " + err.message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const isAdmin = playerData?.name === ADMIN_NAME_CHECK && playerData?.recovery_pin === ADMIN_PIN_CHECK;
 
   return (
@@ -363,6 +424,7 @@ const App: React.FC = () => {
               {currentView === 'gallery' && (
                 <PlayerProfile
                   stats={{
+                    id: playerData.id,
                     name: playerData.name,
                     total_xp: playerData.accumulated_xp || 0,
                     games_played: playerData.games_played || 0,
@@ -370,6 +432,7 @@ const App: React.FC = () => {
                     high_score: playerData.high_score || 0,
                     days_active: playerData.days_active || 1,
                     pin: pin,
+                    current_title: playerData.current_title,
                     icon: STORE_ITEMS.find(i => i.id === (playerData.equipped_items?.icon))?.preview,
                     cardPreview: STORE_ITEMS.find(i => i.id === (playerData.equipped_items?.card))?.preview,
                     fontClass: STORE_ITEMS.find(i => i.id === (playerData.equipped_items?.font))?.preview,
@@ -379,6 +442,7 @@ const App: React.FC = () => {
                     })
                   }}
                   xpGain={xpGain}
+                  onResetRequest={handleResetPrestigio}
                 />
               )}
 

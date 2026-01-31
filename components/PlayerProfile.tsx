@@ -5,6 +5,7 @@ import { STORE_ITEMS } from '../constants';
 
 interface PlayerProfileProps {
     stats: {
+        id: string;
         name: string;
         total_xp: number;
         games_played: number;
@@ -12,13 +13,44 @@ interface PlayerProfileProps {
         high_score: number;
         days_active: number;
         pin: string;
+        current_title?: string;
         icon?: string;
         cardPreview?: string;
         fontClass?: string;
         isElite?: boolean;
     };
     xpGain?: number;
+    onResetRequest?: () => void;
 }
+
+const AnimatedCounter: React.FC<{ value: number }> = ({ value }) => {
+    const [displayValue, setDisplayValue] = React.useState(0);
+
+    React.useEffect(() => {
+        let start = displayValue;
+        const end = value;
+        if (start === end) return;
+
+        const duration = 1000; // 1 second
+        const startTime = performance.now();
+
+        const animate = (currentTime: number) => {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const current = Math.floor(start + (end - start) * progress);
+
+            setDisplayValue(current);
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+
+        requestAnimationFrame(animate);
+    }, [value]);
+
+    return <span>{displayValue.toLocaleString('pt-BR')}</span>;
+};
 
 const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain }) => {
     const formatNumber = (num: number) => num.toLocaleString('pt-BR');
@@ -34,7 +66,7 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain }) => {
                         <span className="text-4xl md:text-6xl font-black text-orange-500 drop-shadow-[0_0_20px_rgba(249,115,22,0.8)] italic">
                             +{xpGain} XP
                         </span>
-                        <span className="text-xs text-white font-black uppercase tracking-[0.5em] mt-2">Sincronizado!</span>
+                        <span className="text-xs text-white font-black uppercase tracking-[0.5em] mt-2 bg-orange-600 px-3 py-1 rounded-full">Sincronizado!</span>
                     </div>
                 </div>
             )}
@@ -72,7 +104,14 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain }) => {
                                 <span className="md:inline text-[8px] md:text-base font-bold text-stone-500 not-italic mr-1">JOGADOR:</span>
                                 <span className={stats.fontClass ? '' : 'text-orange-500'}>{stats.name}</span>
                             </h2>
-                            <p className="text-stone-500 text-[6px] md:text-[10px] font-black uppercase tracking-[0.2em]">{xpGain ? 'Sincronizando XP...' : 'Elite v5.0 Unlocked'}</p>
+                            <div className="flex flex-col md:flex-row items-center gap-1 md:gap-3">
+                                <p className="text-stone-500 text-[6px] md:text-[10px] font-black uppercase tracking-[0.2em]">{xpGain ? 'Sincronizando XP...' : 'Elite v5.0 Unlocked'}</p>
+                                {stats.current_title && (
+                                    <span className="bg-orange-600/20 border border-orange-500/30 text-orange-400 px-2 py-0.5 rounded-md text-[7px] md:text-[9px] font-black uppercase tracking-widest animate-pulse">
+                                        📜 {stats.current_title}
+                                    </span>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -87,10 +126,29 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain }) => {
 
                 {/* Grade de Estatísticas */}
                 <div className="grid grid-cols-2 lg:grid-cols-3 gap-px bg-stone-800/30">
-                    <StatBox label="Experiência Total" value={`${formatNumber(stats.total_xp)} XP`} icon="⚡" highlight={xpGain > 0} />
+                    <StatBox label="Experiência Total" value={<AnimatedCounter value={stats.total_xp} />} suffix=" XP" icon="⚡" highlight={xpGain > 0} />
                     <StatBox label="Missões Concluídas" value={formatNumber(stats.games_played)} icon="🎯" />
                     <StatBox label="Recorde Máximo" value={formatNumber(stats.high_score)} icon="🏆" />
                 </div>
+
+                {/* Reset System Trigger */}
+                {stats.total_xp >= 100000 && (
+                    <div className="p-4 bg-orange-600/10 border-t border-orange-500/20 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <span className="text-xl">🔥</span>
+                            <div>
+                                <h4 className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Reset de Prestígio Disponível</h4>
+                                <p className="text-[8px] text-stone-500 uppercase font-bold">Zera seu XP para ganhar um Título Lendário no Ranking</p>
+                            </div>
+                        </div>
+                        <button
+                            onClick={onResetRequest}
+                            className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all active:scale-95"
+                        >
+                            Realizar Reset
+                        </button>
+                    </div>
+                )}
 
                 {/* Estatísticas Secundárias */}
                 <div className="p-4 md:p-6 bg-black/20 flex flex-wrap justify-center gap-4 md:gap-8 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-stone-600">
@@ -112,11 +170,13 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain }) => {
     );
 };
 
-const StatBox = ({ label, value, icon, highlight }: { label: string; value: string; icon: string, highlight?: boolean }) => (
+const StatBox = ({ label, value, suffix, icon, highlight }: { label: string; value: React.ReactNode; suffix?: string, icon: string, highlight?: boolean }) => (
     <div className={`bg-stone-900/60 p-2.5 md:p-6 flex flex-col items-center justify-center text-center transition-all duration-1000 ${highlight ? 'bg-orange-950/40' : ''}`}>
         <span className={`text-sm md:text-2xl mb-1 md:mb-2 transition-transform ${highlight ? 'scale-150' : ''}`}>{icon}</span>
         <span className="text-[7px] md:text-[9px] text-stone-500 font-black uppercase tracking-widest mb-0.5 md:mb-1">{label}</span>
-        <span className={`font-black text-xs md:text-xl italic uppercase tracking-tighter truncate w-full px-1 md:px-2 transition-all ${highlight ? 'text-orange-500 text-sm md:text-2xl' : 'text-white'}`}>{value}</span>
+        <div className={`font-black text-xs md:text-xl italic uppercase tracking-tighter truncate w-full px-1 md:px-2 transition-all ${highlight ? 'text-orange-500 text-sm md:text-2xl' : 'text-white'}`}>
+            {value}{suffix}
+        </div>
     </div>
 );
 

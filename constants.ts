@@ -38,11 +38,45 @@ export const GAMES: Game[] = [
     id: 'chord-master',
     title: 'Chord Master',
     description: 'Domine a formação de acordes no teclado com este desafio musical premium.',
-    url: 'https://chordmaster.vercel.app/',
+    url: 'https://chordmaster-theta.vercel.app/',
     thumbnail: '/chordmaster_gallery_art.png',
-    category: 'Teclado'
+    category: 'Teclado',
+    scheduledRelease: '2026-02-02T08:00:00-03:00' // Segunda-feira às 08:00 (Horário Brasília presumed)
   }
 ];
+
+export const TITLES = [
+  "Recruta do Ritmo",
+  "Aprendiz de Acordes",
+  "Explorador Sonoro",
+  "Guerreiro da Harmonia",
+  "Cavaleiro do Teclado",
+  "Mestre da Melodia",
+  "Lenda das Oitavas",
+  "Virtuoso de Elite",
+  "Maestro do Multiverso",
+  "Deus do Som"
+];
+
+export interface Game {
+  id: string;
+  title: string;
+  description: string;
+  url: string;
+  thumbnail: string;
+  category: string;
+  scheduledRelease?: string; // ISO string 8:00 segunda feira
+}
+
+export interface StudentStats {
+  pin: string;
+  name: string;
+  totalScore: number;
+  gamesPlayed: number;
+  titles?: string[];
+  current_title?: string;
+  reset_count?: number;
+}
 
 export type ItemRarity = 'comum' | 'raro' | 'épico' | 'lendário' | 'exclusivo';
 

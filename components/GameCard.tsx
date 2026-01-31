@@ -11,6 +11,13 @@ interface GameCardProps {
 const GameCard: React.FC<GameCardProps> = ({ game, studentPin, onLaunch }) => {
   const isPinReady = studentPin.length >= 4;
   const isComingSoon = game.url === '#';
+
+  // Lógica de liberação agendada (Bypass para Admin)
+  const isAdmin = studentPin === '8238';
+  const now = new Date();
+  const releaseDate = game.scheduledRelease ? new Date(game.scheduledRelease) : null;
+  const isLockedBySchedule = releaseDate && now < releaseDate && !isAdmin;
+
   const finalUrl = isComingSoon ? '#' : `${game.url}${game.url.includes('?') ? '&' : '?'}pin=${studentPin}`;
 
   return (
@@ -45,15 +52,19 @@ const GameCard: React.FC<GameCardProps> = ({ game, studentPin, onLaunch }) => {
         </p>
 
         <button
-          onClick={() => !isComingSoon && onLaunch(finalUrl)}
-          disabled={!isPinReady || isComingSoon}
-          className={`w-full py-3.5 px-6 rounded-xl font-black uppercase tracking-widest text-[9px] md:text-[10px] flex items-center justify-between transition-all duration-300 group/btn ${isPinReady && !isComingSoon
+          onClick={() => !isComingSoon && !isLockedBySchedule && onLaunch(finalUrl)}
+          disabled={!isPinReady || isComingSoon || isLockedBySchedule}
+          className={`w-full py-3.5 px-6 rounded-xl font-black uppercase tracking-widest text-[9px] md:text-[10px] flex items-center justify-between transition-all duration-300 group/btn ${isPinReady && !isComingSoon && !isLockedBySchedule
             ? 'bg-white text-black hover:bg-orange-600 hover:text-white shadow-lg active:scale-95'
             : 'bg-stone-900 text-stone-700 border border-stone-800 cursor-not-allowed'
             }`}
         >
-          <span>{isComingSoon ? 'Desenvolvimento...' : isPinReady ? 'Iniciar Missão' : 'Missão Bloqueada'}</span>
-          {isPinReady && !isComingSoon && (
+          <span>
+            {isComingSoon ? 'Desenvolvimento...' :
+              isLockedBySchedule ? `Liberado em: ${releaseDate?.toLocaleDateString('pt-BR')} ${releaseDate?.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}` :
+                isPinReady ? 'Iniciar Missão' : 'Missão Bloqueada'}
+          </span>
+          {isPinReady && !isComingSoon && !isLockedBySchedule && (
             <svg className="w-4 h-4 transition-transform group-hover/btn:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M14 5l7 7m0 0l-7 7m7-7H3" />
             </svg>
