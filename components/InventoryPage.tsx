@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { STORE_ITEMS, StoreItem } from '../constants';
+import { STORE_ITEMS, StoreItem, TITLES } from '../constants';
 
 interface InventoryPageProps {
     player: any;
@@ -13,13 +13,22 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
 
     // Estado local para o "Preview" antes de salvar
     const inventoryIds = player.inventory || [];
-    const initialEquipped = player.equipped_items || {}; // Restaurado para evitar erro
+    const playerTitles = player.titles || []; // Array de nomes de títulos
+
+    // Preparar estado inicial incluindo título
+    const initialEquipped = {
+        ...(player.equipped_items || {}),
+        title: player.current_title // Pseudo-item para gerenciamento local
+    };
     const [localEquipped, setLocalEquipped] = useState(initialEquipped);
 
-    // Sincronizar estado local caso o player mude (ex: após salvar e o App.tsx disparar onUpdate)
+    // Sincronizar estado local caso o player mude
     React.useEffect(() => {
-        setLocalEquipped(player.equipped_items || {});
-    }, [player.equipped_items]);
+        setLocalEquipped({
+            ...(player.equipped_items || {}),
+            title: player.current_title
+        });
+    }, [player.equipped_items, player.current_title]);
 
     const fixedRarityOrder: Record<string, number> = {
         'exclusivo': 5,
@@ -33,7 +42,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
 
     const myItems = STORE_ITEMS.filter(item => inventoryIds.includes(item.id));
     const categories = Array.from(new Set(STORE_ITEMS.map(i => i.category)));
-    const allCategories = ['Todos', ...categories];
+    const allCategories = ['Todos', 'Títulos', ...categories];
 
     const getRarityColor = (rarity: string) => {
         switch (rarity) {
@@ -45,15 +54,17 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
         }
     };
 
-    const toggleLocalEquip = (item: StoreItem) => {
+    const toggleLocalEquip = (item: any, typeOverride?: string) => {
         setLocalEquipped((prev: any) => {
-            const type = item.type;
-            if (prev[type] === item.id) {
+            const type = typeOverride || item.type;
+            const value = typeOverride === 'title' ? item.name : item.id;
+
+            if (prev[type] === value) {
                 const next = { ...prev };
                 delete next[type];
                 return next;
             }
-            return { ...prev, [type]: item.id };
+            return { ...prev, [type]: value };
         });
     };
 
@@ -65,7 +76,11 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
             const { error, count } = await supabase
                 .from('players')
                 .update({
-                    equipped_items: localEquipped
+                    equipped_items: (() => {
+                        const { title, ...rest } = localEquipped; // Remove title do JSON
+                        return rest;
+                    })(),
+                    current_title: localEquipped.title || null // Salva title na coluna correta
                 }, { count: 'exact' })
                 .eq('id', player.id);
 
@@ -73,7 +88,20 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
 
             if (count === 0) {
                 console.warn("Nenhuma linha atualizada pelo ID. Tentando pelo PIN...");
-                await supabase.from('players').update({ equipped_items: localEquipped }).eq('recovery_pin', player.recovery_pin);
+                // Remover 'title' do objeto JSON antes de salvar, pois vai em coluna separada
+                const { title, ...itemsToSave } = localEquipped;
+
+                await supabase.from('players').update({
+                    equipped_items: itemsToSave,
+                    current_title: title || null
+                }).eq('recovery_pin', player.recovery_pin);
+            } else {
+                // Caso normal (ID funcionou), mas precisamos garantir que o title tbm vá
+                const { title, ...itemsToSave } = localEquipped;
+                await supabase.from('players').update({
+                    equipped_items: itemsToSave,
+                    current_title: title || null
+                }).eq('id', player.id);
             }
 
             alert('Configurações de Elite salvas! Seu card foi atualizado no ranking.');
@@ -118,10 +146,10 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                     <div
                         className={`
                             relative overflow-hidden border-2 rounded-2xl md:rounded-[2.5rem] p-4 md:p-12 flex items-center gap-4 md:gap-8 transition-all duration-700 card-bg-optimized w-full
-                            ${localEquipped.card && !STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview.startsWith('/') ? STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview : 'bg-stone-900/40 border-stone-800/50'}
+                            ${localEquipped.card && STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview?.startsWith('/') === false ? STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview : 'bg-stone-900/40 border-stone-800/50'}
                             ${localEquipped.border ? `${STORE_ITEMS.find(i => i.id === localEquipped.border)?.preview} scale-[1.02]` : ''}
                         `}
-                        style={localEquipped.card && STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview.startsWith('/') ? {
+                        style={localEquipped.card && STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview?.startsWith('/') ? {
                             backgroundImage: `url(${STORE_ITEMS.find(i => i.id === localEquipped.card)?.preview})`,
                             backgroundSize: STORE_ITEMS.find(i => i.id === localEquipped.card)?.rarity === 'exclusivo' ? '50% !important' : 'cover !important',
                             backgroundPosition: 'center',
@@ -141,10 +169,10 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                             {localEquipped.icon ? (
                                 (() => {
                                     const icon = STORE_ITEMS.find(i => i.id === localEquipped.icon);
-                                    return icon?.preview.startsWith('/') ? (
+                                    return icon && icon.preview && icon.preview.startsWith('/') ? (
                                         <img src={icon.preview} alt="Icon" className="w-full h-full object-cover" />
                                     ) : (
-                                        <span className="text-2xl md:text-5xl">{icon?.preview}</span>
+                                        <span className="text-2xl md:text-5xl">{icon?.preview || '?'}</span>
                                     );
                                 })()
                             ) : (
@@ -158,6 +186,13 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                                 {player.name}
                             </h4>
                             <span className="text-[7px] md:text-[10px] text-stone-500 font-black uppercase tracking-[0.3em]">Player Elite v5.0</span>
+
+                            {/* Title Preview in Inventory Card */}
+                            {localEquipped.title && (
+                                <div className={`mt-2 text-[8px] md:text-sm uppercase italic font-black tracking-tighter transition-all ${TITLES.find(t => t.name === localEquipped.title)?.style || 'text-stone-400'}`}>
+                                    {localEquipped.title}
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -178,7 +213,7 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
             </div>
 
             {/* ITEM SELECTOR */}
-            {myItems.length === 0 ? (
+            {myItems.length === 0 && playerTitles.length === 0 ? (
                 <div className="bg-stone-900/40 border border-stone-800 rounded-[2.5rem] p-24 text-center">
                     <p className="text-stone-500 font-black uppercase tracking-widest leading-relaxed">Você não possui itens adquiridos.</p>
                     <p className="text-stone-700 text-[10px] mt-4 uppercase">Visite a loja central para iniciar sua coleção de elite.</p>
@@ -271,6 +306,60 @@ const InventoryPage: React.FC<InventoryPageProps> = ({ player, onUpdate }) => {
                             </div>
                         );
                     })}
+
+                    {/* SEÇÃO DE TÍTULOS */}
+                    {(activeFilter === 'Todos' || activeFilter === 'Títulos') && playerTitles.length > 0 && (
+                        <div className="animate-fade-in-up">
+                            <div className="flex items-center gap-4 mb-8">
+                                <div className="w-1.5 h-6 bg-purple-600 skew-x-[-20deg]"></div>
+                                <h3 className="text-xl md:text-2xl font-black text-white italic uppercase tracking-tighter">Títulos de Prestígio</h3>
+                                <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-transparent"></div>
+                            </div>
+
+                            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                                {playerTitles.map((tName: string) => {
+                                    const titleObj = TITLES.find(t => t.name === tName) || { id: 'unknown', name: tName, style: 'text-stone-500', rarity: 'comum' };
+                                    const isSelected = localEquipped.title === tName;
+                                    const isActuallyEquipped = initialEquipped.title === tName;
+
+                                    return (
+                                        <div
+                                            key={tName}
+                                            onClick={() => toggleLocalEquip(titleObj, 'title')}
+                                            className={`
+                                                cursor-pointer bg-stone-900/40 border-2 rounded-xl p-4 md:p-6 flex flex-col items-center justify-center text-center transition-all duration-300
+                                                ${isSelected ? 'border-purple-500 bg-purple-500/10 shadow-[0_0_15px_rgba(168,85,247,0.2)]' : 'border-stone-800 hover:border-stone-700'}
+                                            `}
+                                        >
+                                            <div className="mb-2">
+                                                <span className={`text-[6px] md:text-[8px] px-2 py-0.5 rounded border uppercase font-black tracking-widest ${getRarityColor(titleObj.rarity as any)}`}>
+                                                    {titleObj.rarity || 'Comum'}
+                                                </span>
+                                            </div>
+                                            <h4 className={`text-xs md:text-lg font-black uppercase italic tracking-tighter mb-2 ${titleObj.style}`}>
+                                                {tName}
+                                            </h4>
+
+                                            <div className={`
+                                                w-full py-2 rounded-lg font-black uppercase text-[8px] md:text-[10px] tracking-widest transition-all mt-auto
+                                                ${isSelected ? 'bg-purple-600 text-white' : 'bg-stone-800 text-stone-500'}
+                                            `}>
+                                                {isSelected ? 'Selecionado' : 'Selecionar'}
+                                            </div>
+
+                                            {isActuallyEquipped && !isSelected && (
+                                                <div className="mt-2 flex items-center gap-1 justify-center">
+                                                    <div className="w-1 h-1 rounded-full bg-green-500"></div>
+                                                    <span className="text-[6px] text-green-500 font-black uppercase tracking-widest">Atual</span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                 </div>
             )}
         </div>

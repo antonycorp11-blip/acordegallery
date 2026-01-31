@@ -13,6 +13,14 @@ interface GameLeaderboard {
     ranking: RankedPlayer[];
 }
 
+const calculateDaysLeft = () => {
+    const endDate = new Date('2026-02-20T23:59:59');
+    const now = new Date();
+    const diffTime = endDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 0;
+};
+
 const LeaderboardSection: React.FC = () => {
     const [leaderboards, setLeaderboards] = useState<GameLeaderboard[]>([]);
     const [loading, setLoading] = useState(true);
@@ -98,6 +106,32 @@ const LeaderboardSection: React.FC = () => {
                     Global Standings
                 </h2>
                 <div className="h-px flex-1 bg-gradient-to-r from-stone-800 to-transparent"></div>
+            </div>
+
+            {/* Temporada Countdown */}
+            <div className="mb-10 bg-gradient-to-r from-stone-900 via-stone-800 to-stone-900 border border-stone-800 p-4 rounded-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-fade-in-up">
+                <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-orange-600 rounded-xl flex items-center justify-center font-black text-2xl text-white shadow-lg shadow-orange-900/40">⏳</div>
+                    <div>
+                        <h3 className="text-white font-black uppercase italic tracking-tighter text-sm md:text-lg leading-none">Temporada de Fundação</h3>
+                        <p className="text-[10px] text-stone-500 font-bold uppercase tracking-widest mt-1">Acabe: 20 de Fevereiro</p>
+                    </div>
+                </div>
+
+                <div className="flex items-center gap-2 md:gap-8">
+                    <div className="text-center">
+                        <span className="block text-2xl md:text-4xl font-black text-white italic tracking-tighter">
+                            {calculateDaysLeft()}
+                        </span>
+                        <span className="text-[8px] text-stone-500 font-black uppercase tracking-widest">Dias Restantes</span>
+                    </div>
+                    <div className="h-8 w-px bg-stone-700/50"></div>
+                    <div className="text-right">
+                        <p className="text-[9px] text-orange-500 font-black uppercase tracking-widest max-w-[150px]">
+                            Jogue agora para garantir seu título de Fundador!
+                        </p>
+                    </div>
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

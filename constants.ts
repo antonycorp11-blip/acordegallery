@@ -50,7 +50,7 @@ export interface Title {
   name: string;
   description: string;
   style: string;
-  rarity: 'comum' | 'raro' | 'épico' | 'lendário';
+  rarity: 'comum' | 'raro' | 'épico' | 'lendário' | 'exclusivo';
 }
 
 export const TITLES: Title[] = [
@@ -63,7 +63,8 @@ export const TITLES: Title[] = [
   { id: 'oitavas-lenda', name: 'Lenda das Oitavas', description: 'Seu alcance é infinito.', style: 'font-rare-gold', rarity: 'lendário' },
   { id: 'elite-virtuoso', name: 'Virtuoso de Elite', description: 'Técnica impecável, alma vibrante.', style: 'font-legendary-rainbow', rarity: 'lendário' },
   { id: 'multiverso-maestro', name: 'Maestro do Multiverso', description: 'Rege as estrelas com um acorde.', style: 'font-legendary-cursive', rarity: 'lendário' },
-  { id: 'som-deus', name: 'Deus do Som', description: 'O próprio universo vibra ao seu comando.', style: 'font-legendary-typewriter text-orange-500', rarity: 'lendário' }
+  { id: 'som-deus', name: 'Deus do Som', description: 'O próprio universo vibra ao seu comando.', style: 'font-legendary-typewriter text-orange-500', rarity: 'lendário' },
+  { id: 'fundador-beta', name: 'Fundador', description: 'Esteve aqui quando tudo começou. Um verdadeiro pioneiro.', style: 'text-orange-500 font-black uppercase tracking-[0.3em] drop-shadow-[0_0_10px_rgba(249,115,22,0.8)] border-b-2 border-orange-500', rarity: 'exclusivo' }
 ];
 
 export type ItemRarity = 'comum' | 'raro' | 'épico' | 'lendário' | 'exclusivo';

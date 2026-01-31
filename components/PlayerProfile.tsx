@@ -1,3 +1,5 @@
+import React from 'react';
+import { supabase } from '../lib/supabase';
 import { STORE_ITEMS, TITLES, Title } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -12,6 +14,7 @@ interface PlayerProfileProps {
         days_active: number;
         pin: string;
         current_title?: string;
+        titles?: string[]; // Array of owned titles
         icon?: string;
         cardPreview?: string;
         fontClass?: string;
@@ -52,7 +55,45 @@ const AnimatedCounter: React.FC<{ value: number }> = ({ value }) => {
 
 const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain, onResetRequest }) => {
     const [selectedTitle, setSelectedTitle] = React.useState<Title | null>(null);
+    const [showResetModal, setShowResetModal] = React.useState(false);
+    const [equipping, setEquipping] = React.useState(false);
     const formatNumber = (num: number) => num.toLocaleString('pt-BR');
+
+    const handleEquipTitle = async (titleName: string) => {
+        if (equipping) return;
+        setEquipping(true);
+        try {
+            // Se for REIVINDICAR um título (não apenas equipar)
+            // A lógica de adicionar ao array 'titles' deve ser feita aqui se não tiver
+            let currentTitles = stats.titles || [];
+            if (!currentTitles.includes(titleName)) {
+                // É uma reivindicação!
+                const { error } = await supabase
+                    .from('players')
+                    .update({
+                        titles: [...currentTitles, titleName],
+                        current_title: titleName
+                    })
+                    .eq('id', stats.id);
+                if (error) throw error;
+                alert(`🏆 Título ${titleName} Reivindicado com Sucesso!`);
+            } else {
+                // Apenas equipar
+                const { error } = await supabase
+                    .from('players')
+                    .update({ current_title: titleName })
+                    .eq('id', stats.id);
+                if (error) throw error;
+            }
+
+            window.location.reload();
+        } catch (err) {
+            alert('Erro ao equipar título: ' + err);
+        } finally {
+            setEquipping(false);
+            setSelectedTitle(null);
+        }
+    };
 
     const headerBg = stats.cardPreview ? `${stats.cardPreview} bg-center bg-no-repeat` : 'bg-gradient-to-br from-orange-600/20 to-transparent';
 
@@ -134,11 +175,23 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain, onResetReq
                 <div className="p-4 md:p-8 bg-black/40 border-t border-stone-800/50">
                     <div className="flex items-center justify-between mb-6">
                         <div>
-                            <h3 className="text-sm md:text-xl font-black text-white uppercase italic tracking-tighter">Coleção de Títulos</h3>
-                            <p className="text-[7px] md:text-[9px] text-stone-500 font-bold uppercase tracking-[0.2em]">Conquiste 500k XP para resetar e evoluir</p>
+                            <h3 className="text-sm md:text-xl font-black text-white uppercase italic tracking-tighter">Galeria de Títulos</h3>
+                            <p className="text-[7px] md:text-[9px] text-stone-500 font-bold uppercase tracking-[0.2em]">Sorteio aleatório ao atingir 500k XP</p>
                         </div>
-                        <div className="bg-orange-600/10 px-3 py-1 rounded-full border border-orange-500/20 text-orange-500 text-[8px] md:text-[10px] font-black uppercase tracking-widest">
-                            {stats.total_xp >= 500000 ? '✅ PRONTO PARA PRESTÍGIO' : `${Math.floor((stats.total_xp / 500000) * 100)}% PARA O PRÓXIMO NÍVEL`}
+                        <div className="flex flex-col md:flex-row items-end gap-2">
+                            {stats.total_xp >= 500000 && (
+                                <motion.button
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.95 }}
+                                    onClick={() => setShowResetModal(true)}
+                                    className="bg-white text-black px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl hover:bg-orange-600 hover:text-white transition-all mb-2 md:mb-0"
+                                >
+                                    🔥 INICIAR RESET
+                                </motion.button>
+                            )}
+                            <div className="bg-orange-600/10 px-3 py-1 rounded-full border border-orange-500/20 text-orange-500 text-[8px] md:text-[10px] font-black uppercase tracking-widest text-right">
+                                {stats.total_xp >= 500000 ? '✅ XP MÁXIMO ATINGIDO' : `${Math.floor((stats.total_xp / 500000) * 100)}% PARA O PRÓXIMO NÍVEL`}
+                            </div>
                         </div>
                     </div>
 
@@ -162,6 +215,12 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain, onResetReq
                                 </div>
                                 {stats.current_title === title.name && (
                                     <div className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse shadow-[0_0_10px_#f97316]"></div>
+                                )}
+                                {(title.name === 'Fundador' && !stats.titles?.includes('Fundador') && stats.total_xp >= 50000) && (
+                                    <div className="absolute -top-1 -right-1 flex h-4 w-4">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                                        <span className="relative inline-flex rounded-full h-4 w-4 bg-yellow-500 border border-yellow-200 shadow-md"></span>
+                                    </div>
                                 )}
                             </motion.button>
                         ))}
@@ -217,45 +276,108 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain, onResetReq
                                     "{selectedTitle.description}"
                                 </p>
 
-                                <div className="bg-black/40 rounded-2xl p-6 border border-stone-800 mb-8 text-left">
-                                    <div className="flex items-center justify-between mb-4">
-                                        <span className="text-[10px] text-stone-500 font-black uppercase">Requisito de Reset</span>
-                                        <span className="text-[10px] text-orange-500 font-black uppercase">500.000 XP</span>
-                                    </div>
-                                    <div className="w-full h-2 bg-stone-800 rounded-full overflow-hidden">
-                                        <motion.div
-                                            initial={{ width: 0 }}
-                                            animate={{ width: `${Math.min((stats.total_xp / 500000) * 100, 100)}%` }}
-                                            className="h-full bg-orange-500 shadow-[0_0_10px_#f97316]"
-                                        />
-                                    </div>
-                                    <div className="mt-2 text-[8px] text-stone-600 font-bold text-center">
-                                        {stats.total_xp.toLocaleString('pt-BR')} / 500.000 XP
-                                    </div>
+                                {/* Lógica de Status do Título */}
+                                {stats.titles?.includes(selectedTitle.name) ? (
+                                    stats.current_title === selectedTitle.name ? (
+                                        <div className="bg-green-500/10 border border-green-500/30 text-green-500 py-3 rounded-xl font-black uppercase tracking-widest text-xs mb-6">
+                                            ✅ Título Equipado
+                                        </div>
+                                    ) : (
+                                        <button
+                                            onClick={() => handleEquipTitle(selectedTitle.name)}
+                                            disabled={equipping}
+                                            className="w-full py-4 bg-orange-600 hover:bg-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-lg active:scale-95 mb-6"
+                                        >
+                                            {equipping ? 'Equipando...' : 'Equipar Título'}
+                                        </button>
+                                    )
+                                ) : (
+                                    /* Se não tem o título, verifica se pode reivindicar (ex: Fundador) */
+                                    (selectedTitle.name === 'Fundador' && stats.total_xp >= 50000) ? (
+                                        <button
+                                            onClick={() => handleEquipTitle(selectedTitle.name)}
+                                            disabled={equipping}
+                                            className="w-full py-4 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 text-white rounded-xl font-black uppercase tracking-widest text-xs transition-all shadow-[0_0_20px_rgba(234,179,8,0.4)] animate-pulse mb-6 flex items-center justify-center gap-2"
+                                        >
+                                            <span>🎁</span> {equipping ? 'Resgatando...' : 'RESGATAR RECOMPENSA EXCLUSIVA'}
+                                        </button>
+                                    ) : (
+                                        <div className="bg-black/40 rounded-2xl p-6 border border-stone-800 mb-8 text-left opacity-50 grayscale">
+                                            <div className="flex items-center justify-between mb-4">
+                                                <span className="text-[10px] text-stone-500 font-black uppercase">Status</span>
+                                                <span className="text-[10px] text-stone-500 font-black uppercase">🔒 Bloqueado</span>
+                                            </div>
+                                            <div className="w-full h-2 bg-stone-800 rounded-full"></div>
+                                            <div className="mt-2 text-[8px] text-stone-600 font-bold text-center">
+                                                {selectedTitle.name === 'Fundador' ? 'Necessário: 50.000 XP (Temporada 1)' : 'Disponível no Sorteio de Reset (500k XP)'}
+                                            </div>
+                                        </div>
+                                    )
+                                )}
+
+                                <button
+                                    onClick={() => setSelectedTitle(null)}
+                                    className="w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all bg-stone-800 text-white hover:bg-stone-700"
+                                >
+                                    Voltar à Galeria
+                                </button>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+
+            {/* Dedicated Reset Modal */}
+            <AnimatePresence>
+                {showResetModal && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/95 backdrop-blur-md"
+                            onClick={() => setShowResetModal(false)}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative w-full max-w-lg bg-stone-900 border-2 border-orange-500/50 rounded-[2.5rem] p-8 md:p-12 shadow-[0_0_100px_rgba(249,115,22,0.2)] overflow-hidden"
+                        >
+                            <div className="relative z-10 text-center">
+                                <span className="inline-block bg-orange-600 text-white text-[10px] font-black uppercase tracking-[0.4em] px-6 py-2 rounded-full mb-8">
+                                    🔥 Rito de Passagem
+                                </span>
+
+                                <h3 className="text-4xl md:text-5xl font-black text-white uppercase italic tracking-tighter mb-6 leading-none">
+                                    ESTÁ <span className="text-orange-500">PRONTO?</span>
+                                </h3>
+
+                                <div className="space-y-6 text-stone-400 text-xs md:text-sm font-bold uppercase tracking-widest leading-relaxed mb-10">
+                                    <p>Ao realizar o reset de prestígio:</p>
+                                    <ul className="space-y-3 text-white">
+                                        <li className="flex items-center gap-3 justify-center"><span className="text-orange-500">✦</span> Seu XP acumulado voltará a ZERO</li>
+                                        <li className="flex items-center gap-3 justify-center"><span className="text-orange-500">✦</span> Você ganhará um <span className="text-orange-500">NOVO TÍTULO ALEATÓRIO</span></li>
+                                        <li className="flex items-center gap-3 justify-center"><span className="text-orange-500">✦</span> Suas moedas e itens <span className="text-green-500 font-black">NÃO SERÃO APAGADOS</span></li>
+                                        <li className="flex items-center gap-3 justify-center"><span className="text-orange-500">✦</span> A chance é IGUAL para todos os títulos</li>
+                                    </ul>
                                 </div>
 
-                                <div className="flex flex-col gap-3">
+                                <div className="flex flex-col gap-4">
                                     <button
                                         onClick={() => {
-                                            if (stats.total_xp >= 500000) {
-                                                onResetRequest?.();
-                                                setSelectedTitle(null);
-                                            }
+                                            onResetRequest?.();
+                                            setShowResetModal(false);
                                         }}
-                                        disabled={stats.total_xp < 500000}
-                                        className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all ${stats.total_xp >= 500000
-                                                ? 'bg-white text-black hover:bg-orange-600 hover:text-white shadow-xl'
-                                                : 'bg-stone-800 text-stone-600 cursor-not-allowed border border-stone-700'
-                                            }`}
+                                        className="w-full py-5 bg-white text-black hover:bg-orange-600 hover:text-white rounded-2xl font-black uppercase tracking-[0.3em] text-xs transition-all shadow-2xl active:scale-95"
                                     >
-                                        {stats.total_xp >= 500000 ? 'REALIZAR RESET DE PRESTÍGIO' : 'BLOQUEADO: FALTA EXPERIÊNCIA'}
+                                        CONFIRMAR RESET ALEATÓRIO 🎲
                                     </button>
-
                                     <button
-                                        onClick={() => setSelectedTitle(null)}
-                                        className="w-full py-3 text-stone-500 font-black uppercase tracking-widest text-[9px] hover:text-white transition-colors"
+                                        onClick={() => setShowResetModal(false)}
+                                        className="w-full py-3 text-stone-600 font-black uppercase tracking-widest text-[10px] hover:text-white transition-colors"
                                     >
-                                        Fechar Galeria
+                                        Cancelar e Manter meu XP
                                     </button>
                                 </div>
                             </div>

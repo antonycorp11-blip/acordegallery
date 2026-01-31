@@ -1,7 +1,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { STORE_ITEMS, GAMES } from '../constants';
+import { STORE_ITEMS, GAMES, TITLES } from '../constants';
+
 
 interface PlayerRank {
     id: string;
@@ -24,6 +25,8 @@ const RankingGeralPage: React.FC = () => {
     const [loadingDetails, setLoadingDetails] = useState(false);
 
     const GAMES_LIST = GAMES; // Alias for constants
+    const TITLES_LIST = TITLES;
+
 
     const fetchRankings = async () => {
         try {
@@ -210,7 +213,7 @@ const RankingGeralPage: React.FC = () => {
                         const fontItem = STORE_ITEMS.find(i => i.id === equipped.font);
                         const iconItem = STORE_ITEMS.find(i => i.id === equipped.icon);
                         const cardBaseClass = cardItem && !cardItem.preview.startsWith('/') ? `${cardItem.preview} card-bg-optimized` : 'card-bg-optimized';
-                        const cardStyle = cardItem?.preview.startsWith('/') ? {
+                        const cardStyle = cardItem && cardItem.preview && cardItem.preview.startsWith('/') ? {
                             backgroundImage: `url(${cardItem.preview})`,
                             backgroundSize: cardItem.rarity === 'exclusivo' ? '50% !important' : 'cover !important',
                             backgroundPosition: 'center',
@@ -245,38 +248,72 @@ const RankingGeralPage: React.FC = () => {
 
                                 <div className="flex items-center gap-2 md:gap-4 grow min-w-0 z-10">
                                     <div className="w-8 h-8 md:w-16 md:h-16 rounded-lg md:rounded-2xl bg-stone-800 flex items-center justify-center text-white text-base md:text-2xl font-black shrink-0 border border-stone-700 shadow-inner overflow-hidden">
-                                        {iconItem ? (
-                                            iconItem.preview.startsWith('/') ? (
-                                                <img src={iconItem.preview} alt={iconItem.name} className="w-full h-full object-cover" />
-                                            ) : (
-                                                <span className="text-lg md:text-4xl">{iconItem.preview}</span>
-                                            )
+                                        {iconItem && iconItem.preview && iconItem.preview.startsWith('/') ? (
+                                            <img src={iconItem.preview} alt={iconItem.name} className="w-full h-full object-cover" />
+                                        ) : iconItem ? (
+                                            <span className="text-lg md:text-4xl">{iconItem.preview}</span>
                                         ) : (
                                             <img src="/gallery_icon.png" alt="Icon" className="w-full h-full object-contain p-1 brightness-110" />
                                         )}
                                     </div>
                                     <div className="min-w-0 transition-all duration-500">
-                                        <h3 className={`text-sm md:text-2xl font-black uppercase italic truncate leading-none mb-0.5 md:mb-1 tracking-tighter transition-all ${fontActive}`}>
+                                        <h3 className={`text-sm md:text-2xl font-black uppercase italic truncate leading-none mb-1 md:mb-2 tracking-tighter transition-all ${fontActive}`}>
                                             {player.name}
                                         </h3>
-                                        <div className="flex items-center gap-2">
-                                            <span className="hidden md:inline text-[8px] md:text-[10px] text-stone-300 font-black uppercase tracking-[0.2em] bg-black/20 px-2 py-0.5 rounded">
-                                                {cardItem || borderItem || fontItem || iconItem ? '🌟 JOGADOR ELITE' : '🔰 JOGADOR RECRUTA'}
-                                            </span>
-                                            {player.current_title && (
-                                                <span className="text-[7px] md:text-[11px] text-orange-400 font-black italic uppercase tracking-tighter drop-shadow-sm">
-                                                    📜 {player.current_title}
-                                                </span>
-                                            )}
+
+                                        {(() => {
+                                            // Find full title object to get styling
+                                            const titleObj = player.current_title ? TITLES_LIST.find(t => t.name === player.current_title) : null;
+
+                                            // Mobile Title (Replaces XP Label)
+                                            const renderMobileTitle = () => (
+                                                <div className="md:hidden mt-1">
+                                                    {titleObj ? (
+                                                        <span className={`text-[10px] uppercase italic font-black tracking-tighter block leading-none ${titleObj.style}`}>
+                                                            {player.current_title}
+                                                        </span>
+                                                    ) : (
+                                                        /* Se não tiver título, não mostra nada ou mantém o badge de recruta se preferir, 
+                                                           mas o usuário pediu pra remover "XP TOTAL", então vamos deixar limpo ou só o badge */
+                                                        <span className="text-[8px] text-stone-600 font-bold uppercase tracking-widest">
+                                                            Sem Título
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+
+                                            // Desktop Title (Below Name, Big & Styled)
+                                            const renderDesktopTitle = () => (
+                                                <div className="hidden md:flex flex-col">
+                                                    {titleObj ? (
+                                                        <span className={`text-lg uppercase italic font-black tracking-tighter ${titleObj.style} drop-shadow-md`}>
+                                                            {player.current_title}
+                                                        </span>
+                                                    ) : (
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-[10px] text-stone-300 font-black uppercase tracking-[0.2em] bg-black/20 px-2 py-0.5 rounded">
+                                                                {cardItem || borderItem || fontItem || iconItem ? '🌟 JOGADOR ELITE' : '🔰 JOGADOR RECRUTA'}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+
+                                            return (
+                                                <>
+                                                    {renderMobileTitle()}
+                                                    {renderDesktopTitle()}
+                                                </>
+                                            );
+                                        })()}
+
+                                        <div className="hidden md:flex items-center gap-2 mt-1">
                                             {player.reset_count > 0 && (
-                                                <span className="text-[7px] text-red-500 font-black flex items-center gap-0.5">
-                                                    🔥 x{player.reset_count}
+                                                <span className="text-[9px] text-red-500 font-black flex items-center gap-1 bg-red-900/10 px-2 py-0.5 rounded border border-red-900/20">
+                                                    🔥 <span className="tracking-widest">PRESTÍGIO {player.reset_count}</span>
                                                 </span>
                                             )}
-                                            <span className="md:hidden text-[7px] text-stone-400 font-black uppercase tracking-wider">
-                                                XP TOTAL
-                                            </span>
-                                            {(borderItem || iconItem) && <div className="hidden md:block w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping"></div>}
+                                            {(borderItem || iconItem) && <div className="w-1.5 h-1.5 rounded-full bg-orange-500 animate-ping ml-1"></div>}
                                         </div>
                                     </div>
                                 </div>
@@ -309,7 +346,7 @@ const RankingGeralPage: React.FC = () => {
                             return (
                                 <div
                                     className={`p-6 md:p-12 relative card-bg-optimized ${cardItem && !cardItem.preview.startsWith('/') ? cardItem.preview : ''} border-b border-stone-800/50`}
-                                    style={cardItem?.preview.startsWith('/') ? {
+                                    style={cardItem && cardItem.preview && cardItem.preview.startsWith('/') ? {
                                         backgroundImage: `url(${cardItem.preview})`,
                                         backgroundSize: cardItem.rarity === 'exclusivo' ? '50% !important' : 'cover !important',
                                         backgroundPosition: 'center',
@@ -324,12 +361,10 @@ const RankingGeralPage: React.FC = () => {
 
                                     <div className="relative z-10 flex flex-col items-center text-center">
                                         <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl bg-stone-800 border-2 border-stone-700 overflow-hidden mb-4 shadow-2xl">
-                                            {iconItem ? (
-                                                iconItem.preview.startsWith('/') ? (
-                                                    <img src={iconItem.preview} alt="Icon" className="w-full h-full object-cover" />
-                                                ) : (
-                                                    <span className="text-4xl md:text-6xl flex items-center justify-center h-full">{iconItem.preview}</span>
-                                                )
+                                            {iconItem && iconItem.preview && iconItem.preview.startsWith('/') ? (
+                                                <img src={iconItem.preview} alt="Icon" className="w-full h-full object-cover" />
+                                            ) : iconItem ? (
+                                                <span className="text-4xl md:text-6xl flex items-center justify-center h-full">{iconItem.preview}</span>
                                             ) : (
                                                 <img src="/gallery_icon.png" alt="Icon" className="w-full h-full object-contain p-2" />
                                             )}
@@ -359,10 +394,10 @@ const RankingGeralPage: React.FC = () => {
                                         xpBreakdown.map(game => (
                                             <div key={game.id} className="bg-stone-800/40 border border-stone-800 p-4 rounded-2xl flex items-center gap-4 group hover:border-orange-500/50 transition-all">
                                                 <div className="w-12 h-12 md:w-14 md:h-14 rounded-xl bg-black/40 flex items-center justify-center shrink-0 border border-stone-700 overflow-hidden">
-                                                    {(game.icon.startsWith('/') || game.icon.startsWith('http')) ? (
+                                                    {(game.icon && (game.icon.startsWith('/') || game.icon.startsWith('http'))) ? (
                                                         <img src={game.icon} alt={game.title} className="w-full h-full object-cover" />
                                                     ) : (
-                                                        <span className="text-xl md:text-2xl">{game.icon}</span>
+                                                        <span className="text-xl md:text-2xl">{game.icon || '🎮'}</span>
                                                     )}
                                                 </div>
                                                 <div className="grow min-w-0">

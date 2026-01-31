@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { GAMES, STORE_ITEMS } from './constants';
+import { GAMES, STORE_ITEMS, TITLES, Title } from './constants';
+import { motion, AnimatePresence } from 'framer-motion';
 import GameCard from './components/GameCard';
 import PinEntry from './components/PinEntry';
 import IntegrationGuide from './components/IntegrationGuide';
@@ -12,7 +13,6 @@ import RankingGeralPage from './components/RankingGeralPage';
 import AdminPanel from './components/AdminPanel';
 import { supabase } from './lib/supabase';
 import confetti from 'canvas-confetti';
-import { TITLES } from './constants';
 
 type View = 'gallery' | 'ranking' | 'store' | 'inventory' | 'admin';
 type AuthMode = 'login' | 'register';
@@ -30,6 +30,7 @@ const App: React.FC = () => {
   const [generatedPin, setGeneratedPin] = useState<string | null>(null);
   const [playerData, setPlayerData] = useState<any>(null);
   const [xpGain, setXpGain] = useState<number>(0);
+  const [newTitleWon, setNewTitleWon] = useState<Title | null>(null);
   const [currentView, setCurrentView] = useState<View>('gallery');
 
   // Game of Week & Economy State
@@ -66,15 +67,25 @@ const App: React.FC = () => {
     };
   }, []);
 
-  const fetchStudentData = async (forcePin?: string) => {
-    const activePin = forcePin || pin;
+  /* Helper para Confetti */
+  const triggerConfetti = () => {
+    confetti({
+      particleCount: 150,
+      spread: 70,
+      origin: { y: 0.6 },
+      colors: ['#f97316', '#ffffff', '#fbbf24']
+    });
+  };
+
+  const fetchStudentData = async (inputPin?: string, resetView: boolean = false) => {
+    const activePin = inputPin || pin;
     if (activePin.length < 4) {
       setStudentName(null);
       setPlayerData(null);
       return;
     }
 
-    if (!forcePin) setIsLoading(true);
+    if (!inputPin) setIsLoading(true);
     try {
       const { data: player, error } = await supabase
         .from('players')
@@ -83,7 +94,7 @@ const App: React.FC = () => {
         .maybeSingle();
 
       if (player) {
-        setStudentName(player.name);
+        setPin(activePin);
 
         const { data: scores } = await supabase
           .from('game_scores')
@@ -117,13 +128,39 @@ const App: React.FC = () => {
           setTimeout(() => setXpGain(0), 5000);
         }
 
+
+        // --- AUTO UNLOCK: TÍTULO FUNDADOR (50k+ XP) ---
+        let updatedTitles = player.titles || [];
+        const founderTitle = 'Fundador';
+        const totalXpAllTime = player.total_xp || 0; // Use total lifetime XP if available, strictly >= 50k
+
+        // Se tiver mais de 50k e ainda não tiver o título, desbloqueia automaticamente
+        if (totalXpAllTime >= 50000 && !updatedTitles.includes(founderTitle)) {
+          updatedTitles = [...updatedTitles, founderTitle];
+
+          // Atualiza no banco silenciosamente
+          await supabase
+            .from('players')
+            .update({ titles: updatedTitles })
+            .eq('id', player.id);
+
+          // Opcional: Notificar visualmente? Por enquanto só adiciona.
+        }
+
         setPlayerData({
           ...player,
+          titles: updatedTitles,
           most_played_game: mostPlayed,
           days_active: diffDays || 1
         });
 
+        setStudentName(player.name);
         // Salvar PIN para persistência
+        if (resetView) {
+          setCurrentView('gallery');
+          setNewName('');
+        }
+
         localStorage.setItem('acorde_gallery_pin', activePin);
       }
     } catch (err) {
@@ -132,6 +169,13 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   };
+
+  // Autenticação Automática ao Digitar PIN
+  useEffect(() => {
+    if (pin && pin.length >= 4) {
+      fetchStudentData(pin);
+    }
+  }, [pin]);
 
   const handleLogout = () => {
     localStorage.removeItem('acorde_gallery_pin');
@@ -230,14 +274,14 @@ const App: React.FC = () => {
 
   const handleResetPrestigio = async () => {
     if (!playerData) return;
+    // Verificação de segurança apenas (o botão já deve ser protegido na UI)
     if (playerData.accumulated_xp < 500000) {
-      alert("Você precisa de no mínimo 500.000 XP para resetar e ganhar um Título!");
+      alert("Você precisa de no mínimo 500.000 XP para participar do Rito de Passagem!");
       return;
     }
 
-    const confirmReset = confirm("Deseja realizar o Reset de Prestígio? Seu XP voltará a zero, mas você ganhará um Título Lendário no Ranking!");
-    if (!confirmReset) return;
-
+    // Não usamos mais 'confirm' nativo, a UI já tratou isso no Modal
+    // O loading deve ser setado antes
     setIsLoading(true);
     try {
       // Selecionar Título Aleatório que o jogador ainda não tenha (se possível)
@@ -250,6 +294,10 @@ const App: React.FC = () => {
       const updatedTitles = [...(playerData.titles || []), newTitle];
 
       // 1. Zera o XP nas tabelas de scores (para sumir do ranking mas manter moedas no player)
+      /* 
+         NOTA IMPORTANTE: O reset NÃO APAGA O HISTÓRICO TOTAL DE PARTIDAS, apenas ZERA O XP DO RANKING ATUAL.
+         Isso permite que o jogador suba de nível novamente.
+      */
       await supabase.from('game_scores').delete().eq('player_id', playerData.id);
       await supabase.from('scores').delete().eq('player_id', playerData.id);
       await supabase.from('repita_leaderboard').delete().eq('pin', pin);
@@ -264,23 +312,22 @@ const App: React.FC = () => {
           total_xp: 0,
           last_viewed_xp: 0,
           reset_count: (playerData.reset_count || 0) + 1,
-          current_title: newTitle,
-          titles: updatedTitles
+          current_title: newTitle, // Define automaticamente o novo título como ativo
+          titles: updatedTitles // Salva o array atualizado de títulos desbloqueados
         })
         .eq('id', playerData.id);
 
       if (error) throw error;
 
       // Animação de Sucesso!
-      confetti({
-        particleCount: 150,
-        spread: 70,
-        origin: { y: 0.6 },
-        colors: ['#f97316', '#ffffff', '#fbbf24']
-      });
-
-      alert(`🎇 PRESTÍGIO ALCANÇADO! Você agora é: ${newTitle}`);
-      fetchStudentData(pin);
+      if (!error) {
+        // Trigger Special Modal instead of Alert
+        setNewTitleWon(chosenTitle);
+        triggerConfetti();
+        fetchStudentData(pin, true); // Recarrega dados forçando reset de view
+      } else {
+        alert("Erro ao realizar reset. Tente novamente.");
+      }
     } catch (err: any) {
       alert("Erro ao resetar: " + err.message);
     } finally {
@@ -543,6 +590,90 @@ const App: React.FC = () => {
           </div>
         </footer>
       </div>
+
+      {/* Modal de Novo Título (Prestige Unlock) */}
+      <AnimatePresence>
+        {newTitleWon && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/95 backdrop-blur-xl"
+              onClick={() => setNewTitleWon(null)}
+            />
+            <motion.div
+              initial={{ scale: 0.5, opacity: 0, rotate: -10 }}
+              animate={{ scale: 1, opacity: 1, rotate: 0 }}
+              transition={{ type: "spring", stiffness: 200, damping: 15 }}
+              className="relative w-full max-w-2xl bg-gradient-to-br from-stone-900 via-black to-stone-900 border-4 border-orange-500 rounded-[3rem] p-12 text-center shadow-[0_0_150px_rgba(249,115,22,0.6)] overflow-hidden"
+            >
+              {/* Background FX */}
+              <div className="absolute inset-0 overflow-hidden">
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200%] h-[200%] bg-[conic-gradient(from_0deg,transparent_0deg,rgba(249,115,22,0.1)_180deg,transparent_360deg)] animate-[spin_4s_linear_infinite]"></div>
+                <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-orange-500/20 to-transparent"></div>
+              </div>
+
+              <div className="relative z-10 flex flex-col items-center">
+                <motion.div
+                  initial={{ y: -50, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                >
+                  <span className="inline-block bg-orange-600 text-white text-xs md:text-sm font-black uppercase tracking-[0.5em] px-6 py-2 rounded-full mb-8 shadow-lg shadow-orange-600/50">
+                    Ascensão Divina
+                  </span>
+                </motion.div>
+
+                <motion.h2
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ delay: 0.4, type: "spring" }}
+                  className="text-white text-3xl md:text-4xl font-black uppercase italic tracking-tighter mb-4"
+                >
+                  Você Conquistou o Título
+                </motion.h2>
+
+                <motion.div
+                  initial={{ scale: 0.5, opacity: 0, y: 20 }}
+                  animate={{ scale: 1.1, opacity: 1, y: 0 }}
+                  transition={{ delay: 0.6, type: "spring", stiffness: 300, damping: 10 }}
+                  className="mb-8 relative"
+                >
+                  <div className={`text-5xl md:text-7xl font-black uppercase italic tracking-tighter text-center leading-none ${newTitleWon.style} drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]`}>
+                    {newTitleWon.name}
+                  </div>
+                </motion.div>
+
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.8 }}
+                  className="text-stone-400 text-sm md:text-xl font-bold uppercase tracking-widest max-w-lg mb-12"
+                >
+                  "{newTitleWon.description}"
+                </motion.p>
+
+                <motion.button
+                  initial={{ y: 50, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ delay: 1 }}
+                  onClick={() => {
+                    setNewTitleWon(null);
+                    // Force extra confetti
+                    triggerConfetti();
+                  }}
+                  className="bg-white text-black text-sm md:text-lg font-black uppercase tracking-[0.3em] px-12 py-5 rounded-2xl shadow-[0_0_40px_rgba(255,255,255,0.4)] hover:shadow-[0_0_60px_rgba(255,255,255,0.6)] transition-all"
+                >
+                  Reivindicar Glória
+                </motion.button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

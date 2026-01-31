@@ -187,7 +187,7 @@ body {
   border-width: 6px !important;
   border-color: #ffffff;
   box-shadow: 0 0 40px rgba(255, 255, 255, 0.6), inset 0 0 20px rgba(255, 255, 255, 0.4);
-  backdrop-filter: brightness(1.5) contrast(1.2) b;
+  backdrop-filter: brightness(1.5) contrast(1.2) blur(10px);
   animation: breath 2s ease-in-out infinite;
 }
 

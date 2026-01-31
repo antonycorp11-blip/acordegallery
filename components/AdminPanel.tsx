@@ -234,27 +234,36 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
             return;
         }
 
-        // 2. Deletar Scores de todos menos Admin
-        const { error: scoreError } = await supabase
-            .from('game_scores')
-            .delete()
-            .neq('player_id', adminId);
+        try {
+            // 2. Deletar tudo de todos menos Admin
+            const uuidTables = ['game_scores', 'scores', 'player_cards', 'player_missions'];
+            for (const table of uuidTables) {
+                const { error } = await supabase.from(table).delete().neq('player_id', adminId);
+                if (error) log(`Aviso em ${table}: ${error.message}`);
+                else log(`✓ Limpeza em ${table} concluída.`);
+            }
 
-        if (scoreError) log("Erro ao limpar scores: " + scoreError.message);
-        else log("Scores de alunos deletados.");
+            // Limpar tabelas globais (pin)
+            await supabase.from('repita_leaderboard').delete().neq('pin', '8238');
+            await supabase.from('ritmo_pro_ranking').delete().neq('pin', '8238');
 
-        // 3. Deletar Jogadores menos Admin
-        const { error: playerError, count } = await supabase
-            .from('players')
-            .delete({ count: 'exact' })
-            .neq('id', adminId);
+            log("Dados secundários limpos. Removendo contas...");
 
-        if (playerError) log("Erro ao deletar alunos: " + playerError.message);
-        else log(`EXPURGO CONCLUÍDO. ${count} ALUNOS REMOVIDOS.`);
+            // 3. Deletar Jogadores menos Admin
+            const { error: playerError, count } = await supabase
+                .from('players')
+                .delete({ count: 'exact' })
+                .neq('id', adminId);
 
-        setLoading(false);
-        fetchPlayers();
-        onUpdate();
+            if (playerError) throw playerError;
+            log(`EXPURGO CONCLUÍDO. ${count} ALUNOS REMOVIDOS.`);
+        } catch (err: any) {
+            log("ERRO NO EXPURGO: " + err.message);
+        } finally {
+            setLoading(false);
+            fetchPlayers();
+            onUpdate();
+        }
     };
 
     const handleDeletePlayer = async (playerId: string, playerName: string) => {
@@ -264,19 +273,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
         if (!confirm(`Deseja EXCLUIR PERMANENTEMENTE o jogador ${playerName}? Isso apagará todo o progresso e itens dele.`)) return;
 
         setLoading(true);
+        log(`INICIANDO EXCLUSÃO DE ${playerName}...`);
         try {
             // 1. Limpar scores e registros vinculados por UUID
-            await supabase.from('game_scores').delete().eq('player_id', playerId);
-            await supabase.from('scores').delete().eq('player_id', playerId);
-            await supabase.from('missions').delete().eq('player_id', playerId);
+            const uuidTables = ['game_scores', 'scores', 'player_cards', 'player_missions'];
+            for (const table of uuidTables) {
+                const { error } = await supabase.from(table).delete().eq('player_id', playerId);
+                if (error) log(`Aviso em ${table}: ${error.message}`);
+                else log(`✓ Limpeza em ${table} concluída.`);
+            }
 
             // 2. Limpar registros vinculados por PIN (se houver)
             if (player.recovery_pin) {
-                await supabase.from('repita_leaderboard').delete().eq('pin', player.recovery_pin);
-                await supabase.from('ritmo_pro_ranking').delete().eq('pin', player.recovery_pin);
+                const pinTables = ['repita_leaderboard', 'ritmo_pro_ranking'];
+                for (const table of pinTables) {
+                    const { error } = await supabase.from(table).delete().eq('pin', player.recovery_pin);
+                    if (error) log(`Aviso em ${table}: ${error.message}`);
+                    else log(`✓ Limpeza em ${table} (PIN) concluída.`);
+                }
             }
 
             // 3. Deletar player efetivamente
+            log("Finalizando: Deletando registro mestre...");
             const { error } = await supabase.from('players').delete().eq('id', playerId);
 
             if (error) throw error;
@@ -399,7 +417,10 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
                                 <div className="flex items-center gap-1 bg-black/40 px-2 py-1 rounded border border-orange-500/20">
                                     <span className="text-blue-400 font-bold">{p.accumulated_xp || 0} XP</span>
                                     <button onClick={() => handleGiveXP(p.id, 1000)} className="px-2 py-0.5 bg-blue-900/40 text-blue-400 text-[10px] rounded hover:bg-blue-700 hover:text-white transition-all">
-                                        +1k XP
+                                        +1k
+                                    </button>
+                                    <button onClick={() => handleGiveXPManual(p.id)} className="px-2 py-0.5 bg-stone-700 text-white text-[10px] rounded hover:bg-orange-600 transition-all font-black">
+                                        EDIT XP ✍️
                                     </button>
                                 </div>
 
