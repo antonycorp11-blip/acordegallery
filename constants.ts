@@ -33,6 +33,14 @@ export const GAMES: Game[] = [
     url: 'https://acordemaker.vercel.app/',
     thumbnail: '/acorde_maker_icon.png',
     category: 'Violão'
+  },
+  {
+    id: 'chord-master',
+    title: 'Chord Master',
+    description: 'Domine a formação de acordes no teclado com este desafio musical premium.',
+    url: 'https://chordmaster.vercel.app/',
+    thumbnail: '/chordmaster_gallery_art.png',
+    category: 'Teclado'
   }
 ];
 
