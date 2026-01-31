@@ -52,7 +52,7 @@ const AnimatedCounter: React.FC<{ value: number }> = ({ value }) => {
     return <span>{displayValue.toLocaleString('pt-BR')}</span>;
 };
 
-const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain }) => {
+const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain, onResetRequest }) => {
     const formatNumber = (num: number) => num.toLocaleString('pt-BR');
 
     const headerBg = stats.cardPreview ? `${stats.cardPreview} bg-center bg-no-repeat` : 'bg-gradient-to-br from-orange-600/20 to-transparent';
