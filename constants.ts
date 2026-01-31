@@ -45,17 +45,25 @@ export const GAMES: Game[] = [
   }
 ];
 
-export const TITLES = [
-  "Recruta do Ritmo",
-  "Aprendiz de Acordes",
-  "Explorador Sonoro",
-  "Guerreiro da Harmonia",
-  "Cavaleiro do Teclado",
-  "Mestre da Melodia",
-  "Lenda das Oitavas",
-  "Virtuoso de Elite",
-  "Maestro do Multiverso",
-  "Deus do Som"
+export interface Title {
+  id: string;
+  name: string;
+  description: string;
+  style: string;
+  rarity: 'comum' | 'raro' | 'épico' | 'lendário';
+}
+
+export const TITLES: Title[] = [
+  { id: 'ritmo-recruta', name: 'Recruta do Ritmo', description: 'O primeiro passo na jornada musical.', style: 'text-stone-400', rarity: 'comum' },
+  { id: 'acorde-aprendiz', name: 'Aprendiz de Acordes', description: 'Dominando as primeiras formações.', style: 'text-green-400 font-bold', rarity: 'comum' },
+  { id: 'explorador-sonoro', name: 'Explorador Sonoro', description: 'Descobrindo novas texturas e timbres.', style: 'text-blue-400 font-bold italic', rarity: 'raro' },
+  { id: 'harmonia-guerreiro', name: 'Guerreiro da Harmonia', description: 'Lutando pela perfeição tonal.', style: 'text-orange-500 font-black uppercase', rarity: 'raro' },
+  { id: 'teclado-cavaleiro', name: 'Cavaleiro do Teclado', description: 'Defensor rítmico das oitavas.', style: 'text-purple-500 font-black italic tracking-widest', rarity: 'épico' },
+  { id: 'melodia-mestre', name: 'Mestre da Melodia', description: 'Sua música flui como um rio cristalino.', style: 'font-epic-glitch text-white', rarity: 'épico' },
+  { id: 'oitavas-lenda', name: 'Lenda das Oitavas', description: 'Seu alcance é infinito.', style: 'font-rare-gold', rarity: 'lendário' },
+  { id: 'elite-virtuoso', name: 'Virtuoso de Elite', description: 'Técnica impecável, alma vibrante.', style: 'font-legendary-rainbow', rarity: 'lendário' },
+  { id: 'multiverso-maestro', name: 'Maestro do Multiverso', description: 'Rege as estrelas com um acorde.', style: 'font-legendary-cursive', rarity: 'lendário' },
+  { id: 'som-deus', name: 'Deus do Som', description: 'O próprio universo vibra ao seu comando.', style: 'font-legendary-typewriter text-orange-500', rarity: 'lendário' }
 ];
 
 export type ItemRarity = 'comum' | 'raro' | 'épico' | 'lendário' | 'exclusivo';

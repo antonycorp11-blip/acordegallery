@@ -1,7 +1,5 @@
-
-import React from 'react';
-import { supabase } from '../lib/supabase';
-import { STORE_ITEMS } from '../constants';
+import { STORE_ITEMS, TITLES, Title } from '../constants';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface PlayerProfileProps {
     stats: {
@@ -53,6 +51,7 @@ const AnimatedCounter: React.FC<{ value: number }> = ({ value }) => {
 };
 
 const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain, onResetRequest }) => {
+    const [selectedTitle, setSelectedTitle] = React.useState<Title | null>(null);
     const formatNumber = (num: number) => num.toLocaleString('pt-BR');
 
     const headerBg = stats.cardPreview ? `${stats.cardPreview} bg-center bg-no-repeat` : 'bg-gradient-to-br from-orange-600/20 to-transparent';
@@ -131,24 +130,43 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain, onResetReq
                     <StatBox label="Recorde Máximo" value={formatNumber(stats.high_score)} icon="🏆" />
                 </div>
 
-                {/* Reset System Trigger */}
-                {stats.total_xp >= 100000 && (
-                    <div className="p-4 bg-orange-600/10 border-t border-orange-500/20 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <span className="text-xl">🔥</span>
-                            <div>
-                                <h4 className="text-[10px] font-black text-orange-500 uppercase tracking-widest">Reset de Prestígio Disponível</h4>
-                                <p className="text-[8px] text-stone-500 uppercase font-bold">Zera seu XP para ganhar um Título Lendário no Ranking</p>
-                            </div>
+                {/* Prestige Titles Showcase */}
+                <div className="p-4 md:p-8 bg-black/40 border-t border-stone-800/50">
+                    <div className="flex items-center justify-between mb-6">
+                        <div>
+                            <h3 className="text-sm md:text-xl font-black text-white uppercase italic tracking-tighter">Coleção de Títulos</h3>
+                            <p className="text-[7px] md:text-[9px] text-stone-500 font-bold uppercase tracking-[0.2em]">Conquiste 500k XP para resetar e evoluir</p>
                         </div>
-                        <button
-                            onClick={onResetRequest}
-                            className="bg-orange-600 hover:bg-orange-500 text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-tighter transition-all active:scale-95"
-                        >
-                            Realizar Reset
-                        </button>
+                        <div className="bg-orange-600/10 px-3 py-1 rounded-full border border-orange-500/20 text-orange-500 text-[8px] md:text-[10px] font-black uppercase tracking-widest">
+                            {stats.total_xp >= 500000 ? '✅ PRONTO PARA PRESTÍGIO' : `${Math.floor((stats.total_xp / 500000) * 100)}% PARA O PRÓXIMO NÍVEL`}
+                        </div>
                     </div>
-                )}
+
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 md:gap-4">
+                        {TITLES.map((title) => (
+                            <motion.button
+                                key={title.id}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => setSelectedTitle(title)}
+                                className={`relative group p-3 md:p-4 rounded-xl md:rounded-2xl border transition-all duration-300 flex flex-col items-center justify-center text-center gap-1 md:gap-2 ${stats.current_title === title.name
+                                    ? 'bg-orange-600/20 border-orange-500 shadow-[0_0_20px_rgba(249,115,22,0.3)]'
+                                    : 'bg-stone-950 border-stone-800 hover:border-stone-600'
+                                    }`}
+                            >
+                                <div className={`text-[9px] md:text-xs font-black uppercase tracking-tighter leading-tight ${title.style}`}>
+                                    {title.name}
+                                </div>
+                                <div className="text-[6px] md:text-[7px] text-stone-600 font-bold uppercase tracking-widest">
+                                    {title.rarity}
+                                </div>
+                                {stats.current_title === title.name && (
+                                    <div className="absolute top-1 right-1 w-2 h-2 bg-orange-500 rounded-full animate-pulse shadow-[0_0_10px_#f97316]"></div>
+                                )}
+                            </motion.button>
+                        ))}
+                    </div>
+                </div>
 
                 {/* Estatísticas Secundárias */}
                 <div className="p-4 md:p-6 bg-black/20 flex flex-wrap justify-center gap-4 md:gap-8 text-[9px] md:text-[10px] font-black uppercase tracking-widest text-stone-600">
@@ -166,6 +184,85 @@ const PlayerProfile: React.FC<PlayerProfileProps> = ({ stats, xpGain, onResetReq
                     </div>
                 </div>
             </div>
+
+            {/* Title Details Modal */}
+            <AnimatePresence>
+                {selectedTitle && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="absolute inset-0 bg-black/90 backdrop-blur-sm"
+                            onClick={() => setSelectedTitle(null)}
+                        />
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                            className="relative w-full max-w-lg bg-stone-900 border border-stone-800 rounded-[2rem] p-8 md:p-12 shadow-2xl overflow-hidden"
+                        >
+                            <div className="absolute top-0 right-0 w-64 h-64 bg-orange-600/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
+
+                            <div className="relative z-10 text-center">
+                                <span className="inline-block bg-orange-600 text-white text-[9px] font-black uppercase tracking-[0.3em] px-4 py-1.5 rounded-full mb-6">
+                                    Título de Prestígio
+                                </span>
+
+                                <h3 className={`text-3xl md:text-5xl font-black uppercase italic tracking-tighter mb-4 leading-none ${selectedTitle.style}`}>
+                                    {selectedTitle.name}
+                                </h3>
+
+                                <p className="text-stone-400 text-xs md:text-lg mb-8 font-bold uppercase tracking-widest leading-relaxed">
+                                    "{selectedTitle.description}"
+                                </p>
+
+                                <div className="bg-black/40 rounded-2xl p-6 border border-stone-800 mb-8 text-left">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <span className="text-[10px] text-stone-500 font-black uppercase">Requisito de Reset</span>
+                                        <span className="text-[10px] text-orange-500 font-black uppercase">500.000 XP</span>
+                                    </div>
+                                    <div className="w-full h-2 bg-stone-800 rounded-full overflow-hidden">
+                                        <motion.div
+                                            initial={{ width: 0 }}
+                                            animate={{ width: `${Math.min((stats.total_xp / 500000) * 100, 100)}%` }}
+                                            className="h-full bg-orange-500 shadow-[0_0_10px_#f97316]"
+                                        />
+                                    </div>
+                                    <div className="mt-2 text-[8px] text-stone-600 font-bold text-center">
+                                        {stats.total_xp.toLocaleString('pt-BR')} / 500.000 XP
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-3">
+                                    <button
+                                        onClick={() => {
+                                            if (stats.total_xp >= 500000) {
+                                                onResetRequest?.();
+                                                setSelectedTitle(null);
+                                            }
+                                        }}
+                                        disabled={stats.total_xp < 500000}
+                                        className={`w-full py-4 rounded-xl font-black uppercase tracking-widest text-xs transition-all ${stats.total_xp >= 500000
+                                                ? 'bg-white text-black hover:bg-orange-600 hover:text-white shadow-xl'
+                                                : 'bg-stone-800 text-stone-600 cursor-not-allowed border border-stone-700'
+                                            }`}
+                                    >
+                                        {stats.total_xp >= 500000 ? 'REALIZAR RESET DE PRESTÍGIO' : 'BLOQUEADO: FALTA EXPERIÊNCIA'}
+                                    </button>
+
+                                    <button
+                                        onClick={() => setSelectedTitle(null)}
+                                        className="w-full py-3 text-stone-500 font-black uppercase tracking-widest text-[9px] hover:text-white transition-colors"
+                                    >
+                                        Fechar Galeria
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

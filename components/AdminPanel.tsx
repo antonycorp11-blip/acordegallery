@@ -258,15 +258,25 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
     };
 
     const handleDeletePlayer = async (playerId: string, playerName: string) => {
+        const player = players.find(p => p.id === playerId);
+        if (!player) return;
+
         if (!confirm(`Deseja EXCLUIR PERMANENTEMENTE o jogador ${playerName}? Isso apagará todo o progresso e itens dele.`)) return;
 
         setLoading(true);
         try {
-            // 1. Limpar scores
+            // 1. Limpar scores e registros vinculados por UUID
             await supabase.from('game_scores').delete().eq('player_id', playerId);
             await supabase.from('scores').delete().eq('player_id', playerId);
+            await supabase.from('missions').delete().eq('player_id', playerId);
 
-            // 2. Deletar player
+            // 2. Limpar registros vinculados por PIN (se houver)
+            if (player.recovery_pin) {
+                await supabase.from('repita_leaderboard').delete().eq('pin', player.recovery_pin);
+                await supabase.from('ritmo_pro_ranking').delete().eq('pin', player.recovery_pin);
+            }
+
+            // 3. Deletar player efetivamente
             const { error } = await supabase.from('players').delete().eq('id', playerId);
 
             if (error) throw error;
@@ -276,6 +286,7 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ adminPlayer, onUpdate }) => {
             onUpdate();
         } catch (err: any) {
             log(`ERRO AO DELETAR JOGADOR: ${err.message}`);
+            console.error(err);
         } finally {
             setLoading(false);
         }

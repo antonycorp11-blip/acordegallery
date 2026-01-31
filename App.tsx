@@ -241,11 +241,12 @@ const App: React.FC = () => {
     setIsLoading(true);
     try {
       // Selecionar Título Aleatório que o jogador ainda não tenha (se possível)
-      const availableTitles = TITLES.filter(t => !playerData.titles?.includes(t));
-      const newTitle = availableTitles.length > 0
+      const availableTitles = TITLES.filter(t => !playerData.titles?.includes(t.name));
+      const chosenTitle = availableTitles.length > 0
         ? availableTitles[Math.floor(Math.random() * availableTitles.length)]
         : TITLES[Math.floor(Math.random() * TITLES.length)];
 
+      const newTitle = chosenTitle.name;
       const updatedTitles = [...(playerData.titles || []), newTitle];
 
       // 1. Zera o XP nas tabelas de scores (para sumir do ranking mas manter moedas no player)

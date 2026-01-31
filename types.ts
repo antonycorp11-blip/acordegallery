@@ -9,6 +9,14 @@ export interface Game {
   scheduledRelease?: string; // ISO string 8:00 segunda feira
 }
 
+export interface Title {
+  id: string;
+  name: string;
+  description: string;
+  style: string;
+  rarity: 'comum' | 'raro' | 'épico' | 'lendário';
+}
+
 export interface StudentStats {
   pin: string;
   name: string;
