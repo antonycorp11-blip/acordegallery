@@ -1,0 +1,125 @@
+import { CLAWS_BY_ID } from '../entities/ClawsCatalog';
+import { SPECIES_BY_ID, VARIANTS, type VariantId } from '../entities/Species';
+
+export const SAVE_KEY = 'abyssclaw.save';
+export const SAVE_VERSION = 1;
+
+export interface SpeciesRecord {
+  caught: number;
+  variants: VariantId[];
+}
+
+export interface SaveData {
+  version: number;
+  coins: number;
+  totalEarned: number;
+  upgrades: Record<string, number>;
+  ownedClaws: string[];
+  equippedClaw: string;
+  bestDepth: number;
+  bestDistance: number;
+  totalCaptures: number;
+  totalRuns: number;
+  species: Record<string, SpeciesRecord>;
+  settings: { muted: boolean };
+}
+
+export function defaultSave(): SaveData {
+  return {
+    version: SAVE_VERSION,
+    coins: 0,
+    totalEarned: 0,
+    upgrades: {},
+    ownedClaws: ['scrap'],
+    equippedClaw: 'scrap',
+    bestDepth: 0,
+    bestDistance: 0,
+    totalCaptures: 0,
+    totalRuns: 0,
+    species: {},
+    settings: { muted: false },
+  };
+}
+
+const num = (v: unknown, fallback = 0) => (typeof v === 'number' && Number.isFinite(v) && v >= 0 ? v : fallback);
+
+/** Accepts anything (possibly corrupt) and returns a valid SaveData. */
+export function sanitizeSave(raw: unknown): SaveData {
+  const d = defaultSave();
+  if (!raw || typeof raw !== 'object') return d;
+  const r = raw as Record<string, unknown>;
+  d.coins = Math.floor(num(r.coins));
+  d.totalEarned = Math.floor(num(r.totalEarned));
+  d.bestDepth = num(r.bestDepth);
+  d.bestDistance = num(r.bestDistance);
+  d.totalCaptures = Math.floor(num(r.totalCaptures));
+  d.totalRuns = Math.floor(num(r.totalRuns));
+  if (r.upgrades && typeof r.upgrades === 'object') {
+    for (const [k, v] of Object.entries(r.upgrades as Record<string, unknown>)) {
+      const lvl = Math.floor(num(v));
+      if (lvl > 0) d.upgrades[k] = lvl;
+    }
+  }
+  if (Array.isArray(r.ownedClaws)) {
+    const owned = new Set<string>(['scrap']);
+    for (const c of r.ownedClaws) if (typeof c === 'string' && CLAWS_BY_ID[c]) owned.add(c);
+    d.ownedClaws = [...owned];
+  }
+  if (typeof r.equippedClaw === 'string' && d.ownedClaws.includes(r.equippedClaw)) d.equippedClaw = r.equippedClaw;
+  if (r.species && typeof r.species === 'object') {
+    for (const [id, rec] of Object.entries(r.species as Record<string, unknown>)) {
+      if (!SPECIES_BY_ID[id] || !rec || typeof rec !== 'object') continue;
+      const rr = rec as Record<string, unknown>;
+      const variants = Array.isArray(rr.variants)
+        ? (rr.variants.filter((v) => typeof v === 'string' && v in VARIANTS) as VariantId[])
+        : [];
+      d.species[id] = { caught: Math.floor(num(rr.caught)), variants: [...new Set(variants)] };
+    }
+  }
+  if (r.settings && typeof r.settings === 'object') {
+    d.settings.muted = (r.settings as Record<string, unknown>).muted === true;
+  }
+  return d;
+}
+
+export interface KV {
+  getItem(k: string): string | null;
+  setItem(k: string, v: string): void;
+  removeItem(k: string): void;
+}
+
+function storage(): KV | null {
+  try {
+    return typeof localStorage !== 'undefined' ? localStorage : null;
+  } catch {
+    return null;
+  }
+}
+
+export function loadSave(kv: KV | null = storage()): SaveData {
+  if (!kv) return defaultSave();
+  try {
+    const txt = kv.getItem(SAVE_KEY);
+    if (!txt) return defaultSave();
+    return sanitizeSave(JSON.parse(txt));
+  } catch {
+    return defaultSave();
+  }
+}
+
+export function writeSave(save: SaveData, kv: KV | null = storage()): void {
+  if (!kv) return;
+  try {
+    kv.setItem(SAVE_KEY, JSON.stringify(save));
+  } catch {
+    /* quota or private mode: game keeps working in memory */
+  }
+}
+
+export function clearSave(kv: KV | null = storage()): void {
+  try {
+    kv?.removeItem(SAVE_KEY);
+  } catch {
+    /* ignore */
+  }
+}

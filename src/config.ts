@@ -1,0 +1,82 @@
+// Central balance & tuning. Change numbers here, not deep inside systems.
+
+export const VIEW_W = 480;
+export const VIEW_H = 270;
+
+export const CONFIG = {
+  run: {
+    baseSeconds: 30,
+    secondsPerTimeLevel: 5,
+    warnSeconds: 5,
+  },
+  camera: {
+    /** Screen-space Y where the seabed should sit (0..VIEW_H). */
+    seabedScreenY: 200,
+    followLerp: 2.2,
+    minWorldX: 0,
+  },
+  movement: {
+    baseSpeed: 70, // world px / s
+    speedPerLevel: 13,
+    accel: 420,
+    friction: 520,
+  },
+  terrain: {
+    baseY: 0,
+    /** Visual seabed descent per world px (pure framing; depth uses depthAt). */
+    slope: 0.035,
+    chunkWidth: 240,
+  },
+  claw: {
+    restTipY: 24, // screen y of the claw tip while idle
+    anticipationMs: 40,
+    closeMs: 50,
+    inputBufferMs: 140,
+    minStrikeMs: 55,
+    minRetractMs: 80,
+    minCooldownMs: 60,
+  },
+  economy: {
+    /** value multiplier = 1 + sqrt(depth)/depthDivisor */
+    depthDivisor: 20,
+    comboWindowMs: 3200,
+    comboStep: 0.1,
+    comboMaxBonus: 0.5,
+    perfectBaseBonus: 0.1,
+    perfectRadiusFrac: 0.35,
+  },
+  spawn: {
+    maxAlive: 70,
+    /** Base creatures per chunk per biome index. */
+    perChunk: [5.2, 4.4, 3.8, 3.8, 3.4],
+    trickleSeconds: 1.4,
+    activeMargin: 260,
+    freezeDistance: 760,
+    despawnDistance: 3200,
+    schoolMin: 3,
+    schoolMax: 5,
+  },
+  rarityWeights: {
+    common: 100,
+    uncommon: 30,
+    rare: 7,
+    epic: 2.2,
+    legendary: 0.6,
+    anomalous: 0.25,
+  },
+  /** Luck multiplies rarity weight by (1 + luck * tier^1.5 * luckTierFactor). */
+  luckTierFactor: 0.9,
+  variants: {
+    mini: 0.08,
+    giant: 0.05,
+    golden: 0.018,
+    biolum: 0.07, // needs depth >= 400
+    mutant: 0.035, // needs depth >= 1500
+  },
+  timeBonus: {
+    golden: 3,
+    goldenCrab: 5,
+    legendary: 10,
+  },
+  upgradeGrowth: 1.55,
+};

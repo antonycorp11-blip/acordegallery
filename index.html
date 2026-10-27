@@ -1,96 +1,15 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Acorde Gallery | Console Division</title>
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="Acorde Gallery">
-  <meta name="theme-color" content="#050505">
-
-  <!-- Icons for Mobile & Safari -->
-  <link rel="apple-touch-icon" href="/gallery_icon.png">
-  <link rel="icon" type="image/png" href="/gallery_icon.png">
-  <link rel="manifest" href="/manifest.json">
-
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="stylesheet" href="/index.css">
-  <style>
-    @keyframes pulse-slow {
-
-      0%,
-      100% {
-        transform: scale(1);
-        opacity: 1;
-      }
-
-      50% {
-        transform: scale(1.05);
-        opacity: 0.8;
-      }
-    }
-
-    .animate-pulse-slow {
-      animation: pulse-slow 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-    }
-
-    @keyframes fade-in-up {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .animate-fade-in-up {
-      animation: fade-in-up 0.8s ease-out forwards;
-    }
-
-    @keyframes fade-in {
-      from {
-        opacity: 0;
-      }
-
-      to {
-        opacity: 1;
-      }
-    }
-
-    .animate-fade-in {
-      animation: fade-in 1s ease-out forwards;
-    }
-
-    /* iOS Safari Compatibility */
-    .backdrop-blur-xl {
-      -webkit-backdrop-filter: blur(24px);
-      backdrop-filter: blur(24px);
-    }
-
-    .backdrop-blur-md {
-      -webkit-backdrop-filter: blur(12px);
-      backdrop-filter: blur(12px);
-    }
-
-    .backdrop-blur {
-      -webkit-backdrop-filter: blur(8px);
-      backdrop-filter: blur(8px);
-    }
-
-    body {
-      -webkit-tap-highlight-color: transparent;
-    }
-  </style>
-</head>
-
-<body class="bg-[#050505] overflow-x-hidden">
-  <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
-
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b3a5c" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Abyss Claw</title>
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
 </html>
