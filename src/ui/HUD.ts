@@ -7,42 +7,92 @@ export class HUD {
   readonly root: HTMLElement;
   private timer: HTMLElement;
   private combo: HTMLElement;
-  private coins: HTMLElement;
+  readonly coinsEl: HTMLElement;
   private caps: HTMLElement;
   private depth: HTMLElement;
   private rec: HTMLElement;
+  private turboBar: HTMLElement;
+  private bossBox: HTMLElement;
+  private bannerEl: HTMLElement;
   readonly pauseBtn: HTMLButtonElement;
-  private last = { t: '', c: -1, n: -1, d: -1, r: -1, k: -1, warn: false };
+  private last = { t: '', c: -1, n: -1, d: -1, r: -1, k: '', warn: false, turbo: -1, boss: '' };
   private prevTime = 0;
   private bonusUntil = 0;
+  private bannerQueue: { title: string; sub: string; color: string }[] = [];
+  private bannerBusy = false;
+  private bumpAt = 0;
 
   constructor(parent: HTMLElement) {
     this.root = document.createElement('div');
     this.root.id = 'hud';
     this.root.className = 'hidden';
     this.root.innerHTML = `
-      <div id="hud-timer" class="hud-box">00:30</div>
-      <div id="hud-combo"></div>
+      <div class="hud-left">
+        <div id="hud-timer" class="hud-box">00:30</div>
+        <div class="turbo-gauge" title="Turbo"><i></i></div>
+        <div id="hud-combo"></div>
+      </div>
       <button id="hud-pause" aria-label="Pausar">II</button>
+      <div id="hud-boss" class="hidden"></div>
       <div id="hud-stats" class="hud-box">
         <span class="coins">$0</span>
         <span><span class="caps">0</span> <span class="lbl">capturas</span></span>
         <span><span class="depth">0 m</span> <span class="rec"></span></span>
-      </div>`;
+      </div>
+      <div id="hud-banner"></div>`;
     parent.appendChild(this.root);
     const q = (s: string) => this.root.querySelector(s) as HTMLElement;
     this.timer = q('#hud-timer');
     this.combo = q('#hud-combo');
-    this.coins = q('.coins');
+    this.coinsEl = q('.coins');
     this.caps = q('.caps');
     this.depth = q('.depth');
     this.rec = q('.rec');
+    this.turboBar = q('.turbo-gauge i');
+    this.bossBox = q('#hud-boss');
+    this.bannerEl = q('#hud-banner');
     this.pauseBtn = q('#hud-pause') as HTMLButtonElement;
   }
 
   show(v: boolean): void {
     this.root.classList.toggle('hidden', !v);
     if (v) this.prevTime = Infinity;
+    else {
+      this.bannerQueue = [];
+      this.bannerEl.className = '';
+    }
+  }
+
+  bumpCoins(): void {
+    const now = performance.now();
+    if (now - this.bumpAt < 90) return;
+    this.bumpAt = now;
+    this.coinsEl.classList.remove('bump');
+    void this.coinsEl.offsetWidth;
+    this.coinsEl.classList.add('bump');
+  }
+
+  /** Big announcement under the top bar (queued, one at a time). */
+  banner(title: string, sub: string, color: string): void {
+    this.bannerQueue.push({ title, sub, color });
+    if (!this.bannerBusy) this.nextBanner();
+  }
+
+  private nextBanner(): void {
+    const b = this.bannerQueue.shift();
+    if (!b) {
+      this.bannerBusy = false;
+      return;
+    }
+    this.bannerBusy = true;
+    this.bannerEl.innerHTML = `<b style="color:${b.color}">${b.title}</b>${b.sub ? `<span>${b.sub}</span>` : ''}`;
+    this.bannerEl.className = '';
+    void this.bannerEl.offsetWidth;
+    this.bannerEl.className = 'on';
+    setTimeout(() => {
+      this.bannerEl.className = '';
+      setTimeout(() => this.nextBanner(), 250);
+    }, 2600);
   }
 
   update(h: RunHud): void {
@@ -62,7 +112,7 @@ export class HUD {
     }
     if (h.coins !== this.last.c) {
       this.last.c = h.coins;
-      this.coins.textContent = `$${formatCoins(h.coins)}`;
+      this.coinsEl.textContent = `$${formatCoins(h.coins)}`;
     }
     if (h.captures !== this.last.n) {
       this.last.n = h.captures;
@@ -78,9 +128,25 @@ export class HUD {
       this.last.r = r;
       this.rec.textContent = `rec. ${r.toLocaleString('pt-BR')} m`;
     }
-    if (h.combo !== this.last.k) {
-      this.last.k = h.combo;
-      this.combo.textContent = h.combo >= 2 ? `COMBO x${h.combo}` : '';
+    const k = h.frenzy > 0 ? `F${Math.ceil(h.frenzy * 20)}` : h.combo >= 2 ? `C${h.combo}` : '';
+    if (k !== this.last.k) {
+      this.last.k = k;
+      if (h.frenzy > 0) this.combo.innerHTML = `<span class="frenzy">FRENESI!</span><i style="width:${Math.round(h.frenzy * 100)}%"></i>`;
+      else this.combo.textContent = h.combo >= 2 ? `COMBO x${h.combo}${h.combo >= CONFIG.frenzy.combo - 2 ? ' !' : ''}` : '';
+    }
+    const tb = Math.round(h.turbo * 50);
+    if (tb !== this.last.turbo) {
+      this.last.turbo = tb;
+      this.turboBar.style.width = `${tb * 2}%`;
+    }
+    const bk = h.boss ? `${h.boss.name}|${h.boss.hp}|${h.boss.open}` : '';
+    if (bk !== this.last.boss) {
+      this.last.boss = bk;
+      this.bossBox.classList.toggle('hidden', !h.boss);
+      if (h.boss) {
+        const pips = Array.from({ length: h.boss.max }, (_, i) => `<i class="${i < h.boss!.max - h.boss!.hp ? 'done' : ''}"></i>`).join('');
+        this.bossBox.innerHTML = `<b>${h.boss.name.toUpperCase()}</b><div class="pips">${pips}</div><span class="${h.boss.open ? 'open' : ''}">${h.boss.open ? 'PONTO FRACO ABERTO!' : 'protegido…'}</span>`;
+      }
     }
   }
 }
@@ -89,6 +155,7 @@ export class TouchControls {
   readonly root: HTMLElement;
   readonly left: HTMLButtonElement;
   readonly right: HTMLButtonElement;
+  readonly turbo: HTMLButtonElement;
   readonly strike: HTMLButtonElement;
 
   constructor(parent: HTMLElement) {
@@ -98,10 +165,12 @@ export class TouchControls {
     this.root.innerHTML = `
       <button id="t-left" aria-label="Esquerda">◀</button>
       <button id="t-right" aria-label="Direita">▶</button>
+      <button id="t-turbo" aria-label="Turbo">TURBO</button>
       <button id="t-strike">CAPTURAR</button>`;
     parent.appendChild(this.root);
     this.left = this.root.querySelector('#t-left')!;
     this.right = this.root.querySelector('#t-right')!;
+    this.turbo = this.root.querySelector('#t-turbo')!;
     this.strike = this.root.querySelector('#t-strike')!;
   }
 

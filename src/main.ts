@@ -1,4 +1,5 @@
 import './styles.css';
+import { setViewAspect, VIEW_H, VIEW_MAX_W, VIEW_MIN_W } from './config';
 import { Game } from './core/Game';
 import { HUD, TouchControls } from './ui/HUD';
 import { Screens } from './ui/Screens';
@@ -24,6 +25,7 @@ const screens = new Screens(screenEl, game);
 
 game.input.bindHoldButton(touch.left, 'left');
 game.input.bindHoldButton(touch.right, 'right');
+game.input.bindHoldButton(touch.turbo, 'turbo');
 game.input.bindStrikeButton(touch.strike);
 hud.pauseBtn.addEventListener('pointerdown', (e) => {
   e.preventDefault();
@@ -41,29 +43,41 @@ game.onModeChange = (m) => {
   touch.show(playing && game.input.touchMode);
   document.body.classList.toggle('menu', !playing);
   if (m === 'paused') screens.showPause();
-  if (playing) screens.clear();
+  if (playing) {
+    screens.clear();
+    updateCoinTarget();
+  }
 };
 game.onHud = (h) => hud.update(h);
+game.onBanner = (title, sub, color) => hud.banner(title, sub, color);
 game.onRunEnd = (s) => screens.showResults(s);
+game.renderer.onCoinLanded = () => hud.bumpCoins();
 
-// ───────────── layout: fit a 16:9 stage inside the safe viewport
+/** Flying coins land on the HUD money counter. */
+function updateCoinTarget(): void {
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const sr = stage.getBoundingClientRect();
+  const cr = hud.coinsEl.getBoundingClientRect();
+  if (!cr.width) return;
+  game.renderer.coinTarget = { x: (cr.left - sr.left + cr.width / 2) * dpr, y: (cr.top - sr.top + cr.height / 2) * dpr };
+}
+
+// ───────────── layout: fill the whole screen; the internal width follows the aspect
 function layout(): void {
-  const r = app.getBoundingClientRect();
-  const cs = getComputedStyle(app);
-  const w = r.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
-  const h = r.height - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const viewW = setViewAspect(w / h);
   let sw = w;
-  let sh = (w * 9) / 16;
-  if (sh > h) {
-    sh = h;
-    sw = (h * 16) / 9;
-  }
-  sw = Math.floor(sw);
-  sh = Math.floor(sh);
+  let sh = h;
+  // beyond the supported aspect range, keep pixels square and center the stage
+  const aspect = viewW / VIEW_H;
+  if (w / h > VIEW_MAX_W / VIEW_H) sw = Math.round(h * aspect);
+  else if (w / h < VIEW_MIN_W / VIEW_H) sh = Math.round(w / aspect);
   stage.style.width = `${sw}px`;
   stage.style.height = `${sh}px`;
-  stage.style.setProperty('--u', `${sh / 100}px`);
+  stage.style.setProperty('--u', `${Math.min(sh, sw * 0.5625) / 100}px`);
   game.renderer.resize(sw, sh, Math.min(3, window.devicePixelRatio || 1));
+  requestAnimationFrame(updateCoinTarget);
 }
 window.addEventListener('resize', layout);
 window.addEventListener('orientationchange', () => setTimeout(layout, 150));
@@ -83,7 +97,7 @@ portrait?.addEventListener?.('change', (e) => {
 // block pinch-zoom / double-tap zoom / page scroll on the play field
 document.addEventListener('gesturestart', (e) => e.preventDefault());
 document.addEventListener('touchmove', (e) => {
-  if (!(e.target as HTMLElement).closest('.panel-body, .results')) e.preventDefault();
+  if (!(e.target as HTMLElement).closest('.panel-body, .results, .scroll')) e.preventDefault();
 }, { passive: false });
 document.addEventListener('dblclick', (e) => e.preventDefault());
 

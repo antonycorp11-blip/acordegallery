@@ -1,7 +1,17 @@
 // Central balance & tuning. Change numbers here, not deep inside systems.
 
-export const VIEW_W = 480;
+/** Internal resolution: fixed height, width follows the screen's aspect. */
 export const VIEW_H = 270;
+export const VIEW_MIN_W = 400;
+export const VIEW_MAX_W = 640;
+export let VIEW_W = 480;
+
+/** Picks the internal width for a screen aspect (w/h) so the game fills it edge to edge. */
+export function setViewAspect(aspect: number): number {
+  const w = Math.round(VIEW_H * (Number.isFinite(aspect) && aspect > 0 ? aspect : 16 / 9));
+  VIEW_W = Math.max(VIEW_MIN_W, Math.min(VIEW_MAX_W, w));
+  return VIEW_W;
+}
 
 export const CONFIG = {
   run: {
@@ -79,4 +89,9 @@ export const CONFIG = {
     legendary: 10,
   },
   upgradeGrowth: 1.55,
+  frenzy: { combo: 5, seconds: 4, haste: 0.55, valueMult: 2 },
+  turbo: { seconds: 2.5, rechargePerSecond: 0.12, speedMult: 2 },
+  events: { firstAfter: 9, minGap: 12, maxGap: 20, currentPush: 55, currentSeconds: 5 },
+  aquarium: { perMinute: 0.05, capHours: 8, levelMult: 0.5 },
+  chest: { chunkChance: 0.16, mimicChance: 0.3, starChance: 0.25 },
 };

@@ -26,6 +26,8 @@ export class Claw {
   smear: number[] = [];
   /** set for exactly one update when the mouth arrives */
   contactPending = false;
+  /** <1 speeds the whole cycle up (frenzy) */
+  haste = 1;
 
   constructor(public stats: RunStats) {}
 
@@ -36,7 +38,7 @@ export class Claw {
   get cooldownProgress(): number {
     if (this.state === 'READY') return 1;
     const s = this.stats;
-    const total = CONFIG.claw.anticipationMs + s.strikeMs + CONFIG.claw.closeMs + s.retractMs + s.cooldownMs + this.extraCooldownMs;
+    const total = CONFIG.claw.anticipationMs + (s.strikeMs + s.retractMs + s.cooldownMs) * this.haste + CONFIG.claw.closeMs + this.extraCooldownMs;
     let elapsed = this.t;
     const order: ClawState[] = ['ANTICIPATE', 'STRIKE', 'CLOSE', 'RETRACT', 'COOLDOWN'];
     for (const st of order) {
@@ -50,10 +52,10 @@ export class Claw {
     const s = this.stats;
     switch (st) {
       case 'ANTICIPATE': return CONFIG.claw.anticipationMs;
-      case 'STRIKE': return s.strikeMs;
+      case 'STRIKE': return s.strikeMs * this.haste;
       case 'CLOSE': return CONFIG.claw.closeMs;
-      case 'RETRACT': return s.retractMs;
-      case 'COOLDOWN': return s.cooldownMs + this.extraCooldownMs;
+      case 'RETRACT': return s.retractMs * this.haste;
+      case 'COOLDOWN': return s.cooldownMs * this.haste + this.extraCooldownMs;
       default: return 0;
     }
   }

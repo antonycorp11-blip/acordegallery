@@ -30,9 +30,11 @@ export type Behavior =
   | 'jelly'
   | 'phantom'
   | 'leviathan'
-  | 'blinker';
+  | 'blinker'
+  | 'predator'
+  | 'mimic';
 
-export type ShapeKind = 'star' | 'crab' | 'fish' | 'lobster' | 'eel' | 'boxfish' | 'octopus' | 'jelly' | 'angler' | 'eye';
+export type ShapeKind = 'star' | 'crab' | 'fish' | 'lobster' | 'eel' | 'boxfish' | 'octopus' | 'jelly' | 'angler' | 'eye' | 'shark' | 'chest';
 
 export interface SpeciesPalette {
   main: string;
@@ -195,7 +197,37 @@ export const SPECIES: SpeciesDefinition[] = [
     palette: { main: '#ffffff', dark: '#d0a0c0', light: '#ffffff', accent: '#ff2f7f', eye: '#1a0020' },
     shapeParts: 'eye', special: ['blink', 'glow'],
   },
+  {
+    id: 'mimic', name: 'Baú-Mímico', rarity: 'epic', baseValue: 320,
+    description: 'Finge ser um baú de tesouro. Se perceber a garra, mostra os dentes e pula para longe.',
+    minDepth: 300, maxDepth: 99999, biomeWeights: [0, 0, 0, 0, 0],
+    size: { w: 14, h: 11 }, swimSpeed: 0, perceptionRange: 46, reactionTime: 120,
+    fleeAcceleration: 1600, fleeSpeed: 150, mass: 1.8, armor: 0.8, behavior: 'mimic',
+    palette: { main: '#a0623a', dark: '#5a3018', light: '#d89a5a', accent: '#ffd84a', eye: '#ff3a3a' },
+    shapeParts: 'chest', special: ['treasureLook'],
+  },
+  {
+    id: 'hammerShark', name: 'Tubarão-Martelo', rarity: 'epic', baseValue: 650,
+    description: 'Aparece em eventos e devora os bichos pequenos. Morde garras fracas.',
+    minDepth: 0, maxDepth: 99999, biomeWeights: [0, 0, 0, 0, 0],
+    size: { w: 46, h: 16 }, swimSpeed: 62, perceptionRange: 0, reactionTime: 9999,
+    fleeAcceleration: 0, fleeSpeed: 0, mass: 3.5, armor: 1.0, behavior: 'predator',
+    palette: { main: '#6a8296', dark: '#3a4a5a', light: '#e6eef2', accent: '#2a3440', eye: '#0a0a10' },
+    shapeParts: 'shark', special: ['bite', 'event'],
+  },
+  {
+    id: 'chest', name: 'Baú Submerso', rarity: 'uncommon', baseValue: 70,
+    description: 'Tesouro perdido no fundo do mar.',
+    minDepth: 0, maxDepth: 99999, biomeWeights: [0, 0, 0, 0, 0],
+    size: { w: 14, h: 11 }, swimSpeed: 0, perceptionRange: 0, reactionTime: 9999,
+    fleeAcceleration: 0, fleeSpeed: 0, mass: 1.0, armor: 0, behavior: 'sessile',
+    palette: { main: '#a0623a', dark: '#5a3018', light: '#d89a5a', accent: '#ffd84a', eye: '#000000' },
+    shapeParts: 'chest', special: ['object', 'treasure'],
+  },
 ];
+
+/** Species that count for the catalog, orders and "new species" (not objects). */
+export const isCreature = (def: SpeciesDefinition) => !def.special.includes('object');
 
 export const SPECIES_BY_ID: Record<string, SpeciesDefinition> = Object.fromEntries(SPECIES.map((s) => [s.id, s]));
 

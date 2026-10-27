@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { defaultSave } from '../src/core/Save';
 import { CLAWS_BY_ID } from '../src/entities/ClawsCatalog';
-import { UPGRADES, UPGRADES_BY_ID, buyClaw, buyUpgrade, canBuy, childrenOf, computeStats, nodeVisibility, upgradeCost } from '../src/systems/Upgrades';
+import { UPGRADES_BY_ID, buyClaw, buyUpgrade, canBuy, childrenOf, computeStats, nodeVisibility, treeNodes, upgradeCost } from '../src/systems/Upgrades';
 
 describe('upgrade costs', () => {
   it('grows by the configured factor', () => {
@@ -19,17 +19,30 @@ describe('upgrade costs', () => {
 });
 
 describe('tree structure', () => {
-  it('is a single connected tree rooted at core with unique grid slots', () => {
-    const roots = UPGRADES.filter((u) => u.parent === null);
-    expect(roots.map((u) => u.id)).toEqual(['core']);
-    const slots = new Set(UPGRADES.map((u) => `${u.x},${u.y}`));
-    expect(slots.size).toBe(UPGRADES.length);
-    for (const u of UPGRADES) {
-      let cur = u;
-      for (let guard = 0; cur.parent && guard < 50; guard++) cur = UPGRADES_BY_ID[cur.parent];
-      expect(cur.id).toBe('core');
+  it('each tree is connected from its root with unique grid slots', () => {
+    for (const [tree, root] of [['main', 'core'], ['essence', 'e_core']] as const) {
+      const nodes = treeNodes(tree);
+      expect(nodes.filter((u) => u.parent === null).map((u) => u.id)).toEqual([root]);
+      expect(new Set(nodes.map((u) => `${u.x},${u.y}`)).size).toBe(nodes.length);
+      for (const u of nodes) {
+        let cur = u;
+        for (let guard = 0; cur.parent && guard < 50; guard++) cur = UPGRADES_BY_ID[cur.parent];
+        expect(cur.id).toBe(root);
+        if (u.parent) expect(UPGRADES_BY_ID[u.parent].tree).toBe(tree);
+      }
     }
     expect(childrenOf('core')).toHaveLength(2);
+  });
+
+  it('essence nodes are paid with essence, not coins', () => {
+    const s = defaultSave();
+    s.coins = 99999;
+    expect(canBuy(s, 'e_core')).toBe('funds');
+    s.essence = 1;
+    expect(buyUpgrade(s, 'e_core')).toBe('ok');
+    expect(s.essence).toBe(0);
+    expect(s.coins).toBe(99999);
+    expect(computeStats(s).valueMult).toBeCloseTo(1.15);
   });
 
   it('buying a node reveals its children and teases the next ring', () => {
@@ -73,6 +86,12 @@ describe('buying', () => {
     s.bestDepth = 200;
     expect(buyClaw(s, 'hydraulic')).toBe(true);
     expect(s.equippedClaw).toBe('hydraulic');
+    s.bestDepth = 5000;
+    expect(buyClaw(s, 'magnetic')).toBe(false); // needs stars too
+    s.stars = 4;
+    expect(buyClaw(s, 'magnetic')).toBe(true);
+    expect(s.stars).toBe(0);
+    expect(s.equippedClaw).toBe('magnetic');
     expect(buyClaw(s, 'hydraulic')).toBe(false);
   });
 });

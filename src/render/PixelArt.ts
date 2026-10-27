@@ -98,6 +98,8 @@ export function creatureSprite(def: SpeciesDefinition, variant: VariantId, w: nu
     case 'jelly': drawJelly(P, w, h, pal, frame); break;
     case 'angler': drawAngler(P, w, h, pal, frame); break;
     case 'eye': drawEye(P, w, h, pal, frame); break;
+    case 'shark': drawShark(P, w, h, pal, frame); break;
+    case 'chest': drawChest(P, w, h, pal, frame); break;
     case 'eel': break; // drawn live (segmented)
   }
   if (variant === 'mutant' && def.shapeParts !== 'eye') {
@@ -392,6 +394,89 @@ function drawAngler(P: Painter, w: number, h: number, pal: SpeciesPalette, frame
   P.rect(sx + 9, sy - 5 + sway, 2, 2, pal.accent);
 }
 
+function drawShark(P: Painter, w: number, h: number, pal: SpeciesPalette, frame: number): void {
+  const tail = Math.round(w * 0.2);
+  const cy = h * 0.55;
+  const wag = [0, 1, 0, -1][frame % 4];
+  // crescent tail
+  for (let x = 0; x < tail; x++) {
+    const f = 1 - x / tail;
+    const up = Math.round(cy - 1 - f * h * 0.55 + wag * f);
+    const dn = Math.round(cy + 1 + f * h * 0.4 + wag * f);
+    P.p(x, up, pal.dark);
+    P.p(x, dn, pal.dark);
+    if (f < 0.6) P.rect(x, up, 1, dn - up, pal.main);
+  }
+  // torpedo body: dark back, white belly
+  for (let x = tail; x < w; x++) {
+    const u = (x - tail) / (w - tail);
+    const half = h * 0.36 * Math.sin(Math.min(1, u * 1.15 + 0.08) * Math.PI) ** 0.6;
+    for (let y = Math.round(cy - half); y <= Math.round(cy + half * 0.8); y++) {
+      P.p(x, y, y > cy + 1 ? pal.light : y < cy - half + 2 ? pal.dark : pal.main);
+    }
+  }
+  // dorsal + pectoral fins
+  const dx = Math.round(tail + (w - tail) * 0.42);
+  for (let i = 0; i < 6; i++) P.rect(dx - i, Math.round(cy - h * 0.36) - 6 + i, Math.max(1, 6 - i), 1, pal.dark);
+  P.line(dx + 2, Math.round(cy + 2), dx - 3, Math.round(cy + 5 + (frame % 2)), pal.dark, 2);
+  // hammer head
+  const hx = w - 4;
+  P.rect(hx - 1, Math.round(cy - h * 0.45), 4, Math.round(h * 0.8), pal.main);
+  P.rect(hx - 1, Math.round(cy - h * 0.45), 4, 1, pal.dark);
+  P.p(hx + 1, Math.round(cy - h * 0.42), pal.eye);
+  P.p(hx + 1, Math.round(cy + h * 0.3), pal.eye);
+  // gills
+  for (let i = 0; i < 3; i++) P.rect(hx - 6 - i * 2, Math.round(cy - 1), 1, 3, pal.dark);
+  // mouth
+  P.rect(hx - 5, Math.round(cy + h * 0.2), 4, 1, '#2a0a10');
+}
+
+function drawChest(P: Painter, w: number, h: number, pal: SpeciesPalette, frame: number): void {
+  const open = frame === 3;
+  const lidH = Math.round(h * 0.4);
+  const bodyY = lidH;
+  // body planks
+  for (let y = bodyY; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const edge = x === 0 || x === w - 1 || y === h - 1;
+      P.p(x, y, edge ? pal.dark : (y - bodyY) % 3 === 0 ? pal.dark : pal.main);
+    }
+  }
+  // metal bands + lock
+  P.rect(2, bodyY, 1, h - bodyY, pal.accent);
+  P.rect(w - 3, bodyY, 1, h - bodyY, pal.accent);
+  if (open) {
+    // mimic: open maw with teeth, tongue and an angry eye on the lid
+    const lift = 3;
+    for (let y = 0; y < lidH; y++) for (let x = 0; x < w; x++) P.p(x, y - lift, y === 0 || x === 0 || x === w - 1 ? pal.dark : pal.light);
+    P.rect(1, bodyY - lift + lidH - lidH, w - 2, lift + 1, '#2a0610');
+    for (let x = 1; x < w - 1; x += 2) {
+      P.p(x, bodyY - lift + 1, '#ffffff');
+      P.p(x + 1, bodyY, '#ffffff');
+    }
+    P.rect(Math.round(w / 2) - 2, bodyY - 1, 4, 2, '#ff5a7a');
+    P.rect(Math.round(w / 2) - 1, Math.round(lidH / 2) - lift, 3, 2, '#ffffff');
+    P.p(Math.round(w / 2), Math.round(lidH / 2) - lift, pal.eye);
+    return;
+  }
+  // closed rounded lid
+  for (let y = 0; y < lidH; y++) {
+    const inset = y === 0 ? 2 : y === 1 ? 1 : 0;
+    for (let x = inset; x < w - inset; x++) P.p(x, y, y === 0 ? pal.dark : y === 1 ? pal.light : pal.main);
+  }
+  P.rect(2, 1, 1, lidH - 1, pal.accent);
+  P.rect(w - 3, 1, 1, lidH - 1, pal.accent);
+  P.rect(Math.round(w / 2) - 1, lidH - 2, 3, 3, pal.accent);
+  P.p(Math.round(w / 2), lidH - 1, pal.dark);
+  // gold peeking out of the seam
+  P.p(4, lidH, '#fff27a');
+  P.p(w - 5, lidH, '#fff27a');
+  if (frame === 2) {
+    // the mimic's tell: a glint like an eye in the keyhole
+    P.p(Math.round(w / 2), lidH - 1, pal.eye);
+  }
+}
+
 function drawEye(P: Painter, w: number, h: number, pal: SpeciesPalette, frame: number): void {
   const cx = w / 2, cy = h * 0.42;
   const r = Math.min(w, h * 0.84) / 2;
@@ -501,8 +586,51 @@ export function decorSprite(d: Decor, pal: BiomePalette): Canvas {
     case 'shell': return shellSprite(pal, r);
     case 'ruin': return ruinSprite(d.w, d.h, pal, r);
     case 'wreck': return wreckSprite(d.w, d.h, pal, r);
+    case 'crystal': return crystalSprite(d.w, d.h, pal, r);
+    case 'vent': return ventSprite(d.w, d.h, pal, r);
     default: return makeCanvas(1, 1);
   }
+}
+
+function crystalSprite(w: number, h: number, pal: BiomePalette, r: () => number): Canvas {
+  const c = makeCanvas(w, h + 2);
+  const P = new Painter(c);
+  const base = mixColor(pal.glow, pal.coralB, 0.4);
+  const light = shade(base, 0.45);
+  const dark = shade(base, -0.4);
+  const n = 2 + Math.floor(r() * 3);
+  for (let j = 0; j < n; j++) {
+    const cx = Math.round(w * (0.2 + 0.6 * (n === 1 ? 0.5 : j / (n - 1))));
+    const ch = Math.round(h * (0.45 + r() * 0.55));
+    const cw = 3 + Math.floor(r() * 3);
+    const lean = (r() - 0.5) * 0.5;
+    for (let y = 0; y < ch; y++) {
+      const k = y < ch * 0.75 ? 1 : 1 - (y - ch * 0.75) / (ch * 0.25);
+      const ww = Math.max(1, Math.round(cw * k));
+      const x0 = Math.round(cx + lean * y - ww / 2);
+      for (let x = 0; x < ww; x++) P.p(x0 + x, h - y, x === 0 ? light : x === ww - 1 ? dark : base);
+    }
+    P.p(Math.round(cx + lean * ch), h - ch, '#ffffff');
+  }
+  P.rect(0, h, w, 2, shade(pal.rockDark, -0.2));
+  return c;
+}
+
+function ventSprite(w: number, h: number, pal: BiomePalette, r: () => number): Canvas {
+  const c = makeCanvas(w, h + 2);
+  const P = new Painter(c);
+  const rock = pal.rock, dark = pal.rockDark, light = pal.rockLight;
+  for (let y = 0; y <= h; y++) {
+    const k = y / h; // 0 = top
+    const ww = Math.round(4 + k * (w - 4) + Math.sin(y * 0.9) * 1);
+    const x0 = Math.round((w - ww) / 2);
+    for (let x = 0; x < ww; x++) P.p(x0 + x, y, x < 1 ? light : x > ww - 2 ? dark : (y + x) % 5 === 0 ? dark : rock);
+  }
+  // glowing mouth and mineral streaks
+  P.rect(Math.round(w / 2) - 1, 0, 3, 1, '#ffb070');
+  P.p(Math.round(w / 2), 1, '#ff6a3a');
+  for (let i = 0; i < 3; i++) P.p(Math.round(w * (0.3 + r() * 0.4)), Math.round(h * (0.3 + r() * 0.6)), '#e8c070');
+  return c;
 }
 
 function rockSprite(w: number, h: number, pal: BiomePalette, r: () => number): Canvas {

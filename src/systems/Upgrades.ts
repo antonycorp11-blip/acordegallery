@@ -2,8 +2,10 @@ import { CONFIG } from '../config';
 import { CLAWS_BY_ID, type ClawDefinition } from '../entities/ClawsCatalog';
 import type { SaveData } from '../core/Save';
 
-export type Branch = 'core' | 'capture' | 'expedition' | 'ecology' | 'tech';
+export type Branch = 'core' | 'capture' | 'expedition' | 'ecology' | 'tech' | 'essence';
+export type TreeId = 'main' | 'essence';
 export const BRANCH_LABEL: Record<Branch, string> = {
+  essence: 'Essência',
   core: 'Origem',
   capture: 'Captura',
   expedition: 'Expedição',
@@ -11,6 +13,7 @@ export const BRANCH_LABEL: Record<Branch, string> = {
   tech: 'Tecnologia',
 };
 export const BRANCH_COLOR: Record<Branch, string> = {
+  essence: '#ff7ff5',
   core: '#ffffff',
   capture: '#ff9a1f',
   expedition: '#3fe0d0',
@@ -21,7 +24,8 @@ export const BRANCH_COLOR: Record<Branch, string> = {
 /** Gameplay stats a node can raise. Several nodes may feed the same stat. */
 export type StatKey =
   | 'runTime' | 'strikeSpeed' | 'recovery' | 'opening' | 'strength' | 'precision' | 'multi'
-  | 'lateral' | 'timeBonus' | 'density' | 'luck' | 'schools' | 'variants' | 'combo' | 'perfect' | 'sonar';
+  | 'lateral' | 'timeBonus' | 'density' | 'luck' | 'schools' | 'variants' | 'combo' | 'perfect' | 'sonar'
+  | 'value' | 'frenzy' | 'aquarium' | 'clawDiscount' | 'keepRoutes' | 'turbo';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -43,10 +47,17 @@ export const STAT_TEXT: Record<StatKey, (n: number) => string> = {
   combo: (n) => `combo até +${pct(comboMax(n))}, janela ${(comboWindow(n) / 1000).toFixed(1)}s`,
   perfect: (n) => `+${Math.round(n * 10)}% no centro do bicho`,
   sonar: (n) => `sonar ${['desligado', 'curto', 'médio', 'longo', 'abissal'][Math.min(4, n)]}`,
+  value: (n) => `+${n * 15}% no valor de toda captura`,
+  frenzy: (n) => `frenesi dura +${n}s`,
+  aquarium: (n) => `+${n * 50}% de renda do aquário`,
+  clawDiscount: (n) => `garras ${n * 15}% mais baratas`,
+  keepRoutes: (n) => (n > 0 ? 'mantém pontos de partida e guardiões ao renascer' : 'perde as rotas ao renascer'),
+  turbo: (n) => `+${n}s de turbo`,
 };
 
 export interface UpgradeDef {
   id: string;
+  tree: TreeId;
   branch: Branch;
   name: string;
   description: string;
@@ -62,7 +73,7 @@ export interface UpgradeDef {
   effect: (level: number) => string;
 }
 
-type NodeSpec = Omit<UpgradeDef, 'effect'>;
+type NodeSpec = Omit<UpgradeDef, 'effect' | 'tree'>;
 
 const NODES: NodeSpec[] = [
   { id: 'core', branch: 'core', name: 'Instinto de Caça', stat: 'runTime', maxLevel: 1, baseCost: 20, parent: null, x: 0, y: 0,
@@ -107,6 +118,8 @@ const NODES: NodeSpec[] = [
     description: 'Mergulhos muito mais longos.' },
   { id: 'lateral3', branch: 'expedition', name: 'Hélice Abissal', stat: 'lateral', maxLevel: 3, baseCost: 750, parent: 'lateral2', x: 4, y: 0,
     description: 'Velocidade para alcançar o abismo.' },
+  { id: 'turbo', branch: 'expedition', name: 'Turbo', stat: 'turbo', maxLevel: 3, baseCost: 240, parent: 'lateral2', x: 3, y: 1,
+    description: 'Mais segundos de turbo por mergulho.' },
   { id: 'timeBonus2', branch: 'expedition', name: 'Ampulheta Viva', stat: 'timeBonus', maxLevel: 3, baseCost: 1500, parent: 'timeBonus', x: 5, y: -1,
     description: 'Bônus de tempo ainda maiores.' },
 
@@ -143,7 +156,33 @@ const NODES: NodeSpec[] = [
     description: 'Detecta raros muito mais longe.' },
 ];
 
-export const UPGRADES: UpgradeDef[] = NODES.map((n) => ({ ...n, effect: (l: number) => STAT_TEXT[n.stat](l) }));
+/** Prestige tree, bought with Essência Abissal. Never reset. */
+const ESSENCE_NODES: NodeSpec[] = [
+  { id: 'e_core', branch: 'essence', name: 'Memória Abissal', stat: 'value', maxLevel: 5, baseCost: 1, parent: null, x: 0, y: 0,
+    description: 'Tudo o que você captura vale mais, para sempre.' },
+  { id: 'e_time', branch: 'essence', name: 'Fôlego Eterno', stat: 'runTime', maxLevel: 3, baseCost: 2, parent: 'e_core', x: -1, y: -1,
+    description: '+5 segundos em todo mergulho.' },
+  { id: 'e_strength', branch: 'essence', name: 'Garra Ancestral', stat: 'strength', maxLevel: 4, baseCost: 2, parent: 'e_core', x: 1, y: -1,
+    description: 'Força permanente para qualquer garra.' },
+  { id: 'e_aquarium', branch: 'essence', name: 'Maré Fértil', stat: 'aquarium', maxLevel: 3, baseCost: 2, parent: 'e_core', x: 0, y: 1,
+    description: 'O aquário rende muito mais.' },
+  { id: 'e_luck', branch: 'essence', name: 'Sorte Primordial', stat: 'luck', maxLevel: 4, baseCost: 3, parent: 'e_time', x: -2, y: -1,
+    description: 'Mais chance de raros desde o primeiro mergulho.' },
+  { id: 'e_frenzy', branch: 'essence', name: 'Fúria das Marés', stat: 'frenzy', maxLevel: 3, baseCost: 3, parent: 'e_strength', x: 2, y: -1,
+    description: 'O frenesi dura mais.' },
+  { id: 'e_claws', branch: 'essence', name: 'Forja Ancestral', stat: 'clawDiscount', maxLevel: 3, baseCost: 3, parent: 'e_aquarium', x: 1, y: 1,
+    description: 'Garras custam menos moedas.' },
+  { id: 'e_speed', branch: 'essence', name: 'Corrente Interna', stat: 'lateral', maxLevel: 3, baseCost: 3, parent: 'e_aquarium', x: -1, y: 1,
+    description: 'Navega mais rápido sempre.' },
+  { id: 'e_routes', branch: 'essence', name: 'Memória de Rota', stat: 'keepRoutes', maxLevel: 1, baseCost: 8, parent: 'e_claws', x: 1, y: 2,
+    description: 'Ao renascer, mantém os guardiões vencidos e os pontos de partida.' },
+];
+
+export const UPGRADES: UpgradeDef[] = [
+  ...NODES.map((n) => ({ ...n, tree: 'main' as const, effect: (l: number) => STAT_TEXT[n.stat](l) })),
+  ...ESSENCE_NODES.map((n) => ({ ...n, tree: 'essence' as const, effect: (l: number) => STAT_TEXT[n.stat](l) })),
+];
+export const treeNodes = (tree: TreeId) => UPGRADES.filter((u) => u.tree === tree);
 export const UPGRADES_BY_ID: Record<string, UpgradeDef> = Object.fromEntries(UPGRADES.map((u) => [u.id, u]));
 export const childrenOf = (id: string) => UPGRADES.filter((u) => u.parent === id);
 
@@ -172,6 +211,7 @@ export function statLevel(save: SaveData, stat: StatKey): number {
 }
 
 export function upgradeCost(def: UpgradeDef, currentLevel: number): number {
+  if (def.tree === 'essence') return def.baseCost * (currentLevel + 1);
   return Math.round(def.baseCost * Math.pow(CONFIG.upgradeGrowth, currentLevel));
 }
 
@@ -196,13 +236,18 @@ export function nodeVisibility(save: SaveData, id: string): NodeVisibility {
 
 export type BuyResult = 'ok' | 'max' | 'locked' | 'funds';
 
+/** Coins for the main tree, essence for the prestige tree. */
+export function wallet(save: SaveData, tree: TreeId): number {
+  return tree === 'essence' ? save.essence : save.coins;
+}
+
 export function canBuy(save: SaveData, id: string): BuyResult {
   const def = UPGRADES_BY_ID[id];
   if (!def) return 'locked';
   const l = level(save, id);
   if (l >= def.maxLevel) return 'max';
   if (!requirementsMet(save, def)) return 'locked';
-  if (save.coins < upgradeCost(def, l)) return 'funds';
+  if (wallet(save, def.tree) < upgradeCost(def, l)) return 'funds';
   return 'ok';
 }
 
@@ -212,9 +257,14 @@ export function buyUpgrade(save: SaveData, id: string): BuyResult {
   if (res !== 'ok') return res;
   const def = UPGRADES_BY_ID[id];
   const l = level(save, id);
-  save.coins -= upgradeCost(def, l);
+  if (def.tree === 'essence') save.essence -= upgradeCost(def, l);
+  else save.coins -= upgradeCost(def, l);
   save.upgrades[id] = l + 1;
   return 'ok';
+}
+
+export function clawPrice(save: SaveData, c: ClawDefinition): number {
+  return Math.round(c.price * (1 - 0.15 * statLevel(save, 'clawDiscount')));
 }
 
 export function canBuyClaw(save: SaveData, id: string): 'ok' | 'owned' | 'locked' | 'funds' {
@@ -222,13 +272,14 @@ export function canBuyClaw(save: SaveData, id: string): 'ok' | 'owned' | 'locked
   if (!c) return 'locked';
   if (save.ownedClaws.includes(id)) return 'owned';
   if (save.bestDepth < c.unlockDepth) return 'locked';
-  if (save.coins < c.price) return 'funds';
+  if (save.coins < clawPrice(save, c) || save.stars < c.stars) return 'funds';
   return 'ok';
 }
 
 export function buyClaw(save: SaveData, id: string): boolean {
   if (canBuyClaw(save, id) !== 'ok') return false;
-  save.coins -= CLAWS_BY_ID[id].price;
+  save.coins -= clawPrice(save, CLAWS_BY_ID[id]);
+  save.stars -= CLAWS_BY_ID[id].stars;
   save.ownedClaws.push(id);
   save.equippedClaw = id;
   return true;
@@ -258,6 +309,10 @@ export interface RunStats {
   comboWindowMs: number;
   perfectBonus: number;
   sonarRange: number;
+  /** multiplier on every capture value (essence) */
+  valueMult: number;
+  frenzySeconds: number;
+  turboSeconds: number;
 }
 
 export function computeStats(save: SaveData): RunStats {
@@ -276,6 +331,9 @@ export function computeStats(save: SaveData): RunStats {
     maxTargets: claw.maxTargets + L('multi'),
     reach: claw.reach,
     lateralSpeed: CONFIG.movement.baseSpeed + L('lateral') * CONFIG.movement.speedPerLevel,
+    valueMult: 1 + 0.15 * L('value'),
+    frenzySeconds: CONFIG.frenzy.seconds + L('frenzy'),
+    turboSeconds: CONFIG.turbo.seconds + L('turbo'),
     density: densityMult(L('density')),
     luck: luckValue(L('luck')),
     schoolBonus: L('schools'),

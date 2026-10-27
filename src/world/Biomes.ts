@@ -25,8 +25,9 @@ export interface BiomeDef {
   name: string;
   startX: number;
   palette: BiomePalette;
-  /** decoration weights: rock, coral, weed, crevice, shell, ruin, wreck, glowPlant */
-  decor: [number, number, number, number, number, number, number, number];
+  /** decoration weights, in DECOR_TYPES order:
+   *  rock, coral, weed, crevice, shell, ruin, wreck, glowPlant, kelp, anemone, crystal, vent */
+  decor: number[];
   lightRays: number;
 }
 
@@ -36,7 +37,7 @@ export const BIOMES: BiomeDef[] = [
     name: 'Recife Colorido',
     startX: 0,
     lightRays: 1,
-    decor: [2, 6, 5, 1, 3, 0, 0, 0],
+    decor: [2, 7, 5, 1, 3, 0, 0, 0, 0, 4, 0, 0],
     palette: {
       waterTop: '#3fd6d8', waterBottom: '#1f8fb8',
       sandLight: '#f6dc8f', sand: '#e0b562', sandDark: '#b98a45',
@@ -50,7 +51,7 @@ export const BIOMES: BiomeDef[] = [
     name: 'Costa Rochosa',
     startX: 1500,
     lightRays: 0.6,
-    decor: [7, 2, 4, 4, 2, 0, 0, 0],
+    decor: [7, 2, 3, 4, 2, 0, 0, 0, 5, 2, 0, 0],
     palette: {
       waterTop: '#2fa7c9', waterBottom: '#16609a',
       sandLight: '#c9b48a', sand: '#9c8766', sandDark: '#6f5d48',
@@ -64,7 +65,7 @@ export const BIOMES: BiomeDef[] = [
     name: 'Naufrágios e Ruínas',
     startX: 4000,
     lightRays: 0.25,
-    decor: [4, 1, 2, 2, 1, 5, 3, 1],
+    decor: [4, 1, 2, 2, 1, 5, 3, 1, 2, 1, 0, 2],
     palette: {
       waterTop: '#2a6fb8', waterBottom: '#1a3b84',
       sandLight: '#a7a0b8', sand: '#7a7392', sandDark: '#524c6c',
@@ -78,7 +79,7 @@ export const BIOMES: BiomeDef[] = [
     name: 'Floresta Abissal',
     startX: 7000,
     lightRays: 0,
-    decor: [3, 2, 6, 2, 1, 1, 0, 5],
+    decor: [3, 2, 3, 2, 1, 1, 0, 5, 6, 1, 1, 2],
     palette: {
       waterTop: '#3b3fb0', waterBottom: '#24207a',
       sandLight: '#8d7cc4', sand: '#64559c', sandDark: '#433874',
@@ -92,7 +93,7 @@ export const BIOMES: BiomeDef[] = [
     name: 'Abismo Impossível',
     startX: 11000,
     lightRays: 0,
-    decor: [4, 3, 2, 3, 0, 2, 0, 6],
+    decor: [4, 2, 1, 3, 0, 2, 0, 4, 1, 0, 7, 3],
     palette: {
       waterTop: '#4a2a9e', waterBottom: '#2c1468',
       sandLight: '#a46ad0', sand: '#7a44aa', sandDark: '#522c80',

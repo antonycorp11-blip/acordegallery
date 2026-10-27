@@ -60,6 +60,11 @@ export class Creature implements Hittable {
   trail = 0;
   /** set when it bolted from the latest strike */
   fled = false;
+  /** mimic showing its teeth (seconds left) */
+  revealed = 0;
+  /** magnetic/gravity pull toward a world x */
+  pullX = 0;
+  pullT = 0;
   private r: Rand;
   private speedMult: number;
 
@@ -80,7 +85,7 @@ export class Creature implements Hittable {
     this.facing = this.r() < 0.5 ? -1 : 1;
     this.altitude = 20 + this.r() * 110;
     this.timer = 0.5 + this.r() * 2;
-    this.state = def.behavior === 'sessile' || def.behavior === 'jelly' ? 'IDLE' : 'PATROL';
+    this.state = def.behavior === 'sessile' || def.behavior === 'jelly' || def.behavior === 'mimic' ? 'IDLE' : 'PATROL';
   }
 
   get hittable(): boolean {
@@ -89,7 +94,7 @@ export class Creature implements Hittable {
 
   get onFloor(): boolean {
     const b = this.def.behavior;
-    return b === 'sessile' || b === 'crawler' || b === 'burrower' || (b === 'octopus' && this.state !== 'FLEE');
+    return b === 'sessile' || b === 'crawler' || b === 'burrower' || b === 'mimic' || (b === 'octopus' && this.state !== 'FLEE');
   }
 
   private setState(s: AIState) {
@@ -145,6 +150,11 @@ export class Creature implements Hittable {
     if (this.state === 'CAPTURED' || this.removed) return;
     this.stateTime += dt;
     this.phase += dt * (1 + Math.abs(this.vx) / 30) * 6;
+    if (this.pullT > 0) {
+      this.pullT -= dt;
+      const d = this.pullX - this.x;
+      this.x += Math.sign(d) * Math.min(Math.abs(d), 140 * dt);
+    }
     if (this.alertTimer > 0) this.alertTimer -= dt;
     if (this.trail > 0) this.trail -= dt;
 
@@ -177,6 +187,8 @@ export class Creature implements Hittable {
       case 'octopus': this.updateOctopus(dt, world); break;
       case 'jelly': this.updateJelly(dt); break;
       case 'blinker': this.updateBlinker(dt); break;
+      case 'predator': this.updatePredator(world); break;
+      case 'mimic': this.updateMimic(dt); break;
     }
     this.integrate(dt, world);
   }
@@ -200,7 +212,8 @@ export class Creature implements Hittable {
       this.setState('PATROL');
       return;
     }
-    if (def.behavior === 'jelly' || def.behavior === 'sessile') return;
+    if (def.behavior === 'jelly' || def.behavior === 'sessile' || def.behavior === 'predator') return;
+    if (def.behavior === 'mimic') this.revealed = 3.5;
     if (def.behavior === 'burrower') {
       // tail flip backwards, toward its crevice if it has one nearby
       const toHome = this.homeX - this.x;
@@ -408,6 +421,24 @@ export class Creature implements Hittable {
     this.vy = Math.min(9, this.vy + 30 * dt);
     if (this.x - this.homeX > 60) this.vx = -4;
     if (this.homeX - this.x > 60) this.vx = 4;
+  }
+
+  private updatePredator(world: WorldQuery): void {
+    // crosses the screen in a straight line, bobbing a little
+    this.vx = this.facing * this.def.swimSpeed * this.speedMult;
+    const target = world.seabedY(this.x) - 70 + Math.sin(this.phase * 0.08) * 20;
+    this.vy = Math.max(-25, Math.min(25, (target - this.y) * 1.2));
+  }
+
+  private updateMimic(dt: number): void {
+    if (this.revealed > 0) this.revealed -= dt;
+    if (this.state === 'FLEE') {
+      // hops away along the floor
+      this.vx = this.approach(this.facing * this.def.fleeSpeed, this.def.fleeAcceleration, dt);
+      if (this.stateTime > 0.7) this.setState('IDLE');
+      return;
+    }
+    this.vx = this.approach(0, 300, dt);
   }
 
   private updateBlinker(dt: number): void {

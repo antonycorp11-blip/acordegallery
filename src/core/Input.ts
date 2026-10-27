@@ -12,6 +12,7 @@ export class Input {
   private strikeQueued = false;
   private btnLeft = false;
   private btnRight = false;
+  private btnTurbo = false;
   private aimPointer = -1;
   onPause: () => void = () => {};
   onFirstGesture: () => void = () => {};
@@ -27,12 +28,16 @@ export class Input {
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
     window.addEventListener('blur', () => {
       this.keys.clear();
-      this.btnLeft = this.btnRight = false;
+      this.btnLeft = this.btnRight = this.btnTurbo = false;
     });
   }
 
-  bindHoldButton(el: HTMLElement, which: 'left' | 'right'): void {
-    const set = (v: boolean) => (which === 'left' ? (this.btnLeft = v) : (this.btnRight = v));
+  bindHoldButton(el: HTMLElement, which: 'left' | 'right' | 'turbo'): void {
+    const set = (v: boolean) => {
+      if (which === 'left') this.btnLeft = v;
+      else if (which === 'right') this.btnRight = v;
+      else this.btnTurbo = v;
+    };
     el.addEventListener('pointerdown', (e) => {
       e.preventDefault();
       this.gesture(e);
@@ -121,6 +126,10 @@ export class Input {
     return (r ? 1 : 0) - (l ? 1 : 0);
   }
 
+  turbo(): boolean {
+    return this.btnTurbo || this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+  }
+
   consumeStrike(): boolean {
     const s = this.strikeQueued;
     this.strikeQueued = false;
@@ -130,6 +139,6 @@ export class Input {
   reset(): void {
     this.strikeQueued = false;
     this.keys.clear();
-    this.btnLeft = this.btnRight = false;
+    this.btnLeft = this.btnRight = this.btnTurbo = false;
   }
 }

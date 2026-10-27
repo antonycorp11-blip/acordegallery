@@ -1,8 +1,8 @@
 # ABYSS CLAW
 
-Jogo incremental/arcade 2D de capturas submarinas. Uma garra vem do topo da tela e dá um golpe seco (**PÁ!**) para pegar animais que podem fugir, esquivar ou resistir. Avance para a **direita**: o mar fica mais fundo, mais estranho e mais valioso. Cada mergulho começa com **30 segundos**; com o dinheiro você compra upgrades e garras novas.
+Jogo incremental/arcade 2D de capturas submarinas. Uma garra vem do topo da tela e dá um golpe seco (**PÁ!**) para pegar animais que podem fugir, esquivar ou resistir. Avance para a **direita**: o mar fica mais fundo, mais estranho e mais valioso, até chegar aos **guardiões** que bloqueiam cada bioma. Cada mergulho começa com **30 segundos**; com o dinheiro você compra habilidades, garras e muito mais.
 
-Toda a arte é **pixel art desenhada por código** em Canvas 2D (480×270, ampliado com nearest-neighbor). Não há imagens externas.
+Toda a arte é **pixel art desenhada por código** em Canvas 2D (270 px de altura, ampliada com nearest-neighbor). Não há imagens externas.
 
 ## Como rodar
 
@@ -15,83 +15,101 @@ npm test           # testes unitários (Vitest)
 npm run smoke      # smoke test no navegador (rode após o build)
 ```
 
-Requer Node 18+. O smoke test usa o pacote `playwright` com Chromium. Ele não é dependência do jogo; instale com `npm i -D playwright && npx playwright install chromium`, ou aponte `NODE_PATH` para uma instalação global. Não precisa de servidor, banco de dados nem login: o progresso fica no `localStorage`.
+Requer Node 18+. O smoke test usa o pacote `playwright` com Chromium. Ele não é dependência do jogo; instale com `npm i -D playwright && npx playwright install chromium`, ou aponte `NODE_PATH` para uma instalação global. O deploy na Cloudflare usa `wrangler.jsonc`, que serve a pasta `dist` como site estático.
 
 ## Controles
 
 | | PC | Celular (horizontal) |
 |---|---|---|
-| Mirar | mover o mouse | tocar/arrastar no mar (não dispara) |
-| Atacar | clique esquerdo ou `Espaço` | botão **CAPTURAR** |
+| Mirar | mover o mouse | a garra fica no centro; ◀ ▶ alinham o oceano com ela |
+| Atacar | clique esquerdo ou `Espaço` | **CAPTURAR**: a garra desce reto e pega o primeiro bicho no caminho (marcado em amarelo) |
 | Navegar | `A`/`D` ou `◀`/`▶` | botões `◀` `▶` (segurar) |
+| Turbo | `Shift` | botão **TURBO** (barra azul sob o cronômetro) |
 | Pausar | `Esc` ou `P` | botão `II` |
 
-Dá para mirar com um dedo e atacar com outro (multitouch). Em retrato, o jogo pede para girar o aparelho. O jogo pausa sozinho quando a aba perde o foco, então o cronômetro não corre à toa.
+O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 px e a largura (400–640 px) acompanha o formato da tela. Em retrato, o jogo pede para girar o aparelho. Ele também pausa sozinho quando a aba perde o foco.
 
-## O que está implementado
+## Objetivos e progressão
 
-- **Golpe brusco**: máquina de estados `READY → ANTICIPATE → STRIKE → CLOSE → RETRACT → COOLDOWN`. A investida leva cerca de 70–165 ms conforme a garra e os upgrades, com rastro, linhas de velocidade, faíscas, tremor e um breve *hit-stop* na captura. O ciclo inicial completo leva cerca de 600 ms.
-- **Colisão no instante do contato**: a boca da garra (círculo do tamanho da abertura) é testada contra a hitbox das criaturas quando chega, não no clique. Não há sorte invisível: os animais percebem o golpe, reagem com atraso por espécie e fogem de verdade.
-- **Feedback**: `ERROU!`, `ESCAPOU!`, `RESISTIU!`, `CAPTURADO!`, `PERFEITO!`, `ESPÉCIE NOVA!`, `CHOQUE!`, `+$valor`, `+Ns`, combo.
-- **Exploração lateral contínua**: `depthAt(worldX)` é monotônica e interpolada (0 m → 100 m em 1.500 → 500 m em 4.000 → 1.500 m em 7.000 → 4.000 m em 11.000 → …). São 5 biomas contínuos com cores, decoração e fauna interpoladas: Recife Colorido, Costa Rochosa, Naufrágios e Ruínas, Floresta Abissal e Abismo Impossível. O terreno é procedural com seed por run, em chunks determinísticos, e a câmera segue o leito suavemente.
-- **14 espécies** com IA própria (`IDLE`, `PATROL`, `ALERT`, `FLEE`, `HIDE`, `STUNNED`, `CAPTURED`):
-  - caranguejos que correm de lado;
-  - cardumes que dão dash;
-  - lagosta que se esconde em fendas;
-  - enguia errática;
-  - Peixe-Cofre encouraçado;
-  - polvo que se camufla e solta tinta;
-  - água-viva que dá choque;
-  - Caranguejo Dourado com bônus de tempo;
-  - Peixe-Fantasma ultra-rápido;
-  - Peixe-Lanterninha e Caranguejo-Aranha das águas fundas;
-  - Leviatã-Lanterna (lendário);
-  - Olho Errante (anômalo, se teleporta).
-- **Raridades** comum → anômala e **variantes** mini, gigante, dourado, bioluminescente e mutante, que mudam tamanho, valor, força exigida e velocidade.
-- **SpawnDirector**: povoa cada chunk uma única vez, sem duplicar ao voltar, e traz novos animais pelas bordas. Tem teto de 70 entidades vivas e não faz spawn sob a mira. A densidade e a sorte compradas alteram o spawn de verdade.
-- **5 garras reais** (Oficina), cada uma com aparência e mecânica próprias:
-  - **Sucata**: equilibrada;
-  - **Relâmpago**: muito rápida, os bichos reagem mais tarde, mas tem pouca força;
-  - **Hidráulica**: forte, abertura grande, mais lenta;
-  - **Elétrica**: atordoa em área e ignora o choque das águas-vivas;
-  - **Tripla**: 3 dentes, até 3 alvos.
+- **Guardiões de bioma**: cinco chefes gigantes bloqueiam o caminho com uma parede de correnteza: Caranguejo-Rei, Moreia Colossal, Polvo do Naufrágio, Água-Viva Catedral e Leviatã Primordial.
+  - Para capturá-los, agarre um a um os **pontos fracos brilhantes** quando abrirem, e só com força suficiente. O dano persiste entre mergulhos.
+  - Eles avisam antes de atacar (brilho vermelho). O ataque atordoa a garra que estiver perto.
+  - Cada vitória paga moedas, estrelas e +10 s, e libera um **ponto de partida** no bioma seguinte.
+- **Encomendas**: três pedidos ativos por vez (capturar espécies, raridades ou variantes, chegar a uma profundidade, fazer combos, ganhar moedas num só mergulho). Pagam moedas e ★, e são resgatadas na base.
+- **Aquário**: as espécies capturadas nadam num tanque animado e rendem moedas mesmo com o jogo fechado (até 8 h, mais com ampliações pagas em ★). Completar a **coleção** de um bioma dá +10% no valor de toda captura.
+- **Presente diário** com sequência de até 7 dias.
+- **Renascer (prestígio)**: depois de 2 guardiões, troca moedas, árvore e garras por **Essência Abissal ✦**. A essência compra uma segunda árvore permanente: valor das capturas, tempo, força, sorte, aquário, frenesi, desconto em garras e manter as rotas.
 
-  As garras são desbloqueadas por recorde de profundidade e por moedas.
-- **Árvore de habilidades de verdade** (estilo incremental): um mapa de 34 nós quadrados com ícones em pixel art, que dá para arrastar e dar zoom com a roda, a pinça ou os botões. Comece pelo nó central **Instinto de Caça**: comprar um nó revela os filhos ligados a ele, o próximo anel aparece como `?` e o resto fica escondido até você chegar lá. Toque num nó para ver os detalhes e toque de novo (ou use o botão) para comprar. São 4 ramos coloridos saindo da origem:
-  - **Captura** (para cima): golpe rápido, abertura, força, recuperação, precisão e captura múltipla.
-  - **Expedição** (para a direita): mais tempo (+5 s por nível), propulsores e relógio dourado.
-  - **Ecologia** (para baixo): mais criaturas, sorte abissal (com retorno decrescente), cardumes e variantes.
-  - **Tecnologia** (à esquerda): combo, captura perfeita e sonar de raros.
+## Na água
 
-  Nós mais fundos reforçam o mesmo atributo (ex.: Golpe Rápido → Estalo Relâmpago). O custo é `round(base × 1,55^nível)`.
-- **Economia**: valor = base × variante × profundidade × (combo + captura perfeita). As moedas são creditadas uma única vez no fim da run e salvas na hora.
-- **Telas**: Base, Resultados (capturas, moedas, profundidade/recorde, espécies novas, raridades), Habilidades, Oficina, Catálogo (silhuetas das espécies desconhecidas) e Configurações (som, apagar progresso com confirmação).
-- **Áudio** sintetizado com Web Audio, sem arquivos, e botão de mudo.
-- **Save** versionado e validado no `localStorage`: um save corrompido volta ao padrão sem quebrar o jogo.
+- **Golpe brusco** (cerca de 70–165 ms) com colisão no instante do contato, fuga real dos animais, "hit-stop" na captura e moedas voando até o contador. O celular vibra a cada captura (dá para desligar).
+- **Frenesi**: 5 capturas seguidas deixam os golpes ultrarrápidos e dobram o valor por alguns segundos.
+- **Eventos aleatórios**:
+  - **Cardume dourado** (peixes que valem 4× e dão segundos extras);
+  - **Correnteza** (empurra para águas fundas);
+  - **Tubarão-Martelo** (devora os bichos pequenos e morde garras fracas; com força suficiente, dá para capturá-lo).
+- **Baús de tesouro** (moedas e às vezes ★) e **Baús-Mímicos**, que fingem ser baú, mostram os dentes e fogem.
+- **16 espécies** com IA própria, raridades de comum a anômala e variantes mini, gigante, dourado, bioluminescente e mutante.
+- **8 garras**:
+  - **Sucata**: equilibrada.
+  - **Relâmpago**: muito rápida, pouca força.
+  - **Hidráulica**: forte e de abertura grande, mais lenta.
+  - **Elétrica**: atordoa em área e ignora choques.
+  - **Tripla**: até 3 alvos.
+  - **Magnética**: puxa os bichos para o trajeto.
+  - **Mutante**: tentáculos pegam vizinhos.
+  - **Gravitacional**: atrai tudo para a boca, até 4 alvos.
+
+  As três últimas também custam ★.
+- **Árvore de habilidades** em nós (estilo incremental): comprar um nó revela os filhos, o anel seguinte aparece como `?` e o resto fica escondido. Dá para arrastar e dar zoom com a roda, a pinça ou os botões.
+
+## Visual
+
+Toda a arte é desenhada por código:
+- água com degradê pontilhado e superfície ondulando;
+- **cáusticas** animadas na água e na areia;
+- feixes de luz e três camadas de parallax com névoa e silhuetas de cada bioma (colinas de coral, agulhas de rocha, florestas de kelp, colunas e cascos de navio, árvores abissais com bulbos brilhantes, cristais gigantes);
+- areia com marcas de ondulação, camadas de sedimento, pedras embutidas, musgo luminoso e detritos;
+- decoração animada: kelp, anêmonas, fontes hidrotermais com bolhas, cristais e plantas brilhantes;
+- plâncton bioluminescente, primeiro plano escuro e vinheta.
 
 ## Estrutura
 
 ```text
 src/
-  config.ts            balanceamento central (tempo, spawn, raridades, economia…)
-  main.ts              DOM, layout 16:9, safe areas, foco/orientação
-  core/                Game (loop e regras da run), Input, Camera, Save, RNG, Audio
+  config.ts            balanceamento central (tempo, spawn, raridades, frenesi, eventos, aquário…)
+  main.ts              DOM, layout em tela cheia, safe areas, foco/orientação
+  core/                Game (loop, regras da run, guardiões, eventos), Input, Camera, Save, RNG, Audio
   world/               Depth, Biomes, Terrain (chunks), SpawnDirector
-  entities/            Species, Creature (IA), Claw (estados), ClawsCatalog, Hit
-  systems/             Upgrades (árvore e stats), Economy (valor, combo, coleção)
-  render/              Renderer (camadas), PixelArt (sprites procedurais), Effects, Color
-  ui/                  HUD, Screens (menus em DOM), SkillTree (mapa de nós)
-tests/                 Vitest: profundidade, biomas, terreno, upgrades, save, hit, garra, spawn, economia
+  entities/            Species, Creature (IA), Claw (estados), ClawsCatalog, Hit, Boss (guardiões)
+  systems/             Upgrades (árvores e stats), Economy, Orders (encomendas), Meta (aquário, presente, prestígio)
+  render/              Renderer, Scenery (mar e fundo), PixelArt (sprites procedurais), Effects, Color
+  ui/                  HUD, Screens (menus em DOM), SkillTree (mapa de nós), AquariumView
+tests/                 Vitest
 scripts/smoke.cjs      smoke test com Playwright
 ```
 
 ## Testes
 
-- `npm test`: 35 testes unitários. Cobrem `depthAt`, a interpolação de biomas, o determinismo do terreno, os custos e efeitos dos upgrades, a estrutura da árvore e a revelação de nós, compra de garras, save/load/corrupção, colisão, tempos da garra, habitat/sorte/densidade/variantes do spawn, teto de entidades, combo e coleção.
-- `npm run smoke`: abre o jogo no Chromium, inicia a run (00:30), captura um animal, confere que a profundidade aumenta indo para a direita, termina o cronômetro e confere que as moedas são creditadas uma vez e salvas. Depois compra o nó raiz da árvore, confere que 2 novos nós aparecem, que a próxima run começa com 00:35 e que o progresso persiste após recarregar.
+- `npm test`: 53 testes unitários, cobrindo:
+  - profundidade, biomas e determinismo do terreno;
+  - custos e efeitos dos upgrades, estrutura das duas árvores e revelação de nós, garras com estrelas;
+  - save/load e recuperação de save corrompido;
+  - colisão e golpe em coluna;
+  - tempos da garra;
+  - spawn (habitat, sorte, densidade, variantes, teto de entidades);
+  - economia e combo;
+  - encomendas, aquário e coleções, presente diário e prestígio;
+  - guardiões (pontos fracos, ordem, pontos de partida).
+- `npm run smoke`: no Chromium, faz uma run completa:
+  1. inicia a run (00:30) e captura um animal;
+  2. confere que a profundidade aumenta indo para a direita;
+  3. termina o cronômetro e confere que as moedas são creditadas uma vez e salvas;
+  4. compra o nó raiz da árvore e confere que 2 nós novos aparecem;
+  5. confere que a próxima run começa com 00:35 e que o progresso persiste após recarregar.
 
 ## Próximos passos
 
-- Garras Magnética, Mutante e Gravitacional (o catálogo já é extensível).
-- Checkpoints de partida conquistados em zonas profundas.
-- Chefes de captura com pontos fracos, correntezas, missões e prestígio (Essência Abissal).
+- Mais guardiões e biomas depois do Leviatã Primordial.
+- Missões semanais e conquistas.
+- Automação moderada das áreas já conquistadas.

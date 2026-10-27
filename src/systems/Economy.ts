@@ -1,5 +1,5 @@
 import { CONFIG } from '../config';
-import { VARIANTS, type SpeciesDefinition, type VariantId } from '../entities/Species';
+import { SPECIES_BY_ID, VARIANTS, isCreature, type SpeciesDefinition, type VariantId } from '../entities/Species';
 import type { RunStats } from './Upgrades';
 import type { SaveData } from '../core/Save';
 
@@ -13,8 +13,9 @@ export function captureValue(
   depthMeters: number,
   comboBonus: number,
   perfectBonus: number,
+  mult = 1,
 ): number {
-  const v = def.baseValue * VARIANTS[variant].valueMult * depthValueMult(depthMeters) * (1 + comboBonus + perfectBonus);
+  const v = def.baseValue * VARIANTS[variant].valueMult * depthValueMult(depthMeters) * (1 + comboBonus + perfectBonus) * mult;
   return Math.max(1, Math.round(v));
 }
 
@@ -59,6 +60,7 @@ export class ComboTracker {
 
 /** Registers a capture in the collection. Returns true if species is new. */
 export function recordCapture(save: SaveData, speciesId: string, variant: VariantId): boolean {
+  if (SPECIES_BY_ID[speciesId] && !isCreature(SPECIES_BY_ID[speciesId])) return false;
   let rec = save.species[speciesId];
   const isNew = !rec || rec.caught === 0;
   if (!rec) rec = save.species[speciesId] = { caught: 0, variants: [] };

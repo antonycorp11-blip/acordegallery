@@ -1,7 +1,7 @@
 import { CONFIG, VIEW_W } from '../config';
 import { hash3, randInt, seededRandom, weightedIndex, type Rand } from '../core/RNG';
 import { Creature, type School } from '../entities/Creature';
-import { RARITIES, SPECIES, type SpeciesDefinition, type VariantId } from '../entities/Species';
+import { RARITIES, SPECIES, SPECIES_BY_ID, type SpeciesDefinition, type VariantId } from '../entities/Species';
 import { biomeIndexAt } from './Biomes';
 import { depthAt } from './Depth';
 import type { Terrain } from './Terrain';
@@ -145,6 +145,40 @@ export class SpawnDirector {
       if (visible && Math.abs(x - avoidX) < 26) x += x < avoidX ? -30 : 30;
       this.spawnAt(x, r, index);
     }
+    // sunken treasure — and things pretending to be treasure
+    if (index > 0 && r() < CONFIG.chest.chunkChance && this.alive < CONFIG.spawn.maxAlive) {
+      const x = x0 + 20 + r() * (cw - 40);
+      const depth = depthAt(x);
+      const mimic = depth >= 300 && r() < CONFIG.chest.mimicChance;
+      this.spawnSpecial(SPECIES_BY_ID[mimic ? 'mimic' : 'chest'], 'normal', x, null, r() < 0.5 ? 1 : -1);
+    }
+  }
+
+  /** Places a specific creature (events, treasure). y = null puts it on the floor. */
+  spawnSpecial(def: SpeciesDefinition, variant: VariantId, x: number, y: number | null, facing: number): Creature {
+    const floor = this.terrain.seabedY(x);
+    const c = new Creature(def, variant, x, y ?? floor - def.size.h / 2, hash3(this.terrain.seed, Math.floor(x * 13), this.schoolId * 7 + this.creatures.length));
+    if (y === null && c.onFloor) c.y = floor - c.h / 2 + 1;
+    c.facing = facing;
+    c.homeX = x;
+    this.creatures.push(c);
+    return c;
+  }
+
+  /** A whole school entering from one side (golden school event). */
+  spawnSchool(def: SpeciesDefinition, variant: VariantId, x: number, count: number, facing: number): void {
+    const floor = this.terrain.seabedY(x);
+    const school: School = { id: this.schoolId++, x, y: floor - 70, facing, homeX: x + facing * 300, turnTimer: 99, speed: def.swimSpeed * 1.6, alive: 0 };
+    // events may go slightly over the normal cap, never unbounded
+    for (let i = 0; i < count && this.alive < CONFIG.spawn.maxAlive + 10; i++) {
+      const c = new Creature(def, variant, x + (this.rng() - 0.5) * 30, school.y, hash3(this.terrain.seed, this.schoolId, i));
+      c.school = school;
+      c.schoolOffX = (this.rng() - 0.5) * 40;
+      c.schoolOffY = (this.rng() - 0.5) * 22;
+      school.alive++;
+      this.creatures.push(c);
+    }
+    this.schools.push(school);
   }
 
   /** Spawns one creature (or a school). Returns number spawned. */

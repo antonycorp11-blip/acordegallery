@@ -1,8 +1,8 @@
 import type { Game } from '../core/Game';
 import { formatCoins } from '../systems/Economy';
 import {
-  BRANCH_COLOR, BRANCH_LABEL, UPGRADES, UPGRADES_BY_ID, buyUpgrade, canBuy, level, nodeVisibility, upgradeCost,
-  type NodeVisibility, type StatKey, type UpgradeDef,
+  BRANCH_COLOR, BRANCH_LABEL, UPGRADES_BY_ID, buyUpgrade, canBuy, level, nodeVisibility, treeNodes, upgradeCost,
+  type NodeVisibility, type StatKey, type TreeId, type UpgradeDef,
 } from '../systems/Upgrades';
 
 // 8×8 pixel icons drawn by code: '#' = branch color, '+' = white, '.' = empty.
@@ -24,6 +24,12 @@ const ICONS: Record<StatKey | 'core', string[]> = {
   combo: ['##....##', '.##..##.', '..####..', '...++...', '..####..', '.##..##.', '##....##', '........'],
   perfect: ['..####..', '.#....#.', '#..##..#', '#.#++#.#', '#.#++#.#', '#..##..#', '.#....#.', '..####..'],
   sonar: ['#.......', '.#..#...', '.#...#..', '.#.#..#.', '.#.#..#.', '.#...#..', '.#..#...', '#.......'],
+  value: ['...##...', '..####..', '.##+.##.', '.##..##.', '..##....', '....##..', '.##+.##.', '..####..'],
+  frenzy: ['.#...#..', '.##..##.', '.###.###', '########', '.######.', '..####..', '...##...', '........'],
+  aquarium: ['########', '#......#', '#.##...#', '#####..#', '#.##..+#', '#.....+#', '#~~~~~~#', '########'],
+  clawDiscount: ['#.....#.', '#.....#.', '.#...#..', '.#####..', '...#....', '..###...', '.#+#+#..', '..###...'],
+  keepRoutes: ['....##..', '...#..#.', '...#..#.', '....##..', '...#....', '..#.....', '.#......', '#.......'],
+  turbo: ['#...#...', '##..##..', '###.###.', '########', '###.###.', '##..##..', '#...#...', '........'],
 };
 
 const iconCache = new Map<string, string>();
@@ -47,10 +53,11 @@ function iconUrl(key: StatKey | 'core', color: string): string {
 }
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
-const $ = (n: number) => `$${formatCoins(n)}`;
-
-/** Pan/zoom survive re-renders and tab switches. */
-const view = { x: 0, y: 0, zoom: 1, centered: false, selected: 'core' };
+/** Pan/zoom survive re-renders and tab switches (one per tree). */
+const views: Record<TreeId, { x: number; y: number; zoom: number; centered: boolean; selected: string }> = {
+  main: { x: 0, y: 0, zoom: 1, centered: false, selected: 'core' },
+  essence: { x: 0, y: 0, zoom: 1, centered: false, selected: 'e_core' },
+};
 
 /**
  * Incremental-game style skill tree: square nodes on a pannable map.
@@ -65,7 +72,12 @@ export class SkillTree {
   private pinchDist = 0;
   private justRevealed = new Set<string>();
 
-  constructor(private root: HTMLElement, private game: Game, private onChange: () => void) {
+  private readonly nodes: UpgradeDef[];
+  private readonly money: (n: number) => string;
+
+  constructor(private root: HTMLElement, private game: Game, private onChange: () => void, private tree: TreeId = 'main') {
+    this.nodes = treeNodes(tree);
+    this.money = tree === 'essence' ? (n) => `✦${n}` : (n) => `$${formatCoins(n)}`;
     root.classList.add('tree-view');
     root.innerHTML = `
       <div class="tree-world"></div>
@@ -96,8 +108,12 @@ export class SkillTree {
       this.zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top);
     }, { passive: false });
     this.render();
-    if (!view.centered) this.center();
+    if (!this.view.centered) this.center();
     else this.applyTransform();
+  }
+
+  private get view() {
+    return views[this.tree];
   }
 
   /** Grid spacing in px, proportional to the stage size. */
@@ -110,7 +126,7 @@ export class SkillTree {
     const w = this.root.clientWidth || 600;
     const h = this.root.clientHeight || 300;
     // frame what the player can currently see
-    const vis = UPGRADES.filter((u) => nodeVisibility(this.game.save, u.id) !== 'hidden');
+    const vis = this.nodes.filter((u) => nodeVisibility(this.game.save, u.id) !== 'hidden');
     const G = this.G;
     const xs = vis.map((u) => u.x * G);
     const ys = vis.map((u) => u.y * G);
@@ -118,24 +134,24 @@ export class SkillTree {
     const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
     const spanX = Math.max(...xs) - Math.min(...xs) + G * 2;
     const spanY = Math.max(...ys) - Math.min(...ys) + G * 2;
-    view.zoom = Math.max(0.55, Math.min(1.3, Math.min((w * 0.8) / spanX, h / spanY)));
+    this.view.zoom = Math.max(0.55, Math.min(1.3, Math.min((w * 0.8) / spanX, h / spanY)));
     // keep the tree clear of the info card on the bottom-left
-    view.x = w * 0.58 - cx * view.zoom;
-    view.y = h / 2 - cy * view.zoom;
-    view.centered = true;
+    this.view.x = w * 0.58 - cx * this.view.zoom;
+    this.view.y = h / 2 - cy * this.view.zoom;
+    this.view.centered = true;
     this.applyTransform();
   }
 
   private applyTransform(): void {
-    this.world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`;
+    this.world.style.transform = `translate(${this.view.x}px, ${this.view.y}px) scale(${this.view.zoom})`;
   }
 
   private zoomAt(f: number, px: number, py: number): void {
-    const z = Math.max(0.45, Math.min(1.8, view.zoom * f));
-    const k = z / view.zoom;
-    view.x = px - (px - view.x) * k;
-    view.y = py - (py - view.y) * k;
-    view.zoom = z;
+    const z = Math.max(0.45, Math.min(1.8, this.view.zoom * f));
+    const k = z / this.view.zoom;
+    this.view.x = px - (px - this.view.x) * k;
+    this.view.y = py - (py - this.view.y) * k;
+    this.view.zoom = z;
     this.applyTransform();
   }
 
@@ -173,8 +189,8 @@ export class SkillTree {
     this.dragMoved = true;
     p.x = e.clientX;
     p.y = e.clientY;
-    view.x += dx;
-    view.y += dy;
+    this.view.x += dx;
+    this.view.y += dy;
     this.applyTransform();
   };
 
@@ -193,18 +209,18 @@ export class SkillTree {
 
   private tapNode(id: string): void {
     this.game.audio.unlock();
-    if (view.selected === id && nodeVisibility(this.game.save, id) !== 'teaser') {
+    if (this.view.selected === id && nodeVisibility(this.game.save, id) !== 'teaser') {
       this.buy(id);
       return;
     }
-    view.selected = id;
+    this.view.selected = id;
     this.game.audio.play('click');
     this.render();
   }
 
   private buy(id: string): void {
     const save = this.game.save;
-    const before = new Set(UPGRADES.filter((u) => nodeVisibility(save, u.id) === 'available').map((u) => u.id));
+    const before = new Set(this.nodes.filter((u) => nodeVisibility(save, u.id) === 'available').map((u) => u.id));
     const res = buyUpgrade(save, id);
     if (res !== 'ok') {
       this.root.querySelector(`.node[data-id="${id}"]`)?.classList.add('deny');
@@ -215,7 +231,7 @@ export class SkillTree {
     this.game.persist();
     this.game.refreshStats();
     this.game.audio.play('buy');
-    this.justRevealed = new Set(UPGRADES.filter((u) => nodeVisibility(save, u.id) === 'available' && !before.has(u.id)).map((u) => u.id));
+    this.justRevealed = new Set(this.nodes.filter((u) => nodeVisibility(save, u.id) === 'available' && !before.has(u.id)).map((u) => u.id));
     if (this.justRevealed.size) setTimeout(() => this.game.audio.play('newSpecies'), 120);
     this.render(id);
     this.onChange();
@@ -228,10 +244,10 @@ export class SkillTree {
     const G = this.G;
     const N = G * 0.68; // node size
     const vis = new Map<string, NodeVisibility>();
-    for (const u of UPGRADES) vis.set(u.id, nodeVisibility(save, u.id));
+    for (const u of this.nodes) vis.set(u.id, nodeVisibility(save, u.id));
 
     let lines = '';
-    for (const u of UPGRADES) {
+    for (const u of this.nodes) {
       if (!u.parent || vis.get(u.id) === 'hidden') continue;
       const p = UPGRADES_BY_ID[u.parent];
       const state = vis.get(u.id) === 'owned' ? 'on' : vis.get(u.id) === 'available' ? 'open' : 'dim';
@@ -240,7 +256,7 @@ export class SkillTree {
     }
 
     let nodes = '';
-    for (const u of UPGRADES) {
+    for (const u of this.nodes) {
       const v = vis.get(u.id)!;
       if (v === 'hidden') continue;
       const l = level(save, u.id);
@@ -250,7 +266,7 @@ export class SkillTree {
         'node', v,
         l >= u.maxLevel ? 'maxed' : '',
         res === 'ok' ? 'can' : '',
-        view.selected === u.id ? 'sel' : '',
+        this.view.selected === u.id ? 'sel' : '',
         this.justRevealed.has(u.id) ? 'reveal' : '',
         boughtId === u.id ? 'pop' : '',
       ].join(' ');
@@ -267,7 +283,7 @@ export class SkillTree {
 
   private renderInfo(): void {
     const save = this.game.save;
-    const u: UpgradeDef | undefined = UPGRADES_BY_ID[view.selected];
+    const u: UpgradeDef | undefined = UPGRADES_BY_ID[this.view.selected];
     if (!u) {
       this.info.innerHTML = '';
       return;
@@ -286,8 +302,8 @@ export class SkillTree {
     let action: string;
     if (max) action = '<span class="equipped">NÍVEL MÁXIMO</span>';
     else if (res === 'locked') action = `<span class="lock">🔒 Requer ${esc(UPGRADES_BY_ID[u.parent!].name)}</span>`;
-    else action = `<button class="btn ${res === 'ok' ? 'buy-ok' : ''}" data-buy="${u.id}" ${res === 'ok' ? '' : 'disabled'}>Comprar ${$(cost)}</button>`;
-    const kids = UPGRADES.filter((k) => k.parent === u.id).length;
+    else action = `<button class="btn ${res === 'ok' ? 'buy-ok' : ''}" data-buy="${u.id}" ${res === 'ok' ? '' : 'disabled'}>Comprar ${this.money(cost)}</button>`;
+    const kids = this.nodes.filter((k) => k.parent === u.id).length;
     this.info.innerHTML = `
       <div class="ti-head">
         <img src="${iconUrl(u.id === 'core' ? 'core' : u.stat, color)}" alt="">

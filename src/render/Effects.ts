@@ -24,11 +24,20 @@ export interface FloatText {
   big: boolean;
 }
 
+/** A coin flying from a capture (view coords) to the HUD counter. */
+export interface CoinFly {
+  x: number;
+  y: number;
+  t: number;
+  delay: number;
+}
+
 const MAX_PARTICLES = 420;
 
 export class Effects {
   particles: Particle[] = [];
   texts: FloatText[] = [];
+  coins: CoinFly[] = [];
   private pool: Particle[] = [];
   shake = 0;
   flash = 0;
@@ -57,7 +66,17 @@ export class Effects {
     if (this.texts.length > 24) this.texts.shift();
   }
 
+  coinFly(viewX: number, viewY: number, n: number): void {
+    for (let i = 0; i < n && this.coins.length < 40; i++) this.coins.push({ x: viewX + (Math.random() - 0.5) * 8, y: viewY + (Math.random() - 0.5) * 8, t: 0, delay: i * 0.05 });
+  }
+
   update(dt: number): void {
+    for (let i = this.coins.length - 1; i >= 0; i--) {
+      const c = this.coins[i];
+      if (c.delay > 0) c.delay -= dt;
+      else c.t += dt * 1.6;
+      if (c.t >= 1) this.coins.splice(i, 1);
+    }
     for (let i = this.particles.length - 1; i >= 0; i--) {
       const p = this.particles[i];
       p.life -= dt;
@@ -94,6 +113,7 @@ export class Effects {
     this.pool.push(...this.particles);
     this.particles.length = 0;
     this.texts.length = 0;
+    this.coins.length = 0;
     this.shake = 0;
     this.flash = 0;
   }

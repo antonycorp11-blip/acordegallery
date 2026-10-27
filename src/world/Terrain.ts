@@ -2,8 +2,12 @@ import { CONFIG } from '../config';
 import { hash3, seededRandom, valueNoise1D, weightedIndex, randInt } from '../core/RNG';
 import { BIOMES, biomeIndexAt } from './Biomes';
 
-export type DecorType = 'rock' | 'coral' | 'weed' | 'crevice' | 'shell' | 'ruin' | 'wreck' | 'glowPlant';
-const DECOR_TYPES: DecorType[] = ['rock', 'coral', 'weed', 'crevice', 'shell', 'ruin', 'wreck', 'glowPlant'];
+export type DecorType =
+  | 'rock' | 'coral' | 'weed' | 'crevice' | 'shell' | 'ruin' | 'wreck' | 'glowPlant'
+  | 'kelp' | 'anemone' | 'crystal' | 'vent';
+export const DECOR_TYPES: DecorType[] = ['rock', 'coral', 'weed', 'crevice', 'shell', 'ruin', 'wreck', 'glowPlant', 'kelp', 'anemone', 'crystal', 'vent'];
+/** Drawn every frame (animated) instead of baked into the chunk image. */
+export const LIVE_DECOR = new Set<DecorType>(['weed', 'glowPlant', 'kelp', 'anemone', 'crystal', 'vent']);
 
 export interface Decor {
   type: DecorType;
@@ -72,7 +76,7 @@ export class Terrain {
     const biome = BIOMES[biomeIndexAt(x0 + cw / 2)];
     const decor: Decor[] = [];
     const crevices: number[] = [];
-    const count = index < 0 ? 0 : randInt(r, 7, 11);
+    const count = index < 0 ? 0 : randInt(r, 9, 14);
     for (let i = 0; i < count; i++) {
       const type = DECOR_TYPES[weightedIndex(r, biome.decor)];
       const x = x0 + r() * cw;
@@ -87,9 +91,13 @@ export class Terrain {
         case 'ruin': w = randInt(r, 14, 26); h = randInt(r, 24, 50); break;
         case 'wreck': w = randInt(r, 60, 90); h = randInt(r, 22, 32); break;
         case 'glowPlant': w = randInt(r, 6, 12); h = randInt(r, 12, 28); break;
+        case 'kelp': w = 6; h = randInt(r, 50, 110); break;
+        case 'anemone': w = randInt(r, 10, 16); h = randInt(r, 8, 12); break;
+        case 'crystal': w = randInt(r, 10, 22); h = randInt(r, 16, 40); break;
+        case 'vent': w = randInt(r, 10, 14); h = randInt(r, 16, 30); break;
       }
       // a wreck per chunk at most, and keep the start area readable
-      if (type === 'wreck' && decor.some((d) => d.type === 'wreck')) continue;
+      if ((type === 'wreck' || type === 'vent') && decor.some((d) => d.type === type)) continue;
       decor.push({ type, x, y: this.seabedY(x), w, h, seed, front: type === 'shell' || (type === 'weed' && r() < 0.25) });
     }
     // big structures in the back, small ones in front

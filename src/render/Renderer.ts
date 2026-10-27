@@ -1,15 +1,14 @@
-import { CONFIG, VIEW_H, VIEW_W } from '../config';
-import { hashFloat, valueNoise1D } from '../core/RNG';
+import { VIEW_H, VIEW_W } from '../config';
 import type { Camera } from '../core/Camera';
+import { bossSpriteDef, type Boss } from '../entities/Boss';
 import type { Claw } from '../entities/Claw';
-import type { Creature } from '../entities/Creature';
 import type { ClawDefinition } from '../entities/ClawsCatalog';
+import type { Creature } from '../entities/Creature';
 import type { RunStats } from '../systems/Upgrades';
-import { lightRaysAt, paletteAt, type BiomePalette } from '../world/Biomes';
 import type { Terrain } from '../world/Terrain';
-import { hexToRgb, shade } from './Color';
 import type { Effects } from './Effects';
-import { creatureSprite, decorSprite, drawEel, glowSprite, makeCanvas, Painter, variantPalette } from './PixelArt';
+import { creatureSprite, drawEel, glowSprite, makeCanvas, Painter, variantPalette } from './PixelArt';
+import { Scenery } from './Scenery';
 
 export interface RenderView {
   cam: Camera;
@@ -26,37 +25,32 @@ export interface RenderView {
   path: { x: number; floorY: number; target: { x: number; y: number; w: number; h: number } | null } | null;
   sonar: { x: number; y: number; color: string } | null;
   warn: number; // 0..1 low-time pulse
+  boss: Boss | null;
+  /** world x of the current wall that blocks the way (null when free) */
+  barrierX: number | null;
+  /** -1..1 strength/direction of an active current event */
+  current: number;
+  /** 0..1 frenzy time left */
+  frenzy: number;
 }
-
-interface ChunkImage {
-  canvas: HTMLCanvasElement;
-  x0: number;
-  top: number;
-}
-
-const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
-const CHUNK_PAD = 64;
-const GROUND_DEPTH = 210;
 
 export class Renderer {
   readonly low: HTMLCanvasElement;
   private lctx: CanvasRenderingContext2D;
   private dctx: CanvasRenderingContext2D;
   private scale = 1;
-  private chunkImages = new Map<number, ChunkImage>();
-  private waterKey = '';
-  private waterPattern: CanvasPattern | null = null;
-  private rays: HTMLCanvasElement;
-  private snow: { x: number; y: number; s: number; d: number }[] = [];
   private lp: Painter;
+  private scenery: Scenery;
+  /** where flying coins land, in display pixels (the HUD coin counter) */
+  coinTarget = { x: 0, y: 0 };
+  onCoinLanded: () => void = () => {};
 
   constructor(private display: HTMLCanvasElement) {
     this.low = makeCanvas(VIEW_W, VIEW_H);
     this.lctx = this.low.getContext('2d')!;
     this.lp = new Painter(this.low);
     this.dctx = display.getContext('2d')!;
-    this.rays = this.buildRays();
-    for (let i = 0; i < 70; i++) this.snow.push({ x: Math.random(), y: Math.random(), s: 0.3 + Math.random() * 0.7, d: Math.random() });
+    this.scenery = new Scenery(this.lctx);
   }
 
   resize(cssW: number, cssH: number, dpr: number): void {
@@ -66,12 +60,13 @@ export class Renderer {
       this.display.width = w;
       this.display.height = h;
     }
+    if (this.low.width !== VIEW_W) this.low.width = VIEW_W;
     this.scale = w / VIEW_W;
   }
 
   /** Throw away cached terrain images (new run / new seed). */
   resetWorld(): void {
-    this.chunkImages.clear();
+    this.scenery.reset();
   }
 
   render(v: RenderView): void {
@@ -79,32 +74,31 @@ export class Renderer {
     ctx.imageSmoothingEnabled = false;
     const camX = Math.round(v.cam.x);
     const camY = Math.round(v.cam.y);
-    const pal = paletteAt(camX + VIEW_W / 2);
 
-    this.drawWater(ctx, pal);
-    this.drawRays(ctx, camX, v.time, lightRaysAt(camX + VIEW_W / 2));
-    this.drawSilhouettes(ctx, camX, camY, pal, v.time);
-    this.drawSnow(ctx, camX, v.time, pal);
-
-    const cw = CONFIG.terrain.chunkWidth;
-    const first = Math.floor((camX - CHUNK_PAD) / cw);
-    const last = Math.floor((camX + VIEW_W + CHUNK_PAD) / cw);
-    for (let i = first; i <= last; i++) {
-      if (i < -1) continue;
-      const img = this.chunkImage(v.terrain, i);
-      ctx.drawImage(img.canvas, img.x0 - CHUNK_PAD - camX, img.top - camY);
-    }
-    for (let i = first; i <= last; i++) if (i >= 0) this.drawLiveDecor(ctx, v.terrain, i, camX, camY, v.time, false);
-
+    this.scenery.drawBackground(camX, camY, v.time);
+    if (v.barrierX !== null) this.drawBarrier(ctx, v.barrierX - camX, v.time);
+    this.scenery.drawTerrain(v.terrain, camX, camY, v.time);
+    if (v.boss) this.drawBoss(ctx, v.boss, camX, camY, v.time);
     this.drawCreatures(ctx, v, camX, camY);
     this.drawParticles(ctx, v.effects, camX, camY);
-    for (let i = first; i <= last; i++) if (i >= 0) this.drawLiveDecor(ctx, v.terrain, i, camX, camY, v.time, true);
+    if (v.current !== 0) this.drawCurrent(ctx, v.current, v.time);
+    this.scenery.drawFront(v.terrain, camX, camY, v.time);
 
     this.drawClaw(ctx, v, camX, camY);
     if (v.path) this.drawPath(ctx, v);
     else if (v.showReticle) this.drawReticle(ctx, v);
     if (v.sonar) this.drawSonar(ctx, v.sonar, v.time);
 
+    if (v.frenzy > 0) {
+      // warm pulsing frame while the frenzy lasts
+      const a = 0.25 + 0.15 * Math.sin(v.time * 14);
+      ctx.fillStyle = `rgba(255,150,40,${a})`;
+      const th = 3;
+      ctx.fillRect(0, 0, VIEW_W, th);
+      ctx.fillRect(0, VIEW_H - th, VIEW_W, th);
+      ctx.fillRect(0, 0, th, VIEW_H);
+      ctx.fillRect(VIEW_W - th, 0, th, VIEW_H);
+    }
     if (v.warn > 0) {
       ctx.fillStyle = `rgba(255,40,60,${0.18 * v.warn})`;
       ctx.fillRect(0, 0, VIEW_W, 2);
@@ -125,216 +119,137 @@ export class Renderer {
     const oy = sh > 0 ? Math.round((Math.random() - 0.5) * sh) * this.scale : 0;
     d.drawImage(this.low, ox, oy, this.display.width, this.display.height);
     this.drawTexts(d, v.effects, camX, camY);
+    this.drawCoins(d, v.effects);
   }
 
-  // ───────────────────────── background
+  // ───────────────────────── guardians & events
 
-  private drawWater(ctx: CanvasRenderingContext2D, pal: BiomePalette): void {
-    const key = pal.waterTop + pal.waterBottom;
-    if (key !== this.waterKey || !this.waterPattern) {
-      this.waterKey = key;
-      const c = makeCanvas(4, VIEW_H);
-      const g = c.getContext('2d')!;
-      const img = g.createImageData(4, VIEW_H);
-      const a = hexToRgb(pal.waterTop);
-      const b = hexToRgb(pal.waterBottom);
-      const bands = 14;
-      for (let y = 0; y < VIEW_H; y++) {
-        const t = (y / VIEW_H) * bands;
-        const band = Math.floor(t);
-        for (let x = 0; x < 4; x++) {
-          const k = (band + (t - band > BAYER[(y % 4) * 4 + x] / 16 ? 1 : 0)) / bands;
-          const i = (y * 4 + x) * 4;
-          img.data[i] = a[0] + (b[0] - a[0]) * k;
-          img.data[i + 1] = a[1] + (b[1] - a[1]) * k;
-          img.data[i + 2] = a[2] + (b[2] - a[2]) * k;
-          img.data[i + 3] = 255;
-        }
-      }
-      g.putImageData(img, 0, 0);
-      this.waterPattern = ctx.createPattern(c, 'repeat');
-    }
-    ctx.fillStyle = this.waterPattern!;
-    ctx.fillRect(0, 0, VIEW_W, VIEW_H);
-  }
-
-  private buildRays(): HTMLCanvasElement {
-    const c = makeCanvas(VIEW_W * 2, 210);
-    const P = new Painter(c);
-    for (let k = 0; k < 7; k++) {
-      const x0 = 40 + k * 140 + Math.round(hashFloat(k, 9) * 60);
-      const w = 10 + Math.round(hashFloat(k, 3) * 22);
-      for (let y = 0; y < 210; y++) {
-        const fade = 1 - y / 210;
-        if ((y * 7 + k) % 16 > fade * 16 + 2) continue;
-        P.rect(x0 + Math.floor(y * 0.45), y, w, 1, '#ffffff');
-      }
-    }
-    return c;
-  }
-
-  private drawRays(ctx: CanvasRenderingContext2D, camX: number, t: number, amount: number): void {
-    if (amount <= 0.02) return;
-    const off = (((camX * 0.15 + Math.sin(t * 0.3) * 8) % VIEW_W) + VIEW_W) % VIEW_W;
-    ctx.globalAlpha = 0.09 * amount;
-    ctx.drawImage(this.rays, -Math.round(off), 0);
+  private drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, camX: number, camY: number, t: number): void {
+    const d = boss.def;
+    let sx = boss.x - camX;
+    const sy = boss.y - camY;
+    if (sx < -d.w || sx > VIEW_W + d.w) return;
+    if (boss.flinch > 0) sx += Math.round(Math.sin(t * 60) * 3);
+    const fade = boss.defeated ? Math.max(0, 1 - boss.dying / 2) : 1;
+    const scale = boss.defeated ? Math.max(0.2, 1 - boss.dying * 0.35) : 1;
+    // menacing glow + telegraph flash
+    const tele = boss.telegraph > 0;
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = (tele ? 0.45 + 0.35 * Math.sin(t * 30) : 0.18) * fade;
+    const g = glowSprite(Math.max(d.w, d.h) * 0.75, tele ? '#ff3a3a' : d.palette.accent);
+    ctx.drawImage(g, Math.round(sx - g.width / 2), Math.round(sy - g.height / 2));
     ctx.globalAlpha = 1;
-  }
+    ctx.globalCompositeOperation = 'source-over';
 
-  private drawSilhouettes(ctx: CanvasRenderingContext2D, camX: number, camY: number, pal: BiomePalette, t: number): void {
-    const layers = [
-      { par: 0.2, base: 150, amp: 46, freq: 1 / 140, color: pal.farSil, seed: 501 },
-      { par: 0.45, base: 178, amp: 40, freq: 1 / 90, color: pal.midSil, seed: 733 },
-    ];
-    for (const L of layers) {
-      ctx.fillStyle = L.color;
-      const yOff = -camY * L.par * 0.3;
-      for (let x = 0; x < VIEW_W; x += 2) {
-        const wx = camX * L.par + x;
-        const n = valueNoise1D(L.seed, wx * L.freq) * 0.7 + valueNoise1D(L.seed + 1, wx * L.freq * 3.1) * 0.3;
-        // occasional spires
-        const spire = Math.max(0, valueNoise1D(L.seed + 2, wx / 23) - 0.6) * 90;
-        const top = Math.round(L.base - n * L.amp - spire + yOff);
-        ctx.fillRect(x, top, 2, VIEW_H - top);
-      }
+    ctx.globalAlpha = fade;
+    const w = Math.max(4, Math.round(d.w * scale));
+    const h = Math.max(4, Math.round(d.h * scale));
+    if (d.shape === 'eel') {
+      drawEel(ctx, Math.round(sx), Math.round(sy), w, h, boss.facing, t * 3, d.palette);
+    } else {
+      const frame = Math.floor(t * 3) % 4;
+      const spr = creatureSprite(bossSpriteDef(d), 'normal', w, h, frame);
+      const dx = Math.round(sx - spr.width / 2);
+      const dy = Math.round(sy - spr.height / 2);
+      if (boss.facing < 0 && d.shape !== 'crab') {
+        ctx.save();
+        ctx.translate(dx + spr.width, dy);
+        ctx.scale(-1, 1);
+        ctx.drawImage(spr, 0, 0);
+        ctx.restore();
+      } else ctx.drawImage(spr, dx, dy);
     }
-    // distant glowing specks in deep zones
-    if (pal.glow) {
-      ctx.fillStyle = pal.glow;
-      for (let i = 0; i < 18; i++) {
-        const wx = Math.floor(camX * 0.45 / 60) * 60 + i * 60;
-        if (hashFloat(wx, 17) > 0.35) continue;
-        const sx = Math.round(wx - camX * 0.45 + (hashFloat(wx, 3) * 40));
-        const sy = Math.round(150 + hashFloat(wx, 5) * 60 - camY * 0.135);
-        if (Math.sin(t * 2 + i) > -0.3) ctx.fillRect(sx, sy, 1, 1);
-      }
-    }
-  }
-
-  private drawSnow(ctx: CanvasRenderingContext2D, camX: number, t: number, pal: BiomePalette): void {
-    ctx.fillStyle = pal.particle;
-    ctx.globalAlpha = 0.55;
-    for (const s of this.snow) {
-      const x = ((s.x * VIEW_W - camX * 0.7 * s.s + Math.sin(t * 0.7 + s.d * 6) * 4) % VIEW_W + VIEW_W) % VIEW_W;
-      const y = ((s.y * VIEW_H + t * 6 * s.s) % VIEW_H + VIEW_H) % VIEW_H;
-      ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
+    // crown: every guardian wears one
+    if (!boss.defeated) {
+      const cx = Math.round(sx + d.crown.dx * d.w * boss.facing);
+      const cy = Math.round(sy + d.crown.dy * d.h - 4);
+      ctx.fillStyle = '#ffd84a';
+      ctx.fillRect(cx - 6, cy + 2, 13, 3);
+      for (const k of [-6, -2, 2, 6]) ctx.fillRect(cx + k, cy - (k === -2 || k === 2 ? 2 : 0), 1, 3);
+      ctx.fillStyle = '#ff3a5a';
+      ctx.fillRect(cx, cy + 3, 1, 1);
     }
     ctx.globalAlpha = 1;
-  }
+    if (boss.defeated) return;
 
-  // ───────────────────────── terrain chunks
-
-  private chunkImage(terrain: Terrain, index: number): ChunkImage {
-    let img = this.chunkImages.get(index);
-    if (img) return img;
-    const cw = CONFIG.terrain.chunkWidth;
-    const x0 = index * cw;
-    const chunk = index >= 0 ? terrain.getChunk(index) : { decor: [], crevices: [], index };
-    let minY = Infinity;
-    let maxY = -Infinity;
-    for (let x = -CHUNK_PAD; x < cw + CHUNK_PAD; x += 4) {
-      const y = terrain.seabedY(x0 + x);
-      if (y < minY) minY = y;
-      if (y > maxY) maxY = y;
-    }
-    for (const d of chunk.decor) minY = Math.min(minY, d.y - d.h - 4);
-    const top = Math.floor(minY - 8);
-    const height = Math.ceil(maxY + GROUND_DEPTH - top);
-    const canvas = makeCanvas(cw + CHUNK_PAD * 2, height);
-    const P = new Painter(canvas);
-    const ox = CHUNK_PAD - x0;
-    const oy = -top;
-
-    const back = chunk.decor.filter((d) => d.type === 'rock' || d.type === 'coral' || d.type === 'ruin' || d.type === 'wreck');
-    for (const d of back) {
-      const s = decorSprite(d, paletteAt(d.x));
-      P.ctx.drawImage(s, Math.round(d.x - d.w / 2 + ox), Math.round(d.y - d.h + oy));
-    }
-    // ground columns (only the chunk's own span)
-    for (let x = 0; x < cw; x++) {
-      const wx = x0 + x;
-      const p = paletteAt(wx);
-      const sy = Math.round(terrain.seabedY(wx)) + oy;
-      const cx = x + CHUNK_PAD;
-      P.rect(cx, sy, 1, 1, p.sandLight);
-      P.rect(cx, sy + 1, 1, 4, p.sand);
-      P.rect(cx, sy + 5, 1, 40, p.sandDark);
-      P.rect(cx, sy + 45, 1, GROUND_DEPTH, shade(p.sandDark, -0.3));
-      // dithered strata boundaries
-      for (let y = 0; y < 4; y++) {
-        if (BAYER[((sy + y) % 4) * 4 + (wx % 4)] < 8) P.p(cx, sy + 3 + y, p.sandDark);
-        if (BAYER[((sy + y) % 4) * 4 + (wx % 4)] < 6) P.p(cx, sy + 43 + y, shade(p.sandDark, -0.3));
-      }
-      // pebbles & speckles, fixed by world position
-      for (let k = 0; k < 5; k++) {
-        const h = hashFloat(terrain.seed, wx, k);
-        if (h > 0.22) continue;
-        const dy = 2 + Math.floor(hashFloat(wx, k, 5) * 70);
-        P.p(cx, sy + dy, dy < 6 ? p.sandLight : dy < 40 ? p.sand : p.sandDark);
-      }
-    }
-    for (const d of chunk.decor) {
-      if (d.type === 'crevice') {
-        const s = decorSprite(d, paletteAt(d.x));
-        P.ctx.drawImage(s, Math.round(d.x - d.w / 2 + ox), Math.round(d.y + oy));
-      } else if (d.type === 'shell') {
-        const s = decorSprite(d, paletteAt(d.x));
-        P.ctx.drawImage(s, Math.round(d.x - 2 + ox), Math.round(d.y - 3 + oy));
-      }
-    }
-    img = { canvas, x0, top };
-    this.chunkImages.set(index, img);
-    if (this.chunkImages.size > 10) {
-      for (const k of this.chunkImages.keys()) {
-        if (Math.abs(k - index) > 4) this.chunkImages.delete(k);
-      }
-    }
-    return img;
-  }
-
-  private drawLiveDecor(ctx: CanvasRenderingContext2D, terrain: Terrain, index: number, camX: number, camY: number, t: number, front: boolean): void {
-    const chunk = terrain.getChunk(index);
-    for (const d of chunk.decor) {
-      if (d.front !== front) continue;
-      const sx = Math.round(d.x - camX);
-      if (sx < -40 || sx > VIEW_W + 40) continue;
-      const sy = Math.round(d.y - camY);
-      if (d.type === 'weed') {
-        const p = paletteAt(d.x);
-        const dark = shade(p.weed, -0.35);
-        const ph = (d.seed % 1000) / 160;
-        for (let i = 0; i < d.h; i++) {
-          const f = i / d.h;
-          const off = Math.round(Math.sin(t * 1.8 + ph + i * 0.18) * f * 3.5);
-          ctx.fillStyle = i % 5 === 0 ? dark : p.weed;
-          ctx.fillRect(sx + off, sy - i, 2, 1);
-          if (i % 6 === 3) {
-            ctx.fillStyle = p.weed;
-            ctx.fillRect(sx + off + (i % 12 === 3 ? 2 : -1), sy - i, 1, 1);
-          }
-        }
-      } else if (d.type === 'glowPlant') {
-        const p = paletteAt(d.x);
-        const ph = (d.seed % 1000) / 160;
-        const stalk = shade(p.weed, -0.4);
-        let tipX = sx;
-        for (let i = 0; i < d.h; i++) {
-          tipX = sx + Math.round(Math.sin(t * 1.2 + ph + i * 0.12) * (i / d.h) * 2);
-          ctx.fillStyle = stalk;
-          ctx.fillRect(tipX, sy - i, 1, 1);
-        }
-        const pulse = 0.55 + 0.45 * Math.sin(t * 2.4 + ph);
+    // weak points: destroyed (scar), exposed (pulsing), waiting (dim)
+    for (let i = 0; i < d.weakPoints.length; i++) {
+      const p = boss.weakPointPos(i);
+      const px = Math.round(p.x - camX + (sx - (boss.x - camX)));
+      const py = Math.round(p.y - camY);
+      if (i < boss.damage) {
+        ctx.fillStyle = '#2a0a10';
+        ctx.fillRect(px - 2, py - 1, 5, 3);
+        ctx.fillStyle = '#5a1a20';
+        ctx.fillRect(px - 1, py - 2, 3, 1);
+      } else if (i === boss.activeWeak && boss.open) {
+        const pulse = 0.6 + 0.4 * Math.sin(t * 10);
         ctx.globalCompositeOperation = 'lighter';
-        ctx.globalAlpha = 0.5 * pulse;
-        const g = glowSprite(6, p.glow);
-        ctx.drawImage(g, tipX - 6, sy - d.h - 6);
+        ctx.globalAlpha = 0.7 * pulse;
+        const gg = glowSprite(10, '#ff4f6a');
+        ctx.drawImage(gg, px - 10, py - 10);
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
-        ctx.fillStyle = p.glow;
-        ctx.fillRect(tipX - 1, sy - d.h - 1, 3, 2);
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(tipX, sy - d.h - 1, 1, 1);
+        ctx.fillStyle = '#ff4f6a';
+        ctx.fillRect(px - 3, py - 2, 7, 5);
+        ctx.fillRect(px - 2, py - 3, 5, 7);
+        ctx.fillStyle = '#ffd0d8';
+        ctx.fillRect(px - 1, py - 1, 2, 2);
+      } else {
+        ctx.fillStyle = i === boss.activeWeak ? '#7a8a9a' : '#4a3a4a';
+        ctx.fillRect(px - 2, py - 2, 5, 4);
+        ctx.fillStyle = '#a8b8c8';
+        if (i === boss.activeWeak) ctx.fillRect(px - 2, py - 2, 5, 1);
       }
+    }
+  }
+
+  /** Wall of rushing water that blocks the way until the guardian falls. */
+  private drawBarrier(ctx: CanvasRenderingContext2D, sx: number, t: number): void {
+    if (sx > VIEW_W + 30 || sx < -60) return;
+    for (let i = 0; i < 46; i++) {
+      const x = Math.round(sx + ((i * 37) % 40));
+      const len = 10 + ((i * 13) % 20);
+      const y = Math.round(((t * (120 + (i % 5) * 30) + i * 29) % (VIEW_H + len)) - len);
+      ctx.fillStyle = i % 3 === 0 ? 'rgba(255,255,255,0.5)' : 'rgba(200,240,255,0.28)';
+      ctx.fillRect(x, y, 1, len);
+    }
+    ctx.fillStyle = 'rgba(160,220,255,0.12)';
+    ctx.fillRect(Math.round(sx), 0, 40, VIEW_H);
+  }
+
+  private drawCurrent(ctx: CanvasRenderingContext2D, k: number, t: number): void {
+    const dir = Math.sign(k);
+    ctx.fillStyle = `rgba(220,245,255,${0.35 * Math.abs(k)})`;
+    for (let i = 0; i < 36; i++) {
+      const len = 8 + (i % 4) * 6;
+      const x = Math.round(((((t * 260 * dir + i * 97) % (VIEW_W + 60)) + VIEW_W + 60) % (VIEW_W + 60)) - 30);
+      const y = 20 + ((i * 53) % (VIEW_H - 60));
+      ctx.fillRect(x, y, len, 1);
+    }
+  }
+
+  /** Coins fly from captures to the HUD counter (display pixels, crisp). */
+  private drawCoins(d: CanvasRenderingContext2D, fx: Effects): void {
+    if (!fx.coins.length) return;
+    const S = this.scale;
+    const size = Math.max(4, Math.round(S * 2.5));
+    for (const c of fx.coins) {
+      if (c.delay > 0) continue;
+      const k = c.t;
+      const e = k * k * (3 - 2 * k);
+      const x0 = c.x * S;
+      const y0 = c.y * S;
+      // arc upward then into the counter
+      const x = x0 + (this.coinTarget.x - x0) * e;
+      const y = y0 + (this.coinTarget.y - y0) * e - Math.sin(k * Math.PI) * 40 * S * 0.4;
+      d.fillStyle = '#b8860b';
+      d.fillRect(Math.round(x - size / 2), Math.round(y - size / 2), size, size);
+      d.fillStyle = '#ffd84a';
+      d.fillRect(Math.round(x - size / 2), Math.round(y - size / 2), size - Math.round(S * 0.6), size - Math.round(S * 0.6));
+      d.fillStyle = '#fff6b0';
+      d.fillRect(Math.round(x - size / 2) + 1, Math.round(y - size / 2) + 1, Math.max(1, Math.round(size / 3)), Math.max(1, Math.round(size / 3)));
+      if (k > 0.95) this.onCoinLanded();
     }
   }
 
@@ -375,6 +290,7 @@ export class Renderer {
     } else {
       let frame = Math.floor(c.phase / 1.6) % 4;
       if (def.behavior === 'blinker') frame = Math.sin(t * 1.3 + c.seed) > 0.96 ? 3 : Math.floor(c.phase / 3) % 3;
+      if (def.shapeParts === 'chest') frame = c.revealed > 0 ? 3 : def.behavior === 'mimic' && Math.sin(t * 0.9 + c.seed) > 0.94 ? 2 : 0;
       if (c.state === 'STUNNED') frame = 0;
       const spr = creatureSprite(def, c.variant, c.w, c.h, frame);
       const dx = Math.round(sx - spr.width / 2);
@@ -385,7 +301,7 @@ export class Renderer {
         dy += cut;
         srcH = Math.max(1, spr.height - cut);
       }
-      if (c.facing < 0 && def.shapeParts !== 'crab' && def.shapeParts !== 'star') {
+      if (c.facing < 0 && def.shapeParts !== 'crab' && def.shapeParts !== 'star' && def.shapeParts !== 'chest') {
         ctx.save();
         ctx.translate(dx + spr.width, dy);
         ctx.scale(-1, 1);
@@ -610,6 +526,7 @@ export class Renderer {
   }
 }
 
+
 /** Draws a claw (shaft from the top edge, hub, prongs). Shared by the game and the workshop preview. */
 export function paintClaw(
   ctx: CanvasRenderingContext2D,
@@ -669,6 +586,29 @@ export function paintClaw(
     P.line(kx, ky, tx, tip + 3, look.metalDark, 2);
     P.line(bx, hubY + 5, kx, ky, look.metal);
     P.line(kx, ky, tx, tip + 3, look.metalLight);
+  }
+  if (look.prongs === 4) {
+    // living tentacles instead of rigid middle prongs
+    for (const s of [-1, 1]) {
+      for (let i = 0; i < 6; i++) {
+        const wob = Math.round(Math.sin(time * 9 + i * 0.9 + s) * 1.5);
+        P.p(ax + s * 2 + wob, hubY + 5 + i, i % 2 ? look.accent : look.metal);
+      }
+    }
+  }
+  if (id === 'gravity') {
+    const r = Math.round(spread + 6 + Math.sin(time * 6) * 2);
+    ctx.fillStyle = look.accent;
+    for (let k = 0; k < 8; k++) {
+      const a = time * 3 + (k * Math.PI) / 4;
+      ctx.fillRect(Math.round(ax + Math.cos(a) * r), Math.round(tip + Math.sin(a) * r * 0.5), 1, 1);
+    }
+  }
+  if (id === 'magnetic') {
+    ctx.fillStyle = look.accent;
+    ctx.fillRect(ax - Math.round(spread) - 3, tip - 2, 2, 3);
+    ctx.fillStyle = look.metalDark;
+    ctx.fillRect(ax + Math.round(spread) + 1, tip - 2, 2, 3);
   }
   if (look.prongs === 3) {
     P.line(ax, hubY + 5, ax, tip + 3, look.metalDark, 2);
