@@ -57,11 +57,13 @@ Dá para mirar com um dedo e atacar com outro (multitouch). Em retrato, o jogo p
   - **Tripla**: 3 dentes, até 3 alvos.
 
   As garras são desbloqueadas por recorde de profundidade e por moedas.
-- **Árvore de habilidades** com 4 ramos e 16 upgrades com pré-requisitos e custo `round(base × 1,55^nível)`:
-  - **Captura**: velocidade do golpe, recuperação, abertura, força, precisão e captura múltipla.
-  - **Expedição**: +5 s por nível, propulsores e relógio dourado.
-  - **Ecologia**: mais criaturas, sorte abissal (com retorno decrescente), cardumes grandes e variantes.
-  - **Tecnologia**: sincronia de combo, captura perfeita e sonar de raros (seta na borda da tela).
+- **Árvore de habilidades de verdade** (estilo incremental): um mapa de 34 nós quadrados com ícones em pixel art, que dá para arrastar e dar zoom com a roda, a pinça ou os botões. Comece pelo nó central **Instinto de Caça**: comprar um nó revela os filhos ligados a ele, o próximo anel aparece como `?` e o resto fica escondido até você chegar lá. Toque num nó para ver os detalhes e toque de novo (ou use o botão) para comprar. São 4 ramos coloridos saindo da origem:
+  - **Captura** (para cima): golpe rápido, abertura, força, recuperação, precisão e captura múltipla.
+  - **Expedição** (para a direita): mais tempo (+5 s por nível), propulsores e relógio dourado.
+  - **Ecologia** (para baixo): mais criaturas, sorte abissal (com retorno decrescente), cardumes e variantes.
+  - **Tecnologia** (à esquerda): combo, captura perfeita e sonar de raros.
+
+  Nós mais fundos reforçam o mesmo atributo (ex.: Golpe Rápido → Estalo Relâmpago). O custo é `round(base × 1,55^nível)`.
 - **Economia**: valor = base × variante × profundidade × (combo + captura perfeita). As moedas são creditadas uma única vez no fim da run e salvas na hora.
 - **Telas**: Base, Resultados (capturas, moedas, profundidade/recorde, espécies novas, raridades), Habilidades, Oficina, Catálogo (silhuetas das espécies desconhecidas) e Configurações (som, apagar progresso com confirmação).
 - **Áudio** sintetizado com Web Audio, sem arquivos, e botão de mudo.
@@ -78,15 +80,15 @@ src/
   entities/            Species, Creature (IA), Claw (estados), ClawsCatalog, Hit
   systems/             Upgrades (árvore e stats), Economy (valor, combo, coleção)
   render/              Renderer (camadas), PixelArt (sprites procedurais), Effects, Color
-  ui/                  HUD, Screens (menus em DOM)
+  ui/                  HUD, Screens (menus em DOM), SkillTree (mapa de nós)
 tests/                 Vitest: profundidade, biomas, terreno, upgrades, save, hit, garra, spawn, economia
 scripts/smoke.cjs      smoke test com Playwright
 ```
 
 ## Testes
 
-- `npm test`: 33 testes unitários. Cobrem `depthAt`, a interpolação de biomas, o determinismo do terreno, os custos e efeitos dos upgrades, compra de garras, save/load/corrupção, colisão, tempos da garra, habitat/sorte/densidade/variantes do spawn, teto de entidades, combo e coleção.
-- `npm run smoke`: abre o jogo no Chromium, inicia a run (00:30), captura um animal, confere que a profundidade aumenta indo para a direita, termina o cronômetro, confere que as moedas são creditadas uma vez e salvas, compra **+5 s**, confere que a próxima run começa com 00:35 e que o progresso persiste após recarregar.
+- `npm test`: 35 testes unitários. Cobrem `depthAt`, a interpolação de biomas, o determinismo do terreno, os custos e efeitos dos upgrades, a estrutura da árvore e a revelação de nós, compra de garras, save/load/corrupção, colisão, tempos da garra, habitat/sorte/densidade/variantes do spawn, teto de entidades, combo e coleção.
+- `npm run smoke`: abre o jogo no Chromium, inicia a run (00:30), captura um animal, confere que a profundidade aumenta indo para a direita, termina o cronômetro e confere que as moedas são creditadas uma vez e salvas. Depois compra o nó raiz da árvore, confere que 2 novos nós aparecem, que a próxima run começa com 00:35 e que o progresso persiste após recarregar.
 
 ## Próximos passos
 

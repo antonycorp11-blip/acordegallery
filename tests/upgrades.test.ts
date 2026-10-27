@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { CONFIG } from '../src/config';
 import { defaultSave } from '../src/core/Save';
 import { CLAWS_BY_ID } from '../src/entities/ClawsCatalog';
-import { UPGRADES, UPGRADES_BY_ID, buyClaw, buyUpgrade, canBuy, computeStats, upgradeCost } from '../src/systems/Upgrades';
+import { UPGRADES, UPGRADES_BY_ID, buyClaw, buyUpgrade, canBuy, childrenOf, computeStats, nodeVisibility, upgradeCost } from '../src/systems/Upgrades';
 
 describe('upgrade costs', () => {
   it('grows by the configured factor', () => {
@@ -12,23 +12,55 @@ describe('upgrade costs', () => {
     expect(upgradeCost(u, 3)).toBeGreaterThan(upgradeCost(u, 2));
   });
 
-  it('first upgrades are affordable after a decent first run', () => {
-    const roots = UPGRADES.filter((u) => !u.requires);
-    for (const u of roots.filter((u) => u.branch !== 'tech')) expect(upgradeCost(u, 0)).toBeLessThanOrEqual(150);
+  it('root and its first children are affordable after a decent first run', () => {
+    const first = [UPGRADES_BY_ID.core, ...childrenOf('core')];
+    expect(first.reduce((n, u) => n + upgradeCost(u, 0), 0)).toBeLessThanOrEqual(150);
+  });
+});
+
+describe('tree structure', () => {
+  it('is a single connected tree rooted at core with unique grid slots', () => {
+    const roots = UPGRADES.filter((u) => u.parent === null);
+    expect(roots.map((u) => u.id)).toEqual(['core']);
+    const slots = new Set(UPGRADES.map((u) => `${u.x},${u.y}`));
+    expect(slots.size).toBe(UPGRADES.length);
+    for (const u of UPGRADES) {
+      let cur = u;
+      for (let guard = 0; cur.parent && guard < 50; guard++) cur = UPGRADES_BY_ID[cur.parent];
+      expect(cur.id).toBe('core');
+    }
+    expect(childrenOf('core')).toHaveLength(2);
+  });
+
+  it('buying a node reveals its children and teases the next ring', () => {
+    const s = defaultSave();
+    s.coins = 10000;
+    expect(nodeVisibility(s, 'core')).toBe('available');
+    expect(nodeVisibility(s, 'strikeSpeed')).toBe('teaser');
+    expect(nodeVisibility(s, 'opening')).toBe('hidden');
+    expect(canBuy(s, 'strikeSpeed')).toBe('locked');
+    buyUpgrade(s, 'core');
+    expect(nodeVisibility(s, 'core')).toBe('owned');
+    expect(nodeVisibility(s, 'strikeSpeed')).toBe('available');
+    expect(nodeVisibility(s, 'runTime')).toBe('available');
+    expect(nodeVisibility(s, 'opening')).toBe('teaser');
+    buyUpgrade(s, 'strikeSpeed');
+    expect(nodeVisibility(s, 'opening')).toBe('available');
+    expect(nodeVisibility(s, 'strength')).toBe('available');
   });
 });
 
 describe('buying', () => {
   it('deducts coins, raises level and respects max/prereqs', () => {
     const s = defaultSave();
+    s.upgrades.core = 1;
     expect(canBuy(s, 'runTime')).toBe('funds');
     s.coins = 10000;
     expect(buyUpgrade(s, 'runTime')).toBe('ok');
     expect(s.upgrades.runTime).toBe(1);
     expect(s.coins).toBe(10000 - UPGRADES_BY_ID.runTime.baseCost);
     expect(canBuy(s, 'multi')).toBe('locked');
-    s.upgrades.opening = 3;
-    s.upgrades.strength = 2;
+    s.upgrades.strength2 = 1;
     expect(canBuy(s, 'multi')).toBe('ok');
     s.upgrades.precision = UPGRADES_BY_ID.precision.maxLevel;
     expect(canBuy(s, 'precision')).toBe('max');
@@ -46,19 +78,21 @@ describe('buying', () => {
 });
 
 describe('computeStats applies real effects', () => {
-  it('run time +5s per level', () => {
+  it('run time +5s per level, summed across every time node', () => {
     const s = defaultSave();
     expect(computeStats(s).runSeconds).toBe(30);
-    s.upgrades.runTime = 1;
+    s.upgrades.core = 1;
     expect(computeStats(s).runSeconds).toBe(35);
     s.upgrades.runTime = 3;
-    expect(computeStats(s).runSeconds).toBe(45);
+    expect(computeStats(s).runSeconds).toBe(50);
+    s.upgrades.runTime2 = 1;
+    expect(computeStats(s).runSeconds).toBe(55);
   });
 
   it('speed, recovery, opening, strength, density, luck, lateral all change numbers', () => {
     const base = computeStats(defaultSave());
     const s = defaultSave();
-    Object.assign(s.upgrades, { strikeSpeed: 3, recovery: 3, opening: 2, strength: 2, density: 2, luck: 3, lateral: 2, multi: 1, opening2: 0 });
+    Object.assign(s.upgrades, { strikeSpeed: 3, recovery: 3, opening: 2, strength: 2, density: 2, luck: 3, lateral: 2, multi: 1 });
     const up = computeStats(s);
     expect(up.strikeMs).toBeLessThan(base.strikeMs);
     expect(up.retractMs).toBeLessThan(base.retractMs);
@@ -74,10 +108,11 @@ describe('computeStats applies real effects', () => {
   it('strike speed has a readable floor and luck has diminishing returns', () => {
     const s = defaultSave();
     s.upgrades.strikeSpeed = 99;
+    s.upgrades.strikeSpeed2 = 99;
     expect(computeStats(s).strikeMs).toBeGreaterThanOrEqual(CONFIG.claw.minStrikeMs);
-    const l = (n: number) => { const t = defaultSave(); t.upgrades.luck = n; return computeStats(t).luck; };
+    const l = (n: number) => { const t = defaultSave(); t.upgrades.luck2 = n; return computeStats(t).luck; };
     expect(l(2) - l(1)).toBeLessThan(l(1) - l(0));
-    expect(l(10)).toBeLessThan(1);
+    expect(l(4)).toBeLessThan(1);
   });
 
   it('equipped claw drives stats', () => {

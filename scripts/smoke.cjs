@@ -43,7 +43,8 @@ function assert(cond, msg) {
     for (let attempt = 0; attempt < 12 && caught === 0; attempt++) {
       const targets = await page.evaluate(() => window.__abyss.debugVisible());
       const order = ['star', 'boxfish', 'coralCrab', 'orangeFish'];
-      targets.sort((a, b) => (order.indexOf(a.id) + 10) % 14 - (order.indexOf(b.id) + 10) % 14);
+      const rank = (id) => (order.includes(id) ? order.indexOf(id) : 99);
+      targets.sort((a, b) => rank(a.id) - rank(b.id));
       const tg = targets[0];
       if (!tg) { await page.keyboard.down('KeyD'); await page.waitForTimeout(400); await page.keyboard.up('KeyD'); continue; }
       await page.mouse.move(box.x + tg.x * k, box.y + tg.y * k);
@@ -71,12 +72,17 @@ function assert(cond, msg) {
     assert(saved.coins === runCoins && runCoins > 0, `moedas creditadas uma vez e salvas (${saved.coins})`);
     if (shots) await page.screenshot({ path: `${shots}/smoke-results.png` });
 
-    // ensure enough coins to buy run time, then buy it in the skill tree
+    // skill tree: tap the root node twice (select + buy) and see its children appear
     await page.evaluate(() => { const g = window.__abyss; g.save.coins = Math.max(g.save.coins, 60); g.persist(); });
     await page.click('[data-act="upgrades"]');
-    await page.click('[data-act="buy"][data-id="runTime"]');
-    const lvl = await page.evaluate(() => window.__abyss.save.upgrades.runTime);
-    assert(lvl === 1, 'comprou Tempo de Mergulho nível 1');
+    await page.waitForSelector('.node[data-id="core"]');
+    const before = await page.locator('.node.available, .node.owned').count();
+    await page.click('.node[data-id="core"]');
+    await page.click('.node[data-id="core"]');
+    const lvl = await page.evaluate(() => window.__abyss.save.upgrades.core);
+    assert(lvl === 1, 'comprou o nó raiz da árvore');
+    const shown = await page.locator(".node.available, .node.owned").count();
+    assert(shown === before + 2, `comprar o nó revelou 2 novos nós (${before} → ${shown})`);
     if (shots) await page.screenshot({ path: `${shots}/smoke-skills.png` });
 
     await page.click('.panel-head [data-act="start"]');
@@ -88,7 +94,7 @@ function assert(cond, msg) {
     await page.reload();
     await page.waitForTimeout(500);
     const after = await page.evaluate(() => window.__abyss.save);
-    assert(after.upgrades.runTime === 1 && after.totalRuns === 1, 'progresso persiste após recarregar');
+    assert(after.upgrades.core === 1 && after.totalRuns === 1, 'progresso persiste após recarregar');
 
     assert(errors.length === 0, `sem erros no console ${errors.join(' | ')}`);
     console.log('\nSMOKE OK');

@@ -1,0 +1,305 @@
+import type { Game } from '../core/Game';
+import { formatCoins } from '../systems/Economy';
+import {
+  BRANCH_COLOR, BRANCH_LABEL, UPGRADES, UPGRADES_BY_ID, buyUpgrade, canBuy, level, nodeVisibility, upgradeCost,
+  type NodeVisibility, type StatKey, type UpgradeDef,
+} from '../systems/Upgrades';
+
+// 8×8 pixel icons drawn by code: '#' = branch color, '+' = white, '.' = empty.
+const ICONS: Record<StatKey | 'core', string[]> = {
+  core: ['..####..', '...##...', '..####..', '.#.##.#.', '#..##..#', '#......#', '.#....#.', '..#..#..'],
+  runTime: ['..####..', '.#....#.', '#...+..#', '#...+..#', '#..++..#', '#......#', '.#....#.', '..####..'],
+  strikeSpeed: ['....##..', '...##...', '..##....', '.######.', '....##..', '...##...', '..##....', '.##.....'],
+  recovery: ['..####..', '.#....#.', '#.....##', '#....###', '###....#', '##.....#', '.#....#.', '..####..'],
+  opening: ['#......#', '#......#', '.#....#.', '.#....#.', '..#..#..', '..####..', '...++...', '...++...'],
+  strength: ['........', '##....##', '##....##', '########', '########', '##....##', '##....##', '........'],
+  precision: ['...##...', '...##...', '..#..#..', '###++###', '###++###', '..#..#..', '...##...', '...##...'],
+  multi: ['........', '.##..##.', '.#+..#+.', '........', '...##...', '...#+...', '........', '........'],
+  lateral: ['....#...', '....##..', '#######.', '########', '#######.', '....##..', '....#...', '........'],
+  timeBonus: ['..#..#..', '..####..', '.######.', '##.++.##', '##.++.##', '.######.', '..####..', '..#..#..'],
+  density: ['........', '#...###.', '##.##+##', '#######.', '##.#####', '#...###.', '........', '........'],
+  luck: ['...##...', '...##...', '########', '.##++##.', '..####..', '.##..##.', '##....##', '........'],
+  schools: ['#.##....', '####....', '#.##.#.#', '.....###', '#.##.#.#', '####....', '#.##....', '........'],
+  variants: ['...##...', '..####..', '.##++##.', '##++++##', '.##++##.', '..####..', '...##...', '........'],
+  combo: ['##....##', '.##..##.', '..####..', '...++...', '..####..', '.##..##.', '##....##', '........'],
+  perfect: ['..####..', '.#....#.', '#..##..#', '#.#++#.#', '#.#++#.#', '#..##..#', '.#....#.', '..####..'],
+  sonar: ['#.......', '.#..#...', '.#...#..', '.#.#..#.', '.#.#..#.', '.#...#..', '.#..#...', '#.......'],
+};
+
+const iconCache = new Map<string, string>();
+function iconUrl(key: StatKey | 'core', color: string): string {
+  const k = key + color;
+  let url = iconCache.get(k);
+  if (url) return url;
+  const c = document.createElement('canvas');
+  c.width = c.height = 8;
+  const ctx = c.getContext('2d')!;
+  ICONS[key].forEach((row, y) =>
+    [...row].forEach((ch, x) => {
+      if (ch === '.') return;
+      ctx.fillStyle = ch === '+' ? '#ffffff' : color;
+      ctx.fillRect(x, y, 1, 1);
+    }),
+  );
+  url = c.toDataURL();
+  iconCache.set(k, url);
+  return url;
+}
+
+const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
+const $ = (n: number) => `$${formatCoins(n)}`;
+
+/** Pan/zoom survive re-renders and tab switches. */
+const view = { x: 0, y: 0, zoom: 1, centered: false, selected: 'core' };
+
+/**
+ * Incremental-game style skill tree: square nodes on a pannable map.
+ * Buying a node reveals its children; the next ring shows as "?".
+ */
+export class SkillTree {
+  private world!: HTMLElement;
+  private info!: HTMLElement;
+  private pointers = new Map<number, { x: number; y: number }>();
+  private dragMoved = false;
+  private downNode: string | null = null;
+  private pinchDist = 0;
+  private justRevealed = new Set<string>();
+
+  constructor(private root: HTMLElement, private game: Game, private onChange: () => void) {
+    root.classList.add('tree-view');
+    root.innerHTML = `
+      <div class="tree-world"></div>
+      <div class="tree-info"></div>
+      <div class="tree-tools">
+        <button class="tree-btn" data-z="1" aria-label="Aproximar">+</button>
+        <button class="tree-btn" data-z="-1" aria-label="Afastar">−</button>
+        <button class="tree-btn" data-z="0" aria-label="Centralizar">◎</button>
+      </div>
+      <div class="tree-hint">Arraste para mover · roda ou pinça para zoom · clique duas vezes num nó para comprar</div>`;
+    this.world = root.querySelector('.tree-world')!;
+    this.info = root.querySelector('.tree-info')!;
+    root.querySelectorAll<HTMLElement>('.tree-btn').forEach((b) =>
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const z = Number(b.dataset.z);
+        if (z === 0) this.center();
+        else this.zoomAt(z > 0 ? 1.2 : 1 / 1.2, root.clientWidth / 2, root.clientHeight / 2);
+      }),
+    );
+    root.addEventListener('pointerdown', this.onDown);
+    root.addEventListener('pointermove', this.onMove);
+    root.addEventListener('pointerup', this.onUp);
+    root.addEventListener('pointercancel', this.onUp);
+    root.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const r = root.getBoundingClientRect();
+      this.zoomAt(e.deltaY < 0 ? 1.12 : 1 / 1.12, e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
+    this.render();
+    if (!view.centered) this.center();
+    else this.applyTransform();
+  }
+
+  /** Grid spacing in px, proportional to the stage size. */
+  private get G(): number {
+    const u = parseFloat(getComputedStyle(this.root).getPropertyValue('--u')) || 4;
+    return u * 17;
+  }
+
+  private center(): void {
+    const w = this.root.clientWidth || 600;
+    const h = this.root.clientHeight || 300;
+    // frame what the player can currently see
+    const vis = UPGRADES.filter((u) => nodeVisibility(this.game.save, u.id) !== 'hidden');
+    const G = this.G;
+    const xs = vis.map((u) => u.x * G);
+    const ys = vis.map((u) => u.y * G);
+    const cx = (Math.min(...xs) + Math.max(...xs)) / 2;
+    const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
+    const spanX = Math.max(...xs) - Math.min(...xs) + G * 2;
+    const spanY = Math.max(...ys) - Math.min(...ys) + G * 2;
+    view.zoom = Math.max(0.55, Math.min(1.3, Math.min((w * 0.8) / spanX, h / spanY)));
+    // keep the tree clear of the info card on the bottom-left
+    view.x = w * 0.58 - cx * view.zoom;
+    view.y = h / 2 - cy * view.zoom;
+    view.centered = true;
+    this.applyTransform();
+  }
+
+  private applyTransform(): void {
+    this.world.style.transform = `translate(${view.x}px, ${view.y}px) scale(${view.zoom})`;
+  }
+
+  private zoomAt(f: number, px: number, py: number): void {
+    const z = Math.max(0.45, Math.min(1.8, view.zoom * f));
+    const k = z / view.zoom;
+    view.x = px - (px - view.x) * k;
+    view.y = py - (py - view.y) * k;
+    view.zoom = z;
+    this.applyTransform();
+  }
+
+  // ───────────────────────── input
+
+  private onDown = (e: PointerEvent) => {
+    if ((e.target as HTMLElement).closest('.tree-info, .tree-tools')) return;
+    this.root.setPointerCapture(e.pointerId);
+    this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    this.dragMoved = false;
+    const node = (e.target as HTMLElement).closest('.node') as HTMLElement | null;
+    this.downNode = this.pointers.size === 1 && node ? node.dataset.id! : null;
+    if (this.pointers.size === 2) this.pinchDist = this.pinchSpan();
+  };
+
+  private onMove = (e: PointerEvent) => {
+    const p = this.pointers.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x;
+    const dy = e.clientY - p.y;
+    if (this.pointers.size === 2) {
+      p.x = e.clientX;
+      p.y = e.clientY;
+      const d = this.pinchSpan();
+      if (this.pinchDist > 0 && d > 0) {
+        const pts = [...this.pointers.values()];
+        const r = this.root.getBoundingClientRect();
+        this.zoomAt(d / this.pinchDist, (pts[0].x + pts[1].x) / 2 - r.left, (pts[0].y + pts[1].y) / 2 - r.top);
+      }
+      this.pinchDist = d;
+      this.dragMoved = true;
+      return;
+    }
+    if (!this.dragMoved && Math.hypot(dx, dy) < 6) return;
+    this.dragMoved = true;
+    p.x = e.clientX;
+    p.y = e.clientY;
+    view.x += dx;
+    view.y += dy;
+    this.applyTransform();
+  };
+
+  private onUp = (e: PointerEvent) => {
+    if (!this.pointers.has(e.pointerId)) return;
+    this.pointers.delete(e.pointerId);
+    if (this.pointers.size < 2) this.pinchDist = 0;
+    if (!this.dragMoved && this.downNode && this.pointers.size === 0) this.tapNode(this.downNode);
+    this.downNode = null;
+  };
+
+  private pinchSpan(): number {
+    const pts = [...this.pointers.values()];
+    return pts.length < 2 ? 0 : Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+  }
+
+  private tapNode(id: string): void {
+    this.game.audio.unlock();
+    if (view.selected === id && nodeVisibility(this.game.save, id) !== 'teaser') {
+      this.buy(id);
+      return;
+    }
+    view.selected = id;
+    this.game.audio.play('click');
+    this.render();
+  }
+
+  private buy(id: string): void {
+    const save = this.game.save;
+    const before = new Set(UPGRADES.filter((u) => nodeVisibility(save, u.id) === 'available').map((u) => u.id));
+    const res = buyUpgrade(save, id);
+    if (res !== 'ok') {
+      this.root.querySelector(`.node[data-id="${id}"]`)?.classList.add('deny');
+      setTimeout(() => this.root.querySelector(`.node[data-id="${id}"]`)?.classList.remove('deny'), 300);
+      this.game.audio.play('miss');
+      return;
+    }
+    this.game.persist();
+    this.game.refreshStats();
+    this.game.audio.play('buy');
+    this.justRevealed = new Set(UPGRADES.filter((u) => nodeVisibility(save, u.id) === 'available' && !before.has(u.id)).map((u) => u.id));
+    if (this.justRevealed.size) setTimeout(() => this.game.audio.play('newSpecies'), 120);
+    this.render(id);
+    this.onChange();
+  }
+
+  // ───────────────────────── rendering
+
+  render(boughtId?: string): void {
+    const save = this.game.save;
+    const G = this.G;
+    const N = G * 0.68; // node size
+    const vis = new Map<string, NodeVisibility>();
+    for (const u of UPGRADES) vis.set(u.id, nodeVisibility(save, u.id));
+
+    let lines = '';
+    for (const u of UPGRADES) {
+      if (!u.parent || vis.get(u.id) === 'hidden') continue;
+      const p = UPGRADES_BY_ID[u.parent];
+      const state = vis.get(u.id) === 'owned' ? 'on' : vis.get(u.id) === 'available' ? 'open' : 'dim';
+      const color = state === 'dim' ? '#2a4a60' : BRANCH_COLOR[u.branch];
+      lines += `<line class="${state}" x1="${p.x * G}" y1="${p.y * G}" x2="${u.x * G}" y2="${u.y * G}" stroke="${color}" />`;
+    }
+
+    let nodes = '';
+    for (const u of UPGRADES) {
+      const v = vis.get(u.id)!;
+      if (v === 'hidden') continue;
+      const l = level(save, u.id);
+      const res = canBuy(save, u.id);
+      const color = BRANCH_COLOR[u.branch];
+      const cls = [
+        'node', v,
+        l >= u.maxLevel ? 'maxed' : '',
+        res === 'ok' ? 'can' : '',
+        view.selected === u.id ? 'sel' : '',
+        this.justRevealed.has(u.id) ? 'reveal' : '',
+        boughtId === u.id ? 'pop' : '',
+      ].join(' ');
+      const inner = v === 'teaser'
+        ? '<span class="q">?</span>'
+        : `<img src="${iconUrl(u.id === 'core' ? 'core' : u.stat, color)}" alt="" draggable="false">
+           <span class="nl">${l}/${u.maxLevel}</span>`;
+      nodes += `<div class="${cls}" data-id="${u.id}" style="left:${u.x * G - N / 2}px;top:${u.y * G - N / 2}px;width:${N}px;height:${N}px;--c:${color}">${inner}</div>`;
+    }
+    this.world.innerHTML = `<svg class="tree-lines" width="1" height="1">${lines}</svg>${nodes}`;
+    this.justRevealed.clear();
+    this.renderInfo();
+  }
+
+  private renderInfo(): void {
+    const save = this.game.save;
+    const u: UpgradeDef | undefined = UPGRADES_BY_ID[view.selected];
+    if (!u) {
+      this.info.innerHTML = '';
+      return;
+    }
+    const v = nodeVisibility(save, u.id);
+    if (v === 'teaser' || v === 'hidden') {
+      this.info.innerHTML = `<div class="ti-head"><b>???</b></div>
+        <p class="desc">Compre <b>${esc(UPGRADES_BY_ID[u.parent!].name)}</b> para revelar esta habilidade.</p>`;
+      return;
+    }
+    const l = level(save, u.id);
+    const res = canBuy(save, u.id);
+    const max = l >= u.maxLevel;
+    const cost = upgradeCost(u, l);
+    const color = BRANCH_COLOR[u.branch];
+    let action: string;
+    if (max) action = '<span class="equipped">NÍVEL MÁXIMO</span>';
+    else if (res === 'locked') action = `<span class="lock">🔒 Requer ${esc(UPGRADES_BY_ID[u.parent!].name)}</span>`;
+    else action = `<button class="btn ${res === 'ok' ? 'buy-ok' : ''}" data-buy="${u.id}" ${res === 'ok' ? '' : 'disabled'}>Comprar ${$(cost)}</button>`;
+    const kids = UPGRADES.filter((k) => k.parent === u.id).length;
+    this.info.innerHTML = `
+      <div class="ti-head">
+        <img src="${iconUrl(u.id === 'core' ? 'core' : u.stat, color)}" alt="">
+        <div><b>${esc(u.name)}</b><span style="color:${color}">${BRANCH_LABEL[u.branch]} · nível ${l}/${u.maxLevel}</span></div>
+      </div>
+      <p class="desc">${esc(u.description)}</p>
+      <p class="eff">Atual: ${l ? esc(u.effect(l)) : '—'}${max ? '' : `<br><span class="next">Próximo: ${esc(u.effect(l + 1))}</span>`}</p>
+      ${l === 0 && kids ? `<p class="unlock">Desbloqueia ${kids} nova(s) habilidade(s)</p>` : ''}
+      ${action}`;
+    this.info.querySelector<HTMLElement>('[data-buy]')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.buy(u.id);
+    });
+  }
+}

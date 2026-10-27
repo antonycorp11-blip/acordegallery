@@ -6,8 +6,9 @@ import { RARITIES, RARITY_COLOR, RARITY_LABEL, SPECIES, SPECIES_BY_ID, VARIANTS,
 import { creatureSprite, makeCanvas, Painter } from '../render/PixelArt';
 import { paintClaw } from '../render/Renderer';
 import { formatCoins } from '../systems/Economy';
+import { SkillTree } from './SkillTree';
 import {
-  BRANCH_LABEL, UPGRADES, UPGRADES_BY_ID, buyClaw, buyUpgrade, canBuy, canBuyClaw, computeStats, level, upgradeCost, type Branch,
+  UPGRADES, buyClaw, buyUpgrade, canBuy, canBuyClaw, computeStats,
 } from '../systems/Upgrades';
 
 type Tab = 'skills' | 'workshop' | 'catalog' | 'settings';
@@ -107,8 +108,12 @@ export class Screens {
           <span class="coins">${$(s.coins)}</span>
           <button class="btn small primary" data-act="start" style="font-size:0.9em;padding:calc(var(--u)*1) calc(var(--u)*2.4)">MERGULHAR</button>
         </div>
-        <div class="panel-body">${tab === 'skills' ? this.skillsHtml() : tab === 'workshop' ? '<div class="claws"></div>' : tab === 'catalog' ? '<div class="catalog"></div>' : this.settingsHtml()}</div>
+        <div class="panel-body ${tab === 'skills' ? 'tree-body' : ''}">${tab === 'skills' ? '' : tab === 'workshop' ? '<div class="claws"></div>' : tab === 'catalog' ? '<div class="catalog"></div>' : this.settingsHtml()}</div>
       </div>`;
+    if (tab === 'skills') {
+      const coins = this.root.querySelector('.panel-head .coins')!;
+      new SkillTree(this.root.querySelector('.panel-body')!, this.game, () => (coins.textContent = $(this.game.save.coins)));
+    }
     if (tab === 'workshop') this.fillWorkshop();
     if (tab === 'catalog') this.fillCatalog();
   }
@@ -144,33 +149,6 @@ export class Screens {
         </div>
         <div class="help">PC: mouse mira · clique ou Espaço ataca · A/D ou ◀ ▶ navega · Esc pausa &nbsp;|&nbsp; Celular: toque no mar para mirar · CAPTURAR ataca · ◀ ▶ navega</div>
       </div>`;
-  }
-
-  private skillsHtml(): string {
-    const s = this.game.save;
-    const branches: Branch[] = ['capture', 'expedition', 'ecology', 'tech'];
-    return `<div class="tree">${branches
-      .map((b) => `<div class="branch"><h3>${BRANCH_LABEL[b]}</h3><div class="cards">${UPGRADES.filter((u) => u.branch === b)
-        .map((u) => {
-          const l = level(s, u.id);
-          const res = canBuy(s, u.id);
-          const max = res === 'max';
-          const cost = upgradeCost(u, l);
-          const pips = Array.from({ length: u.maxLevel }, (_, i) => `<i class="${i < l ? 'on' : ''}"></i>`).join('');
-          let action: string;
-          if (max) action = '<span class="equipped">NÍVEL MÁXIMO</span>';
-          else if (res === 'locked') action = `<span class="lock">🔒 Requer ${(u.requires ?? []).map((r) => `${esc(UPGRADES_BY_ID[r.id].name)} ${r.level}`).join(' + ')}</span>`;
-          else action = `<button class="btn" data-act="buy" data-id="${u.id}" ${res === 'ok' ? '' : 'disabled'}>Comprar ${$(cost)}</button>`;
-          return `<div class="card ${res === 'locked' ? 'locked' : ''} ${res === 'ok' ? 'can' : ''} ${max ? 'maxed' : ''}">
-            <div class="card-top"><b>${esc(u.name)}</b><span class="lvl">${l}/${u.maxLevel}</span></div>
-            <div class="pips">${pips}</div>
-            <p class="desc">${esc(u.description)}</p>
-            <p class="eff">${esc(u.effect(l))}${max ? '' : ` <span class="next">→ ${esc(u.effect(l + 1))}</span>`}</p>
-            ${action}
-          </div>`;
-        })
-        .join('')}</div></div>`)
-      .join('')}</div>`;
   }
 
   private fillWorkshop(): void {
