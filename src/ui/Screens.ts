@@ -30,12 +30,32 @@ export class Screens {
   private ticker = 0;
 
   constructor(private root: HTMLElement, private game: Game) {
-    root.addEventListener('click', (e) => {
+    // Fire on release over the button the press started on (robust for fingers
+    // that drift a little); a press that turned into a scroll does nothing.
+    let pressed: { el: HTMLElement; x: number; y: number } | null = null;
+    root.addEventListener('pointerdown', (e) => {
       const el = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
-      if (!el || (el as HTMLButtonElement).disabled) return;
-      this.game.audio.unlock();
-      this.action(el.dataset.act!, el.dataset.id ?? '');
+      pressed = el ? { el, x: e.clientX, y: e.clientY } : null;
     });
+    root.addEventListener('pointerup', (e) => {
+      const p = pressed;
+      pressed = null;
+      if (!p || !p.el.isConnected || (p.el as HTMLButtonElement).disabled) return;
+      if (Math.hypot(e.clientX - p.x, e.clientY - p.y) > 12) return;
+      this.fire(p.el);
+    });
+    root.addEventListener('pointercancel', () => (pressed = null));
+    // keyboard activation (Enter/Space on a focused button)
+    root.addEventListener('click', (e) => {
+      if (e.detail !== 0) return;
+      const el = (e.target as HTMLElement).closest('[data-act]') as HTMLElement | null;
+      if (el && !(el as HTMLButtonElement).disabled) this.fire(el);
+    });
+  }
+
+  private fire(el: HTMLElement): void {
+    this.game.audio.unlock();
+    this.action(el.dataset.act!, el.dataset.id ?? '');
   }
 
   clear(): void {
