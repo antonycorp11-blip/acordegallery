@@ -197,6 +197,12 @@ export const comboWindow = (l: number) => CONFIG.economy.comboWindowMs + 300 * l
 export const perfectBonus = (l: number) => CONFIG.economy.perfectBaseBonus + 0.1 * l;
 export const sonarRange = (l: number) => (l <= 0 ? 0 : 500 + 400 * l);
 
+/** Visual tier 0..3 from how invested the player is in claw upgrades. */
+export function clawTier(levels: number): number {
+  return levels >= 18 ? 3 : levels >= 10 ? 2 : levels >= 4 ? 1 : 0;
+}
+export const CLAW_TIER_NAMES = ['Básica', 'Reforçada', 'Dourada', 'Lendária'];
+
 export function level(save: SaveData, id: string): number {
   const def = UPGRADES_BY_ID[id];
   const l = save.upgrades[id] ?? 0;
@@ -313,6 +319,8 @@ export interface RunStats {
   valueMult: number;
   frenzySeconds: number;
   turboSeconds: number;
+  /** 0..3: the claw looks better the more you invest in it */
+  clawTier: number;
 }
 
 export function computeStats(save: SaveData): RunStats {
@@ -334,6 +342,7 @@ export function computeStats(save: SaveData): RunStats {
     valueMult: 1 + 0.15 * L('value'),
     frenzySeconds: CONFIG.frenzy.seconds + L('frenzy'),
     turboSeconds: CONFIG.turbo.seconds + L('turbo'),
+    clawTier: clawTier(L('strikeSpeed') + L('strength') + L('opening') + L('recovery') + L('precision') + L('multi') * 3),
     density: densityMult(L('density')),
     luck: luckValue(L('luck')),
     schoolBonus: L('schools'),

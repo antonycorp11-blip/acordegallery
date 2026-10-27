@@ -85,7 +85,7 @@ function assert(cond, msg) {
     assert(shown === before + 2, `comprar o nó revelou 2 novos nós (${before} → ${shown})`);
     if (shots) await page.screenshot({ path: `${shots}/smoke-skills.png` });
 
-    await page.click('.panel-head [data-act="start"]');
+    await page.click('.tree-bar [data-act="start"]');
     await page.waitForTimeout(300);
     t = await page.evaluate(() => window.__abyss.timeLeft);
     assert(t > 34 && t <= 35, `próxima run começa com ~35s (${t.toFixed(2)})`);

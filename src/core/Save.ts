@@ -1,3 +1,4 @@
+import { BAITS_BY_ID } from '../entities/Baits';
 import { CLAWS_BY_ID } from '../entities/ClawsCatalog';
 import { SPECIES_BY_ID, VARIANTS, type VariantId } from '../entities/Species';
 
@@ -22,6 +23,17 @@ export interface OrderState {
   stars: number;
 }
 
+export interface QuotaState {
+  day: number;
+  /** how many quotas were met (drives the target) */
+  tier: number;
+  deliveredKg: number;
+  divesLeft: number;
+  /** license level: +value per level, lost one per failed day */
+  license: number;
+  failed: number;
+}
+
 export interface SaveData {
   version: number;
   coins: number;
@@ -42,6 +54,9 @@ export interface SaveData {
   ordersDone: number;
   aquarium: { level: number; last: number };
   daily: { last: number; streak: number };
+  quota: QuotaState;
+  baits: Record<string, number>;
+  selectedBait: string;
   totalEarned: number;
   upgrades: Record<string, number>;
   ownedClaws: string[];
@@ -70,6 +85,9 @@ export function defaultSave(): SaveData {
     ordersDone: 0,
     aquarium: { level: 0, last: 0 },
     daily: { last: 0, streak: 0 },
+    quota: { day: 1, tier: 0, deliveredKg: 0, divesLeft: 3, license: 0, failed: 0 },
+    baits: { algae: 3, shrimp: 2 },
+    selectedBait: 'algae',
     totalEarned: 0,
     upgrades: {},
     ownedClaws: ['scrap'],
@@ -121,6 +139,18 @@ export function sanitizeSave(raw: unknown): SaveData {
     const a = r.aquarium as Record<string, unknown>;
     d.aquarium = { level: Math.floor(num(a.level)), last: num(a.last) };
   }
+  if (r.quota && typeof r.quota === 'object') {
+    const q = r.quota as Record<string, unknown>;
+    d.quota = {
+      day: Math.max(1, Math.floor(num(q.day, 1))), tier: Math.floor(num(q.tier)), deliveredKg: num(q.deliveredKg),
+      divesLeft: Math.min(3, Math.max(1, Math.floor(num(q.divesLeft, 3)))), license: Math.floor(num(q.license)), failed: Math.floor(num(q.failed)),
+    };
+  }
+  if (r.baits && typeof r.baits === 'object') {
+    d.baits = {};
+    for (const [k, v] of Object.entries(r.baits as Record<string, unknown>)) if (BAITS_BY_ID[k]) d.baits[k] = Math.floor(num(v));
+  }
+  if (typeof r.selectedBait === 'string' && BAITS_BY_ID[r.selectedBait]) d.selectedBait = r.selectedBait;
   if (r.daily && typeof r.daily === 'object') {
     const a = r.daily as Record<string, unknown>;
     d.daily = { last: num(a.last), streak: Math.floor(num(a.streak)) };

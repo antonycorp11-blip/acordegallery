@@ -27,6 +27,9 @@ game.input.bindHoldButton(touch.left, 'left');
 game.input.bindHoldButton(touch.right, 'right');
 game.input.bindHoldButton(touch.turbo, 'turbo');
 game.input.bindStrikeButton(touch.strike);
+game.input.bindTapButton(touch.bait, 'bait');
+game.input.bindTapButton(touch.cycle, 'cycle');
+hud.onBait = (name, count, color) => touch.setBait(name, count, color);
 hud.pauseBtn.addEventListener('pointerdown', (e) => {
   e.preventDefault();
   game.pause();
@@ -41,6 +44,7 @@ game.onModeChange = (m) => {
   const playing = m === 'playing';
   hud.show(playing || m === 'paused');
   touch.show(playing && game.input.touchMode);
+  document.body.classList.toggle('touch', game.input.touchMode);
   document.body.classList.toggle('menu', !playing);
   if (m === 'paused') screens.showPause();
   if (playing) {

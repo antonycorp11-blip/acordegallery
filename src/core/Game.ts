@@ -1,4 +1,5 @@
 import { CONFIG, VIEW_H, VIEW_W } from '../config';
+import { BAITS, BAITS_BY_ID, baitAttracts, type BaitDef } from '../entities/Baits';
 import { Boss, CHECKPOINTS, checkpointUnlocked, nextBoss, type BossDef } from '../entities/Boss';
 import { Claw, type ClawState } from '../entities/Claw';
 import { updateSchool, type Creature, type CreatureEvent } from '../entities/Creature';
@@ -9,10 +10,12 @@ import { Renderer } from '../render/Renderer';
 import { ComboTracker, captureValue, recordCapture, timeBonusFor } from '../systems/Economy';
 import { aquariumTouch, collectionBonus } from '../systems/Meta';
 import { applyOrderEvent, ensureOrders, orderText, type OrderEvent } from '../systems/Orders';
+import { catchKg, deliverDive, licenseBonus, quotaTarget, type QuotaOutcome } from '../systems/Quota';
 import { computeStats, type RunStats } from '../systems/Upgrades';
 import { paletteAt } from '../world/Biomes';
 import { depthAt } from '../world/Depth';
-import { SpawnDirector } from '../world/SpawnDirector';
+import { pickSpecies, pickVariant, SpawnDirector } from '../world/SpawnDirector';
+import { biomeIndexAt } from '../world/Biomes';
 import { Terrain } from '../world/Terrain';
 import { AudioFx } from './Audio';
 import { Camera } from './Camera';
@@ -43,6 +46,9 @@ export interface RunSummary {
   bossesDefeated: string[];
   weakPointsHit: number;
   ordersCompleted: string[];
+  kg: number;
+  quota: QuotaOutcome;
+  quotaTargetKg: number;
 }
 
 export interface RunHud {
@@ -57,6 +63,19 @@ export interface RunHud {
   /** 0..1 turbo gauge */
   turbo: number;
   boss: { name: string; hp: number; max: number; open: boolean } | null;
+  quota: { kg: number; target: number; divesLeft: number };
+  bait: { name: string; count: number; color: string };
+}
+
+export interface ActiveBait {
+  def: BaitDef;
+  x: number;
+  y: number;
+  targetY: number;
+  t: number;
+  sinking: boolean;
+  callTimer: number;
+  called: number;
 }
 
 export type EventKind = 'goldenSchool' | 'current' | 'shark';
@@ -89,6 +108,8 @@ export class Game {
   frenzy = 0;
   turbo = 0;
   current = { t: 0, dir: 1 };
+  runKg = 0;
+  baits: ActiveBait[] = [];
   private bossesDefeated: string[] = [];
   private weakPointsHit = 0;
   private ordersCompleted: string[] = [];
@@ -214,12 +235,14 @@ export class Game {
     this.frenzy = 0;
     this.turbo = this.stats.turboSeconds;
     this.current = { t: 0, dir: 1 };
+    this.runKg = 0;
+    this.baits = [];
     this.bossesDefeated = [];
     this.weakPointsHit = 0;
     this.ordersCompleted = [];
     this.eventTimer = CONFIG.events.firstAfter;
     this.barrierHint = 0;
-    this.valueMult = this.stats.valueMult * (1 + collectionBonus(this.save));
+    this.valueMult = this.stats.valueMult * (1 + collectionBonus(this.save) + licenseBonus(this.save.quota.license));
     this.runCommitted = false;
     this.lastTick = -1;
     this.input.reset();
@@ -259,6 +282,8 @@ export class Game {
     s.totalEarned += this.runCoins;
     s.earnedThisLife += this.runCoins;
     s.stars += this.runStars;
+    const quotaTargetKg = quotaTarget(s.quota.tier);
+    const quota = deliverDive(s, this.runKg);
     s.totalCaptures += this.captures.length;
     s.totalRuns += 1;
     s.bestDepth = Math.max(s.bestDepth, this.maxDepth);
@@ -282,7 +307,11 @@ export class Game {
       bossesDefeated: this.bossesDefeated.slice(),
       weakPointsHit: this.weakPointsHit,
       ordersCompleted: this.ordersCompleted.slice(),
+      kg: this.runKg,
+      quota,
+      quotaTargetKg,
     };
+    this.baits = [];
     this.claw.held = [];
     this.frenzy = 0;
     this.claw.haste = 1;
@@ -370,7 +399,7 @@ export class Game {
     this.cam.update(dt, dir, speed, this.terrain);
     if (this.current.t > 0) {
       this.current.t -= dt;
-      this.cam.x += this.current.dir * CONFIG.events.currentPush * dt;
+      this.cam.focus += this.current.dir * CONFIG.events.currentPush * dt;
     }
     this.applyBarrier();
     const centerX = this.cam.x + VIEW_W / 2;
@@ -388,6 +417,9 @@ export class Game {
     const k = 1 - Math.pow(0.0001, dt);
     this.aimSX += (this.aimScreenX() - this.aimSX) * k;
     const restY = this.cam.y + CONFIG.claw.restTipY;
+    if (this.input.consumeBaitCycle()) this.cycleBait();
+    if (this.input.consumeBait()) this.throwBait();
+    this.updateBaits(dt);
     if (this.input.consumeStrike() || this.claw.takeBuffered()) this.tryStrike(restY);
     const prevTip = this.claw.tipY;
     const wasStriking = this.claw.state === 'STRIKE';
@@ -421,24 +453,20 @@ export class Game {
       frenzy: this.frenzy > 0 ? this.frenzy / stats.frenzySeconds : 0,
       turbo: this.turbo / stats.turboSeconds,
       boss: b ? { name: b.def.name, hp: b.hp, max: b.def.weakPoints.length, open: b.open } : null,
+      quota: { kg: this.save.quota.deliveredKg + this.runKg, target: quotaTarget(this.save.quota.tier), divesLeft: this.save.quota.divesLeft },
+      bait: this.baitHud(),
     });
   }
 
   // ───────────────────────── guardians
 
-  /** The next undefeated guardian blocks the way: the camera can't pass it. */
+  /** The next undefeated guardian blocks the way: the claw rail can't pass it. */
   private applyBarrier(): void {
     const nb = nextBoss(this.save.bosses);
-    if (!nb) return;
-    // the claw column (screen center on touch) must be able to sweep the whole guardian
-    const maxX = nb.x + nb.w * 0.5 + 12 - VIEW_W / 2;
-    if (this.cam.x > maxX) {
-      this.cam.x = maxX;
-      if (this.cam.vx > 0) this.cam.vx = 0;
-      if (this.time - this.barrierHint > 6) {
-        this.barrierHint = this.time;
-        this.effects.text(this.cam.x + VIEW_W * 0.8, this.cam.y + 120, 'CORRENTEZA BLOQUEIA!', '#9fd8e8');
-      }
+    // the claw column must be able to sweep the whole guardian
+    if (this.cam.clampFocus(nb ? nb.x + nb.w * 0.5 + 12 : Infinity) && this.time - this.barrierHint > 6) {
+      this.barrierHint = this.time;
+      this.effects.text(this.cam.x + VIEW_W * 0.8, this.cam.y + 120, 'CORRENTEZA BLOQUEIA!', '#9fd8e8');
     }
   }
 
@@ -661,6 +689,104 @@ export class Game {
     }
   }
 
+  // ───────────────────────── baits
+
+  private baitHud(): { name: string; count: number; color: string } {
+    const def = BAITS_BY_ID[this.save.selectedBait] ?? BAITS[0];
+    return { name: def.name, count: this.save.baits[def.id] ?? 0, color: def.color };
+  }
+
+  /** Next bait type the player owns. */
+  cycleBait(): void {
+    const owned = BAITS.filter((b) => (this.save.baits[b.id] ?? 0) > 0);
+    if (!owned.length) return;
+    const i = owned.findIndex((b) => b.id === this.save.selectedBait);
+    this.save.selectedBait = owned[(i + 1) % owned.length].id;
+    this.audio.play('click');
+  }
+
+  throwBait(): void {
+    if (this.mode !== 'playing') return;
+    let def = BAITS_BY_ID[this.save.selectedBait];
+    if (!def || (this.save.baits[def.id] ?? 0) <= 0) {
+      const any = BAITS.find((b) => (this.save.baits[b.id] ?? 0) > 0);
+      if (!any) {
+        this.effects.text(this.claw.x, this.cam.y + 60, 'SEM ISCAS! COMPRE NA OFICINA', '#ff6a5a');
+        this.audio.play('miss');
+        return;
+      }
+      def = any;
+      this.save.selectedBait = any.id;
+    }
+    if (this.baits.length >= CONFIG.bait.maxActive) this.baits.shift();
+    this.save.baits[def.id]--;
+    const x = this.cam.x + this.aimScreenX();
+    const floor = this.terrain.seabedY(x);
+    const targetY = this.pathMode ? floor - 34 : Math.min(floor - 4, this.cam.y + Math.max(60, this.input.aimY));
+    this.baits.push({ def, x, y: this.cam.y + CONFIG.claw.restTipY + 6, targetY, t: def.seconds, sinking: true, callTimer: 0.6, called: 0 });
+    this.effects.text(x, this.cam.y + 50, `${def.name.toUpperCase()}!`, def.color);
+    this.audio.play('strike');
+  }
+
+  private updateBaits(dt: number): void {
+    const depth = depthAt(this.cam.x + VIEW_W / 2);
+    for (let i = this.baits.length - 1; i >= 0; i--) {
+      const b = this.baits[i];
+      if (b.sinking) {
+        b.y += CONFIG.bait.sinkSpeed * dt;
+        if (b.y >= b.targetY) {
+          b.y = b.targetY;
+          b.sinking = false;
+          this.effects.burst('ring', b.x, b.y, 1, 0, 0.6, [b.def.color], 30);
+        }
+        continue;
+      }
+      b.t -= dt;
+      if (b.t <= 0) {
+        this.baits.splice(i, 1);
+        continue;
+      }
+      // scent trail
+      if (Math.random() < dt * 8) this.effects.spawn('bubble', b.x + (Math.random() - 0.5) * 6, b.y - 2, (Math.random() - 0.5) * 8, -14, 1.4, b.def.color, 1);
+      for (const c of this.spawn.creatures) {
+        if (c.frozen || !c.hittable || c.state === 'CAPTURED') continue;
+        if (Math.abs(c.x - b.x) > b.def.radius || !baitAttracts(b.def, c.def)) continue;
+        c.lureX = b.x;
+        c.lureY = b.y;
+        c.lureT = 0.35;
+      }
+      // call more of the right creatures in from the edges
+      b.callTimer -= dt;
+      if (b.callTimer <= 0 && b.called < b.def.calls) {
+        b.callTimer = CONFIG.bait.callEvery;
+        b.called++;
+        this.callForBait(b, depth);
+      }
+    }
+  }
+
+  private callForBait(b: ActiveBait, depth: number): void {
+    let def = null;
+    if (b.def.species.includes('*')) def = pickSpecies(depth, biomeIndexAt(b.x), this.stats.luck, this.rng);
+    else {
+      const pool = b.def.species
+        .map((id) => SPECIES_BY_ID[id])
+        .filter((sp) => sp && sp.id !== 'hammerShark' && depth >= sp.minDepth * 0.7 && depth <= sp.maxDepth * 1.2 && (sp.rarity !== 'legendary' || depth >= sp.minDepth));
+      // squid bait sometimes lures a shark
+      if (b.def.species.includes('hammerShark') && this.rng() < 0.18) pool.push(SPECIES_BY_ID.hammerShark);
+      if (pool.length) def = pool[Math.floor(this.rng() * pool.length)];
+    }
+    if (!def || this.spawn.alive >= CONFIG.spawn.maxAlive + 6) return;
+    const variant = b.def.variant && this.rng() < (b.def.variantChance ?? 0) ? b.def.variant : pickVariant(def, depth, this.stats.variantMult, this.rng);
+    const fromLeft = b.x - this.cam.x > VIEW_W / 2 ? false : true;
+    const x = fromLeft ? this.cam.x - 30 : this.cam.x + VIEW_W + 30;
+    const floor = this.terrain.seabedY(x);
+    const c = this.spawn.spawnSpecial(def, variant, x, def.behavior === 'crawler' || def.behavior === 'burrower' ? null : floor - 40 - this.rng() * 50, fromLeft ? 1 : -1);
+    c.lureX = b.x;
+    c.lureY = b.y;
+    c.lureT = 0.5;
+  }
+
   // ───────────────────────── strike & contact
 
   /** Touch play: no tapping on targets; the claw dives down its own column. */
@@ -669,7 +795,8 @@ export class Game {
   }
 
   private aimScreenX(): number {
-    return this.pathMode ? VIEW_W / 2 : this.input.aimX;
+    // touch: the claw rides the rail focus (centered, or off-center at the world edge)
+    return this.pathMode ? this.cam.focusScreenX : this.input.aimX;
   }
 
   private tryStrike(restY: number): void {
@@ -805,6 +932,8 @@ export class Game {
     const frenzyMult = this.frenzy > 0 ? CONFIG.frenzy.valueMult : 1;
     const value = captureValue(c.def, c.variant, depth, comboBonus, perfect, this.valueMult * frenzyMult);
     this.runCoins += value;
+    const kg = catchKg(c.def, c.variant);
+    this.runKg = Math.round((this.runKg + kg) * 10) / 10;
     this.captures.push({ speciesId: c.def.id, variant: c.variant, value, rarity: c.def.rarity });
     const tier = RARITIES.indexOf(c.def.rarity);
 
@@ -831,7 +960,7 @@ export class Game {
     const extra = [variantLabel ? variantLabel.toUpperCase() : '', this.combo.count > 1 ? `COMBO x${this.combo.count}` : '', frenzyMult > 1 ? 'FRENESI' : '']
       .filter(Boolean)
       .join(' · ');
-    fx.text(c.x, textY + 18, `+$${value}${extra ? '  ' + extra : ''}`, tier >= 2 || c.variant !== 'normal' ? RARITY_COLOR[c.def.rarity] : '#ffe680');
+    fx.text(c.x, textY + 18, `+$${value}${kg ? ` · ${kg.toLocaleString('pt-BR')}kg` : ''}${extra ? '  ' + extra : ''}`, tier >= 2 || c.variant !== 'normal' ? RARITY_COLOR[c.def.rarity] : '#ffe680');
     this.audio.play('coin');
     this.effects.coinFly(c.x - this.cam.x, c.y - this.cam.y, Math.min(6, 1 + Math.floor(value / 40)));
     this.vibrate(15);
@@ -917,6 +1046,7 @@ export class Game {
       barrierX: nb ? nb.x + nb.w / 2 + 50 : null,
       current: this.current.t > 0 ? Math.min(1, this.current.t) * this.current.dir : 0,
       frenzy: playing && this.frenzy > 0 ? this.frenzy / this.stats.frenzySeconds : 0,
+      baits: playing ? this.baits : [],
     });
   }
 

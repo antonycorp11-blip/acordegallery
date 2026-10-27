@@ -1,18 +1,20 @@
 import { CONFIG } from '../config';
 import type { Game, RunSummary } from '../core/Game';
 import { clearSave, defaultSave } from '../core/Save';
+import { BAITS, BAITS_BY_ID } from '../entities/Baits';
 import { BOSSES, CHECKPOINTS, checkpointUnlocked, nextBoss } from '../entities/Boss';
 import { CLAWS, type ClawDefinition } from '../entities/ClawsCatalog';
 import { RARITIES, RARITY_COLOR, RARITY_LABEL, SPECIES, SPECIES_BY_ID, VARIANTS, isCreature, strengthRequired } from '../entities/Species';
-import { creatureSprite, makeCanvas, Painter } from '../render/PixelArt';
-import { paintClaw } from '../render/Renderer';
+import { paintClaw } from '../render/ClawArt';
+import { creatureSprite, makeCanvas } from '../render/PixelArt';
 import { formatCoins } from '../systems/Economy';
 import {
   AQUARIUM_MAX_LEVEL, aquariumCapMinutes, aquariumCollect, aquariumIncomePerMinute, aquariumPending, aquariumUpgrade, aquariumUpgradeStars,
   canPrestige, claimDaily, collectionBonus, collectionSets, dailyAvailable, dailyPreview, doPrestige, essenceGain, homeBiome, PRESTIGE_BOSSES,
 } from '../systems/Meta';
 import { claimOrder, isComplete, orderText } from '../systems/Orders';
-import { UPGRADES, buyClaw, canBuy, canBuyClaw, clawPrice, computeStats } from '../systems/Upgrades';
+import { licenseBonus, quotaReward, quotaTarget } from '../systems/Quota';
+import { CLAW_TIER_NAMES, UPGRADES, buyClaw, canBuy, canBuyClaw, clawPrice, computeStats } from '../systems/Upgrades';
 import { BIOMES } from '../world/Biomes';
 import { mountAquariumTank } from './AquariumView';
 import { SkillTree } from './SkillTree';
@@ -71,6 +73,24 @@ export class Screens {
         break;
       case 'buyClaw':
         if (buyClaw(s, id)) { g.persist(); g.refreshStats(); g.audio.play('buy'); }
+        this.rerender();
+        break;
+      case 'buyBait': {
+        const b = BAITS_BY_ID[id.split(':')[0]];
+        const n = Number(id.split(':')[1] ?? 1);
+        if (b && s.bestDepth >= b.unlockDepth && s.coins >= b.price * n && s.stars >= b.stars * n) {
+          s.coins -= b.price * n;
+          s.stars -= b.stars * n;
+          s.baits[b.id] = (s.baits[b.id] ?? 0) + n;
+          s.selectedBait = b.id;
+          g.persist();
+          g.audio.play('buy');
+        }
+        this.rerender();
+        break;
+      }
+      case 'selectBait':
+        if (BAITS_BY_ID[id]) { s.selectedBait = id; g.persist(); g.audio.play('click'); }
         this.rerender();
         break;
       case 'equip':
@@ -141,6 +161,10 @@ export class Screens {
       return;
     }
     const s = this.game.save;
+    if (tab === 'skills' || tab === 'essence') {
+      this.showTreeScreen(tab);
+      return;
+    }
     const tabs: [Tab, string][] = [['skills', 'Habilidades'], ['workshop', 'Oficina'], ['aquarium', 'Aquário'], ['catalog', 'Catálogo'], ['essence', 'Renascer'], ['settings', 'Config.']];
     this.root.innerHTML = `
       <div class="panel">
@@ -148,28 +172,45 @@ export class Screens {
           <button class="btn small" data-act="home">◀ Base</button>
           <div class="tabs">${tabs.map(([t, l]) => `<button class="tab ${t === tab ? 'on' : ''}" data-act="tab" data-id="${t}">${l}</button>`).join('')}</div>
           <span class="spacer"></span>
-          <span class="coins">${$(s.coins)}</span><span class="stars">${s.stars}★</span>${s.essence || tab === 'essence' ? `<span class="ess">✦${s.essence}</span>` : ''}
+          <span class="coins">${$(s.coins)}</span><span class="stars">${s.stars}★</span>${s.essence ? `<span class="ess">✦${s.essence}</span>` : ''}
           <button class="btn small primary go" data-act="start">MERGULHAR</button>
         </div>
-        <div class="panel-body ${tab === 'skills' ? 'tree-body' : ''} ${tab === 'essence' ? 'split-body' : ''}">${this.tabHtml(tab)}</div>
+        <div class="panel-body">${this.tabHtml(tab)}</div>
       </div>`;
-    const head = this.root.querySelector('.panel-head')!;
-    const refreshHead = () => {
-      head.querySelector('.coins')!.textContent = $(s.coins);
-      const e = head.querySelector('.ess');
-      if (e) e.textContent = `✦${s.essence}`;
-    };
-    if (tab === 'skills') new SkillTree(this.root.querySelector('.panel-body')!, this.game, refreshHead, 'main');
-    if (tab === 'essence') new SkillTree(this.root.querySelector('.ess-tree')!, this.game, refreshHead, 'essence');
     if (tab === 'workshop') this.fillWorkshop();
     if (tab === 'catalog') this.fillCatalog();
     if (tab === 'aquarium') mountAquariumTank(this.root.querySelector('.tank-host')!, s);
   }
 
+  /** Skill trees take the whole screen; only a thin bar stays on top. */
+  private showTreeScreen(tab: 'skills' | 'essence'): void {
+    const s = this.game.save;
+    const essence = tab === 'essence';
+    this.root.innerHTML = `
+      <div class="tree-screen ${essence ? 'essence' : ''}">
+        <div class="tree-host"></div>
+        <div class="tree-bar">
+          <button class="btn small" data-act="home">◀ Base</button>
+          <h2>${essence ? 'Renascer · Essência' : 'Habilidades'}</h2>
+          <button class="tab" data-act="tab" data-id="${essence ? 'skills' : 'essence'}">${essence ? 'Habilidades' : 'Renascer ✦'}</button>
+          <span class="spacer"></span>
+          <span class="coins">${$(s.coins)}</span><span class="stars">${s.stars}★</span>${s.essence || essence ? `<span class="ess">✦${s.essence}</span>` : ''}
+          <button class="btn small primary go" data-act="start">MERGULHAR</button>
+        </div>
+        ${essence ? `<div class="ess-card">${this.essenceHtml()}</div>` : ''}
+      </div>`;
+    const bar = this.root.querySelector('.tree-bar')!;
+    new SkillTree(this.root.querySelector('.tree-host')!, this.game, () => {
+      bar.querySelector('.coins')!.textContent = $(s.coins);
+      const e = bar.querySelector('.ess');
+      if (e) e.textContent = `✦${s.essence}`;
+    }, essence ? 'essence' : 'main');
+  }
+
   private tabHtml(tab: Tab): string {
     switch (tab) {
-      case 'skills': return '';
-      case 'essence': return this.essenceHtml();
+      case 'skills':
+      case 'essence': return '';
       case 'workshop': return '<div class="claws"></div>';
       case 'catalog': return '<div class="catalog"></div>';
       case 'aquarium': return this.aquariumHtml();
@@ -204,6 +245,22 @@ export class Screens {
       <div class="obj-row"><div class="pips boss-pips">${pips}</div><span>${dmg}/${b.weakPoints.length} pontos fracos</span></div>
       <div class="obj-row"><span class="${strong ? 'ok' : 'lock'}">Força ${st.strength.toFixed(1)} / ${b.strength.toFixed(1)}${strong ? ' ✔' : ' — compre Força na árvore'}</span></div>
       <div class="obj-row reward">Recompensa: ${$(b.coins)} · ${b.stars}★ · novo ponto de partida</div>
+    </div>`;
+  }
+
+  private quotaHtml(): string {
+    const q = this.game.save.quota;
+    const target = quotaTarget(q.tier);
+    const pct = Math.min(100, Math.round((q.deliveredKg / target) * 100));
+    const r = quotaReward(q);
+    const pips = Array.from({ length: 3 }, (_, i) => `<i class="${i < q.divesLeft ? '' : 'done'}"></i>`).join('');
+    return `<div class="card quota">
+      <div class="obj-kicker">COTA DO DIA ${q.day} · COOPERATIVA ABISSAL</div>
+      <div class="order-top"><b>Entregue ${target} kg de pescado</b><span class="lvl">${q.deliveredKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}/${target} kg</span></div>
+      <div class="bar big"><i style="width:${pct}%"></i></div>
+      <div class="obj-row"><div class="pips dive-pips">${pips}</div><span>${q.divesLeft} mergulho(s) restante(s) hoje</span></div>
+      <div class="obj-row reward">Pagamento: ${$(r.coins)} · ${r.stars}★ · licença nível ${q.license + 1}</div>
+      <div class="mini">Licença nível ${q.license}: +${Math.round(licenseBonus(q.license) * 100)}% no valor das capturas. Se não bater a cota: multa de 15% e perde 1 nível.</div>
     </div>`;
   }
 
@@ -263,9 +320,10 @@ export class Screens {
             </div>
           </div>
           <div class="base-col">
+            ${this.quotaHtml()}
             ${this.ordersHtml()}
             <div class="row gifts">
-              ${daily ? `<button class="btn gift" data-act="daily">🎁 Presente do dia ${daily.streak}: ${$(daily.coins)} + ${daily.stars}★</button>` : ''}
+              ${daily ? `<button class="btn gift" data-act="daily">🎁 Presente do dia ${daily.streak}: ${$(daily.coins)} + ${daily.stars}★ + iscas</button>` : ''}
               ${s.aquarium.last ? `<button class="btn tankbtn" data-act="collect" ${pending > 0 ? '' : 'disabled'}>🐠 Aquário: <b data-live="tank">${$(pending)}</b> · Coletar</button>` : ''}
             </div>
           </div>
@@ -294,13 +352,12 @@ export class Screens {
     } else if (ready) action = `<button class="btn primary" data-act="prestige">RENASCER (+✦${gain})</button>`;
     else if (s.bosses.length < PRESTIGE_BOSSES) action = `<p class="lock">🔒 Capture ${PRESTIGE_BOSSES} guardiões para poder renascer (${s.bosses.length}/${PRESTIGE_BOSSES}).</p>`;
     else action = `<p class="lock">Ganhe mais moedas nesta vida para gerar Essência (${$(500)} = ✦1).</p>`;
-    return `<div class="ess-info scroll">
+    return `<div class="ess-info">
         <h3>Renascer</h3>
         <p class="desc">Volte ao começo trocando o progresso desta vida por <b class="ess">Essência Abissal ✦</b>, que compra melhorias permanentes na árvore ao lado. Espécies, estrelas, aquário e essência nunca se perdem.</p>
         <p class="eff">Ganho atual: <b class="ess">✦${gain}</b> · renascimentos: ${s.prestiges}<br>Moedas nesta vida: ${$(s.earnedThisLife)}</p>
         ${action}
-      </div>
-      <div class="ess-tree"></div>`;
+      </div>`;
   }
 
   private aquariumHtml(): string {
@@ -341,14 +398,47 @@ export class Screens {
     const box = this.root.querySelector('.claws')!;
     const maxOf = (f: (c: ClawDefinition) => number) => Math.max(...CLAWS.map(f));
     const speedOf = (c: ClawDefinition) => 1000 / (c.strikeMs + c.retractMs + c.cooldownMs + CONFIG.claw.anticipationMs + CONFIG.claw.closeMs);
+    const tier = computeStats(s).clawTier;
+    const info = document.createElement('div');
+    info.className = 'tier-info';
+    info.innerHTML = `Acabamento das garras: <b>${CLAW_TIER_NAMES[tier]}</b> (${tier + 1}/4) — evolui ao comprar Golpe, Força, Abertura, Recuperação e Precisão na árvore.`;
+    box.appendChild(info);
+    const baitHead = document.createElement('div');
+    baitHead.className = 'tier-info';
+    baitHead.innerHTML = '<b>Iscas</b> — jogue durante o mergulho (botão ISCA ou tecla E) para atrair um tipo de bicho para um ponto.';
+    box.appendChild(baitHead);
+    for (const b of BAITS) {
+      const have = s.baits[b.id] ?? 0;
+      const locked = s.bestDepth < b.unlockDepth;
+      const sel = s.selectedBait === b.id;
+      const price = (n: number) => `${$(b.price * n)}${b.stars ? ` + ${b.stars * n}★` : ''}`;
+      const can = (n: number) => !locked && s.coins >= b.price * n && s.stars >= b.stars * n;
+      const card = document.createElement('div');
+      card.className = `card bait-card ${sel ? 'maxed' : ''}`;
+      card.innerHTML = `<div class="bait-ico" style="--c:${b.color};--d:${b.dark}"><i></i></div>
+        <div style="display:flex;flex-direction:column;gap:calc(var(--u)*0.6)">
+          <div class="card-top"><b>${esc(b.name)}</b><span class="lvl">você tem ${have}</span></div>
+          <p class="desc">${esc(b.description)}</p>
+          ${locked ? `<span class="lock">🔒 Alcance ${b.unlockDepth.toLocaleString('pt-BR')} m de profundidade</span>` : `<div class="row" style="justify-content:flex-start">
+            <button class="btn small" data-act="buyBait" data-id="${b.id}:1" ${can(1) ? '' : 'disabled'}>+1 · ${price(1)}</button>
+            <button class="btn small" data-act="buyBait" data-id="${b.id}:5" ${can(5) ? '' : 'disabled'}>+5 · ${price(5)}</button>
+            ${have > 0 ? (sel ? '<span class="equipped">✔ SELECIONADA</span>' : `<button class="btn small" data-act="selectBait" data-id="${b.id}">Usar</button>`) : ''}
+          </div>`}
+        </div>`;
+      box.appendChild(card);
+    }
+    const clawHead = document.createElement('div');
+    clawHead.className = 'tier-info';
+    clawHead.innerHTML = '<b>Garras</b>';
+    box.appendChild(clawHead);
     for (const c of CLAWS) {
       const res = canBuyClaw(s, c.id);
       const owned = res === 'owned';
       const equipped = s.equippedClaw === c.id;
       const card = document.createElement('div');
       card.className = `card claw-card ${res === 'ok' ? 'can' : ''} ${equipped ? 'maxed' : ''}`;
-      const cv = makeCanvas(24, 36);
-      paintClaw(cv.getContext('2d')!, new Painter(cv), 12, 26, c, c.opening, 0);
+      const cv = makeCanvas(40, 48);
+      paintClaw(cv.getContext('2d')!, 20, 36, c, c.opening, 0, tier);
       const bar = (label: string, v: number, m: number) => `<div class="stat"><span>${label}</span><div class="bar"><i style="width:${Math.round((v / m) * 100)}%"></i></div></div>`;
       const price = `${$(clawPrice(s, c))}${c.stars ? ` + ${c.stars}★` : ''}`;
       let action: string;
@@ -442,6 +532,18 @@ export class Screens {
       </div>`;
   }
 
+  private quotaResultHtml(r: RunSummary): string {
+    const kg = r.kg.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+    const q = r.quota;
+    if (q.kind === 'met') {
+      return `<div class="quota-res ok-q"><b>COTA BATIDA!</b> ${kg} kg entregues · pagamento ${$(q.coins)}${q.bonusCoins ? ` + ${$(q.bonusCoins)} pelo excedente` : ''} · +${q.stars}★ · licença nível ${this.game.save.quota.license}</div>`;
+    }
+    if (q.kind === 'failed') {
+      return `<div class="quota-res bad-q"><b>COTA NÃO BATIDA</b> faltaram ${q.missingKg.toLocaleString('pt-BR')} kg · multa ${$(q.fine)} · licença caiu para nível ${this.game.save.quota.license}</div>`;
+    }
+    return `<div class="quota-res"><b>Cota:</b> +${kg} kg · faltam ${q.missingKg.toLocaleString('pt-BR')} kg de ${r.quotaTargetKg} em ${q.divesLeft} mergulho(s)</div>`;
+  }
+
   showResults(r: RunSummary): void {
     const s = this.game.save;
     const rarityChips = RARITIES.filter((k) => r.rarityCounts[k])
@@ -464,6 +566,7 @@ export class Screens {
           <div><b>${Math.round(r.maxDepth).toLocaleString('pt-BR')} m</b><span>profundidade máx.</span>${r.depthRecord ? '<div class="rec">NOVO RECORDE!</div>' : ''}</div>
           <div><b class="gold">${r.stars ? `+${r.stars}★` : r.newSpecies.length}</b><span>${r.stars ? 'estrelas' : 'espécies novas'}</span></div>
         </div>
+        ${this.quotaResultHtml(r)}
         ${highlights ? `<div class="chips">${highlights}</div>` : ''}
         ${rarityChips ? `<div class="chips">${rarityChips}${r.bestCombo > 1 ? `<span class="chip">Combo máx. <b>x${r.bestCombo}</b></span>` : ''}${r.bonusSeconds > 0 ? `<span class="chip">Tempo bônus <b>+${Math.round(r.bonusSeconds)}s</b></span>` : ''}</div>` : '<p class="tagline">Nenhuma captura desta vez. Mire onde o bicho vai estar!</p>'}
         ${newSp ? `<div class="newsp">${newSp}</div>` : ''}

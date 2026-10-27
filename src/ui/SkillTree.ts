@@ -55,8 +55,8 @@ function iconUrl(key: StatKey | 'core', color: string): string {
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
 /** Pan/zoom survive re-renders and tab switches (one per tree). */
 const views: Record<TreeId, { x: number; y: number; zoom: number; centered: boolean; selected: string }> = {
-  main: { x: 0, y: 0, zoom: 1, centered: false, selected: 'core' },
-  essence: { x: 0, y: 0, zoom: 1, centered: false, selected: 'e_core' },
+  main: { x: 0, y: 0, zoom: 1, centered: false, selected: '' },
+  essence: { x: 0, y: 0, zoom: 1, centered: false, selected: '' },
 };
 
 /**
@@ -81,15 +81,15 @@ export class SkillTree {
     root.classList.add('tree-view');
     root.innerHTML = `
       <div class="tree-world"></div>
-      <div class="tree-info"></div>
+      <div class="tree-pop hidden"></div>
       <div class="tree-tools">
         <button class="tree-btn" data-z="1" aria-label="Aproximar">+</button>
         <button class="tree-btn" data-z="-1" aria-label="Afastar">−</button>
         <button class="tree-btn" data-z="0" aria-label="Centralizar">◎</button>
       </div>
-      <div class="tree-hint">Arraste para mover · roda ou pinça para zoom · clique duas vezes num nó para comprar</div>`;
+      <div class="tree-hint">Toque num nó para ver o que ele faz · toque de novo (ou em Comprar) para comprar · arraste para mover</div>`;
     this.world = root.querySelector('.tree-world')!;
-    this.info = root.querySelector('.tree-info')!;
+    this.info = root.querySelector('.tree-pop')!;
     root.querySelectorAll<HTMLElement>('.tree-btn').forEach((b) =>
       b.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -134,9 +134,8 @@ export class SkillTree {
     const cy = (Math.min(...ys) + Math.max(...ys)) / 2;
     const spanX = Math.max(...xs) - Math.min(...xs) + G * 2;
     const spanY = Math.max(...ys) - Math.min(...ys) + G * 2;
-    this.view.zoom = Math.max(0.55, Math.min(1.3, Math.min((w * 0.8) / spanX, h / spanY)));
-    // keep the tree clear of the info card on the bottom-left
-    this.view.x = w * 0.58 - cx * this.view.zoom;
+    this.view.zoom = Math.max(0.55, Math.min(1.4, Math.min((w * 0.85) / spanX, (h * 0.8) / spanY)));
+    this.view.x = w / 2 - cx * this.view.zoom;
     this.view.y = h / 2 - cy * this.view.zoom;
     this.view.centered = true;
     this.applyTransform();
@@ -144,6 +143,29 @@ export class SkillTree {
 
   private applyTransform(): void {
     this.world.style.transform = `translate(${this.view.x}px, ${this.view.y}px) scale(${this.view.zoom})`;
+    this.positionPop();
+  }
+
+  /** The detail balloon sits beside the selected node, inside the screen. */
+  private positionPop(): void {
+    const u = UPGRADES_BY_ID[this.view.selected];
+    if (!u || this.info.classList.contains('hidden')) return;
+    const G = this.G;
+    const half = G * 0.34 * this.view.zoom;
+    const sx = this.view.x + u.x * G * this.view.zoom;
+    const sy = this.view.y + u.y * G * this.view.zoom;
+    const W = this.root.clientWidth;
+    const H = this.root.clientHeight;
+    const pw = this.info.offsetWidth;
+    const ph = this.info.offsetHeight;
+    let left = sx + half + 14;
+    if (left + pw > W - 8) left = sx - half - 14 - pw;
+    if (left < 8) left = Math.max(8, Math.min(W - pw - 8, sx - pw / 2));
+    let top = sy - ph / 2;
+    top = Math.max(8, Math.min(H - ph - 8, top));
+    this.info.style.left = `${Math.round(left)}px`;
+    this.info.style.top = `${Math.round(top)}px`;
+    this.info.classList.toggle('on-left', left < sx);
   }
 
   private zoomAt(f: number, px: number, py: number): void {
@@ -158,7 +180,7 @@ export class SkillTree {
   // ───────────────────────── input
 
   private onDown = (e: PointerEvent) => {
-    if ((e.target as HTMLElement).closest('.tree-info, .tree-tools')) return;
+    if ((e.target as HTMLElement).closest('.tree-pop, .tree-tools')) return;
     this.root.setPointerCapture(e.pointerId);
     this.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     this.dragMoved = false;
@@ -198,7 +220,14 @@ export class SkillTree {
     if (!this.pointers.has(e.pointerId)) return;
     this.pointers.delete(e.pointerId);
     if (this.pointers.size < 2) this.pinchDist = 0;
-    if (!this.dragMoved && this.downNode && this.pointers.size === 0) this.tapNode(this.downNode);
+    if (!this.dragMoved && this.pointers.size === 0) {
+      if (this.downNode) this.tapNode(this.downNode);
+      else if (this.view.selected) {
+        // tap on empty water closes the balloon
+        this.view.selected = '';
+        this.render();
+      }
+    }
     this.downNode = null;
   };
 
@@ -285,13 +314,15 @@ export class SkillTree {
     const save = this.game.save;
     const u: UpgradeDef | undefined = UPGRADES_BY_ID[this.view.selected];
     if (!u) {
-      this.info.innerHTML = '';
+      this.info.classList.add('hidden');
       return;
     }
+    this.info.classList.remove('hidden');
     const v = nodeVisibility(save, u.id);
     if (v === 'teaser' || v === 'hidden') {
       this.info.innerHTML = `<div class="ti-head"><b>???</b></div>
         <p class="desc">Compre <b>${esc(UPGRADES_BY_ID[u.parent!].name)}</b> para revelar esta habilidade.</p>`;
+      this.positionPop();
       return;
     }
     const l = level(save, u.id);
@@ -317,5 +348,6 @@ export class SkillTree {
       e.stopPropagation();
       this.buy(u.id);
     });
+    this.positionPop();
   }
 }

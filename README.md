@@ -21,15 +21,21 @@ Requer Node 18+. O smoke test usa o pacote `playwright` com Chromium. Ele não �
 
 | | PC | Celular (horizontal) |
 |---|---|---|
-| Mirar | mover o mouse | a garra fica no centro; ◀ ▶ alinham o oceano com ela |
+| Mirar | mover o mouse | ◀ ▶ movem a garra (a câmera acompanha; na borda do mundo a garra vai até o canto) |
 | Atacar | clique esquerdo ou `Espaço` | **CAPTURAR**: a garra desce reto e pega o primeiro bicho no caminho (marcado em amarelo) |
 | Navegar | `A`/`D` ou `◀`/`▶` | botões `◀` `▶` (segurar) |
 | Turbo | `Shift` | botão **TURBO** (barra azul sob o cronômetro) |
+| Isca | `E` joga · `Q` troca o tipo | botão **ISCA** joga · **⇄** troca o tipo |
 | Pausar | `Esc` ou `P` | botão `II` |
 
 O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 px e a largura (400–640 px) acompanha o formato da tela. Em retrato, o jogo pede para girar o aparelho. Ele também pausa sozinho quando a aba perde o foco.
 
 ## Objetivos e progressão
+
+- **Cota diária** (inspirada em Coal LLC): a Cooperativa Abissal exige uma quantidade de pescado em **kg** por dia, e cada dia tem 3 mergulhos.
+  - Cada bicho capturado tem peso; os gigantes pesam bem mais.
+  - Bater a cota paga moedas e ★ (o excedente rende bônus), sobe a **licença** (+4% no valor das capturas por nível) e aumenta a próxima cota.
+  - Falhar custa multa de 15% do saldo e um nível de licença, e a cota se repete.
 
 - **Guardiões de bioma**: cinco chefes gigantes bloqueiam o caminho com uma parede de correnteza: Caranguejo-Rei, Moreia Colossal, Polvo do Naufrágio, Água-Viva Catedral e Leviatã Primordial.
   - Para capturá-los, agarre um a um os **pontos fracos brilhantes** quando abrirem, e só com força suficiente. O dano persiste entre mergulhos.
@@ -41,6 +47,15 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
 - **Renascer (prestígio)**: depois de 2 guardiões, troca moedas, árvore e garras por **Essência Abissal ✦**. A essência compra uma segunda árvore permanente: valor das capturas, tempo, força, sorte, aquário, frenesi, desconto em garras e manter as rotas.
 
 ## Na água
+
+- **Iscas**: jogue uma isca e ela afunda até um ponto. Por alguns segundos, puxa para lá os bichos do seu grupo e chama outros pelas bordas. Bichos comendo ficam distraídos e reagem mais devagar à garra.
+  - **Pão de Algas**: cardumes.
+  - **Camarão Fresco**: crustáceos.
+  - **Carne de Lula**: predadores, às vezes até tubarão.
+  - **Isca Luminosa**: bichos das profundezas, com variantes bioluminescentes.
+  - **Isca Dourada**: qualquer bicho, com variantes douradas.
+
+  Compre na Oficina. O presente diário também dá iscas.
 
 - **Golpe brusco** (cerca de 70–165 ms) com colisão no instante do contato, fuga real dos animais, "hit-stop" na captura e moedas voando até o contador. O celular vibra a cada captura (dá para desligar).
 - **Frenesi**: 5 capturas seguidas deixam os golpes ultrarrápidos e dobram o valor por alguns segundos.
@@ -60,8 +75,8 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
   - **Mutante**: tentáculos pegam vizinhos.
   - **Gravitacional**: atrai tudo para a boca, até 4 alvos.
 
-  As três últimas também custam ★.
-- **Árvore de habilidades** em nós (estilo incremental): comprar um nó revela os filhos, o anel seguinte aparece como `?` e o resto fica escondido. Dá para arrastar e dar zoom com a roda, a pinça ou os botões.
+  As três últimas também custam ★. Todas são desenhadas por código, simétricas, e o **acabamento evolui** (Básica → Reforçada → Dourada → Lendária) conforme você compra melhorias de captura na árvore.
+- **Árvore de habilidades em tela cheia** (estilo incremental): tocar num nó abre um balão com a descrição; tocar de novo (ou em Comprar) compra. Comprar revela os filhos, o anel seguinte aparece como `?` e o resto fica escondido. Dá para arrastar e dar zoom.
 
 ## Visual
 
@@ -81,9 +96,9 @@ src/
   main.ts              DOM, layout em tela cheia, safe areas, foco/orientação
   core/                Game (loop, regras da run, guardiões, eventos), Input, Camera, Save, RNG, Audio
   world/               Depth, Biomes, Terrain (chunks), SpawnDirector
-  entities/            Species, Creature (IA), Claw (estados), ClawsCatalog, Hit, Boss (guardiões)
-  systems/             Upgrades (árvores e stats), Economy, Orders (encomendas), Meta (aquário, presente, prestígio)
-  render/              Renderer, Scenery (mar e fundo), PixelArt (sprites procedurais), Effects, Color
+  entities/            Species, Creature (IA), Claw (estados), ClawsCatalog, Baits, Hit, Boss (guardiões)
+  systems/             Upgrades (árvores e stats), Economy, Orders (encomendas), Quota (cota diária), Meta (aquário, presente, prestígio)
+  render/              Renderer, Scenery (mar e fundo), ClawArt (garras espelhadas), PixelArt (sprites), Effects, Color
   ui/                  HUD, Screens (menus em DOM), SkillTree (mapa de nós), AquariumView
 tests/                 Vitest
 scripts/smoke.cjs      smoke test com Playwright
@@ -91,7 +106,7 @@ scripts/smoke.cjs      smoke test com Playwright
 
 ## Testes
 
-- `npm test`: 53 testes unitários, cobrindo:
+- `npm test`: 61 testes unitários, cobrindo:
   - profundidade, biomas e determinismo do terreno;
   - custos e efeitos dos upgrades, estrutura das duas árvores e revelação de nós, garras com estrelas;
   - save/load e recuperação de save corrompido;
@@ -100,7 +115,8 @@ scripts/smoke.cjs      smoke test com Playwright
   - spawn (habitat, sorte, densidade, variantes, teto de entidades);
   - economia e combo;
   - encomendas, aquário e coleções, presente diário e prestígio;
-  - guardiões (pontos fracos, ordem, pontos de partida).
+  - guardiões (pontos fracos, ordem, pontos de partida);
+  - cota diária, iscas e trilho da garra até a borda esquerda.
 - `npm run smoke`: no Chromium, faz uma run completa:
   1. inicia a run (00:30) e captura um animal;
   2. confere que a profundidade aumenta indo para a direita;

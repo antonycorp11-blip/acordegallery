@@ -2,12 +2,12 @@ import { VIEW_H, VIEW_W } from '../config';
 import type { Camera } from '../core/Camera';
 import { bossSpriteDef, type Boss } from '../entities/Boss';
 import type { Claw } from '../entities/Claw';
-import type { ClawDefinition } from '../entities/ClawsCatalog';
+import { paintClaw } from './ClawArt';
 import type { Creature } from '../entities/Creature';
 import type { RunStats } from '../systems/Upgrades';
 import type { Terrain } from '../world/Terrain';
 import type { Effects } from './Effects';
-import { creatureSprite, drawEel, glowSprite, makeCanvas, Painter, variantPalette } from './PixelArt';
+import { creatureSprite, drawEel, glowSprite, makeCanvas, variantPalette } from './PixelArt';
 import { Scenery } from './Scenery';
 
 export interface RenderView {
@@ -32,6 +32,7 @@ export interface RenderView {
   current: number;
   /** 0..1 frenzy time left */
   frenzy: number;
+  baits: readonly { def: { color: string; dark: string; seconds: number }; x: number; y: number; t: number; sinking: boolean }[];
 }
 
 export class Renderer {
@@ -39,7 +40,6 @@ export class Renderer {
   private lctx: CanvasRenderingContext2D;
   private dctx: CanvasRenderingContext2D;
   private scale = 1;
-  private lp: Painter;
   private scenery: Scenery;
   /** where flying coins land, in display pixels (the HUD coin counter) */
   coinTarget = { x: 0, y: 0 };
@@ -48,7 +48,6 @@ export class Renderer {
   constructor(private display: HTMLCanvasElement) {
     this.low = makeCanvas(VIEW_W, VIEW_H);
     this.lctx = this.low.getContext('2d')!;
-    this.lp = new Painter(this.low);
     this.dctx = display.getContext('2d')!;
     this.scenery = new Scenery(this.lctx);
   }
@@ -79,6 +78,7 @@ export class Renderer {
     if (v.barrierX !== null) this.drawBarrier(ctx, v.barrierX - camX, v.time);
     this.scenery.drawTerrain(v.terrain, camX, camY, v.time);
     if (v.boss) this.drawBoss(ctx, v.boss, camX, camY, v.time);
+    for (const b of v.baits) this.drawBait(ctx, b, camX, camY, v.time);
     this.drawCreatures(ctx, v, camX, camY);
     this.drawParticles(ctx, v.effects, camX, camY);
     if (v.current !== 0) this.drawCurrent(ctx, v.current, v.time);
@@ -202,6 +202,44 @@ export class Renderer {
         if (i === boss.activeWeak) ctx.fillRect(px - 2, py - 2, 5, 1);
       }
     }
+  }
+
+  private drawBait(ctx: CanvasRenderingContext2D, b: RenderView['baits'][number], camX: number, camY: number, t: number): void {
+    const x = Math.round(b.x - camX);
+    const y = Math.round(b.y - camY);
+    if (x < -40 || x > VIEW_W + 40) return;
+    if (b.sinking) {
+      // a faint trail while it sinks
+      ctx.fillStyle = b.def.color;
+      ctx.globalAlpha = 0.35;
+      for (let k = 1; k < 5; k++) ctx.fillRect(x, y - k * 4, 1, 2);
+      ctx.globalAlpha = 1;
+    } else {
+      // attraction pulse (fades as the bait runs out)
+      const life = Math.max(0, b.t / b.def.seconds);
+      const r = 10 + ((t * 18) % 22);
+      ctx.fillStyle = b.def.color;
+      ctx.globalAlpha = (1 - (r - 10) / 22) * 0.6 * (0.4 + life * 0.6);
+      for (let k = 0; k < 16; k++) {
+        const a = (k / 16) * Math.PI * 2;
+        ctx.fillRect(Math.round(x + Math.cos(a) * r), Math.round(y + Math.sin(a) * r * 0.6), 1, 1);
+      }
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.35 + 0.15 * Math.sin(t * 8);
+      const g = glowSprite(7, b.def.color);
+      ctx.drawImage(g, x - 7, y - 7);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    // the bait pellet
+    ctx.fillStyle = b.def.dark;
+    ctx.fillRect(x - 2, y - 1, 5, 3);
+    ctx.fillRect(x - 1, y - 2, 3, 5);
+    ctx.fillStyle = b.def.color;
+    ctx.fillRect(x - 1, y - 1, 3, 3);
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x - 1, y - 1, 1, 1);
   }
 
   /** Wall of rushing water that blocks the way until the guardian falls. */
@@ -432,7 +470,7 @@ export class Renderer {
       ctx.globalAlpha = 1;
     }
 
-    paintClaw(ctx, this.lp, ax, tip, v.stats.claw, v.stats.opening * Math.max(0, claw.open), v.time);
+    paintClaw(ctx, ax, tip, v.stats.claw, v.stats.opening * Math.max(0, claw.open), v.time, v.stats.clawTier);
 
     // held prey rides the claw up
     for (const c of claw.held) this.drawCreature(ctx, c, ax, tip + Math.round(c.h * 0.25), v.time);
@@ -524,100 +562,4 @@ export class Renderer {
       ctx.fillRect(right ? x - 3 + i : x - i, y - h + 1, 1, h * 2 - 1);
     }
   }
-}
-
-
-/** Draws a claw (shaft from the top edge, hub, prongs). Shared by the game and the workshop preview. */
-export function paintClaw(
-  ctx: CanvasRenderingContext2D,
-  P: Painter,
-  ax: number,
-  tip: number,
-  def: ClawDefinition,
-  spreadPx: number,
-  time: number,
-): void {
-  const look = def.look;
-  const id = def.id;
-  const W = look.width;
-  const hubY = tip - 9;
-  const spread = Math.max(1, spreadPx);
-  // shaft
-  const shaftTop = -2;
-  const shaftBot = hubY;
-  ctx.fillStyle = look.metalDark;
-  ctx.fillRect(ax - 2, shaftTop, 4, shaftBot - shaftTop);
-  ctx.fillStyle = look.metal;
-  ctx.fillRect(ax - 1, shaftTop, 2, shaftBot - shaftTop);
-  ctx.fillStyle = look.metalLight;
-  ctx.fillRect(ax - 1, shaftTop, 1, shaftBot - shaftTop);
-  ctx.fillStyle = look.accent;
-  for (let y = shaftBot - 6; y > shaftTop; y -= 12) ctx.fillRect(ax - 2, y, 4, 1);
-  if (id === 'hydraulic') {
-    // pistons
-    ctx.fillStyle = look.metalDark;
-    ctx.fillRect(ax - 5, hubY - 12, 2, 12);
-    ctx.fillRect(ax + 3, hubY - 12, 2, 12);
-    ctx.fillStyle = '#d8d8d8';
-    ctx.fillRect(ax - 5, hubY - 5, 2, 5);
-    ctx.fillRect(ax + 3, hubY - 5, 2, 5);
-  } else if (id === 'lightning') {
-    ctx.fillStyle = look.accent;
-    for (let y = hubY - 3; y > Math.max(0, hubY - 30); y -= 6) ctx.fillRect(ax + ((y / 6) % 2 ? 1 : -2), y, 2, 2);
-  }
-
-  // hub
-  ctx.fillStyle = look.metalDark;
-  ctx.fillRect(ax - Math.round(W / 2) - 1, hubY - 1, W + 2, 7);
-  ctx.fillStyle = look.metal;
-  ctx.fillRect(ax - Math.round(W / 2), hubY, W, 5);
-  ctx.fillStyle = look.metalLight;
-  ctx.fillRect(ax - Math.round(W / 2), hubY, W, 1);
-  ctx.fillStyle = look.accent;
-  ctx.fillRect(ax - 1, hubY + 2, 2, 2);
-
-  // prongs
-  for (const s of [-1, 1]) {
-    const bx = ax + s * (Math.round(W / 2) - 1);
-    const kx = ax + s * Math.round(spread + 2);
-    const ky = tip - 2;
-    const tx = ax + s * Math.max(1, Math.round(spread * 0.3));
-    P.line(bx, hubY + 5, kx, ky, look.metalDark, 2);
-    P.line(kx, ky, tx, tip + 3, look.metalDark, 2);
-    P.line(bx, hubY + 5, kx, ky, look.metal);
-    P.line(kx, ky, tx, tip + 3, look.metalLight);
-  }
-  if (look.prongs === 4) {
-    // living tentacles instead of rigid middle prongs
-    for (const s of [-1, 1]) {
-      for (let i = 0; i < 6; i++) {
-        const wob = Math.round(Math.sin(time * 9 + i * 0.9 + s) * 1.5);
-        P.p(ax + s * 2 + wob, hubY + 5 + i, i % 2 ? look.accent : look.metal);
-      }
-    }
-  }
-  if (id === 'gravity') {
-    const r = Math.round(spread + 6 + Math.sin(time * 6) * 2);
-    ctx.fillStyle = look.accent;
-    for (let k = 0; k < 8; k++) {
-      const a = time * 3 + (k * Math.PI) / 4;
-      ctx.fillRect(Math.round(ax + Math.cos(a) * r), Math.round(tip + Math.sin(a) * r * 0.5), 1, 1);
-    }
-  }
-  if (id === 'magnetic') {
-    ctx.fillStyle = look.accent;
-    ctx.fillRect(ax - Math.round(spread) - 3, tip - 2, 2, 3);
-    ctx.fillStyle = look.metalDark;
-    ctx.fillRect(ax + Math.round(spread) + 1, tip - 2, 2, 3);
-  }
-  if (look.prongs === 3) {
-    P.line(ax, hubY + 5, ax, tip + 3, look.metalDark, 2);
-    P.line(ax, hubY + 5, ax, tip + 2, look.metalLight);
-  }
-  if (id === 'electric' && Math.sin(time * 23) > 0.4) {
-    ctx.fillStyle = look.accent;
-    ctx.fillRect(ax - Math.round(spread) - 2 + Math.round(Math.random() * 3), tip + Math.round(Math.random() * 3), 1, 1);
-    ctx.fillRect(ax + Math.round(spread) + 1 - Math.round(Math.random() * 3), tip + Math.round(Math.random() * 3), 1, 1);
-  }
-
 }

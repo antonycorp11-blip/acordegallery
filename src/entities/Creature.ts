@@ -65,6 +65,10 @@ export class Creature implements Hittable {
   /** magnetic/gravity pull toward a world x */
   pullX = 0;
   pullT = 0;
+  /** bait attraction: point and seconds left (refreshed while the bait lasts) */
+  lureX = 0;
+  lureY = 0;
+  lureT = 0;
   private r: Rand;
   private speedMult: number;
 
@@ -108,12 +112,13 @@ export class Creature implements Hittable {
     const def = this.def;
     if (def.perceptionRange <= 0) return false;
     const alert = this.alertTimer > 0;
-    const range = def.perceptionRange * (alert ? 1.35 : 1) * (this.state === 'HIDE' ? 0.7 : 1);
+    const feeding = this.lureT > 0;
+    const range = def.perceptionRange * (alert ? 1.35 : 1) * (this.state === 'HIDE' ? 0.7 : 1) * (feeding ? 0.6 : 1);
     const d = Math.hypot(px - this.x, py - this.y);
     if (d > range) return false;
     if (this.state === 'FLEE') return (this.fled = true); // already running
     const jitter = 0.85 + this.r() * 0.35;
-    this.reactTimer = (def.reactionTime / 1000) * reactionMult * jitter * (alert ? 0.75 : 1);
+    this.reactTimer = (def.reactionTime / 1000) * reactionMult * jitter * (alert ? 0.75 : 1) * (feeding ? 1.5 : 1);
     this.threatX = px;
     this.threatY = py;
     return true;
@@ -173,6 +178,17 @@ export class Creature implements Hittable {
     if (this.reactTimer > 0) {
       this.reactTimer -= dt;
       if (this.reactTimer <= 0) this.startFlee(events);
+    }
+
+    if (this.lureT > 0) {
+      this.lureT -= dt;
+      const b = this.def.behavior;
+      const busy = this.state === 'FLEE' || this.state === 'HIDE';
+      if (!busy && b !== 'sessile' && b !== 'mimic') {
+        this.updateLured(dt);
+        this.integrate(dt, world);
+        return;
+      }
     }
 
     switch (this.def.behavior) {
@@ -421,6 +437,24 @@ export class Creature implements Hittable {
     this.vy = Math.min(9, this.vy + 30 * dt);
     if (this.x - this.homeX > 60) this.vx = -4;
     if (this.homeX - this.x > 60) this.vx = 4;
+  }
+
+  /** Heads to the bait and mills around it, nibbling. */
+  private updateLured(dt: number): void {
+    if (this.school) {
+      this.school.alive--;
+      this.school = null;
+    }
+    const dx = this.lureX + Math.sin(this.phase * 0.2 + this.seed) * 8 - this.x;
+    this.facing = dx >= 0 ? 1 : -1;
+    const speed = this.def.swimSpeed * 1.8 * this.speedMult + 20;
+    this.vx = this.approach(clamp(dx * 2.5, -speed, speed), 260, dt);
+    if (!this.onFloor) {
+      const ty = this.lureY - 6 + Math.cos(this.phase * 0.25 + this.seed) * 9;
+      this.vy = clamp((ty - this.y) * 2.5, -50, 50);
+    }
+    this.homeX = this.x;
+    if (this.state === 'IDLE') this.state = 'PATROL';
   }
 
   private updatePredator(world: WorldQuery): void {

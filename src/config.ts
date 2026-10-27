@@ -38,7 +38,7 @@ export const CONFIG = {
     chunkWidth: 240,
   },
   claw: {
-    restTipY: 24, // screen y of the claw tip while idle
+    restTipY: 38, // screen y of the claw mouth while idle (head fully visible)
     anticipationMs: 40,
     closeMs: 50,
     inputBufferMs: 140,
@@ -94,4 +94,6 @@ export const CONFIG = {
   events: { firstAfter: 9, minGap: 12, maxGap: 20, currentPush: 55, currentSeconds: 5 },
   aquarium: { perMinute: 0.05, capHours: 8, levelMult: 0.5 },
   chest: { chunkChance: 0.16, mimicChance: 0.3, starChance: 0.25 },
+  quota: { baseKg: 24, growth: 1.3, coinsPerKg: 7, licenseValue: 0.04, fine: 0.15 },
+  bait: { maxActive: 2, sinkSpeed: 170, callEvery: 1.3 },
 };

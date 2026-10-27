@@ -97,20 +97,24 @@ export function dailyAvailable(save: SaveData, now: number): boolean {
   return now - save.daily.last >= 20 * HOUR;
 }
 
-export function dailyPreview(save: SaveData, now: number): { streak: number; coins: number; stars: number } {
+export function dailyPreview(save: SaveData, now: number): { streak: number; coins: number; stars: number; baits: Record<string, number> } {
   const keep = save.daily.last > 0 && now - save.daily.last <= 48 * HOUR;
   const streak = keep ? Math.min(7, save.daily.streak + 1) : 1;
   const coins = Math.round(((80 + 40 * streak) * (1 + save.bestDepth / 400)) / 5) * 5;
-  return { streak, coins, stars: DAILY_STARS[streak - 1] };
+  const baits: Record<string, number> = { algae: 2, shrimp: 1 };
+  if (streak >= 4) baits.squid = 1;
+  if (streak >= 7) baits.golden = 1;
+  return { streak, coins, stars: DAILY_STARS[streak - 1], baits };
 }
 
-export function claimDaily(save: SaveData, now: number): { streak: number; coins: number; stars: number } | null {
+export function claimDaily(save: SaveData, now: number): { streak: number; coins: number; stars: number; baits: Record<string, number> } | null {
   if (!dailyAvailable(save, now)) return null;
   const p = dailyPreview(save, now);
   save.coins += p.coins;
   save.totalEarned += p.coins;
   save.earnedThisLife += p.coins;
   save.stars += p.stars;
+  for (const [k, v] of Object.entries(p.baits)) save.baits[k] = (save.baits[k] ?? 0) + v;
   save.daily = { last: now, streak: p.streak };
   return p;
 }
@@ -139,6 +143,7 @@ export function doPrestige(save: SaveData): number {
   for (const k of Object.keys(save.upgrades)) if (!k.startsWith('e_')) delete save.upgrades[k];
   save.ownedClaws = ['scrap'];
   save.equippedClaw = 'scrap';
+  save.quota = { day: save.quota.day, tier: 0, deliveredKg: 0, divesLeft: 3, license: 0, failed: save.quota.failed };
   if (!keepRoutes) {
     save.bosses = [];
     save.bossDamage = {};

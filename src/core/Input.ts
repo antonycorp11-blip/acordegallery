@@ -10,6 +10,8 @@ export class Input {
   touchMode = false;
   private keys = new Set<string>();
   private strikeQueued = false;
+  private baitQueued = false;
+  private cycleQueued = false;
   private btnLeft = false;
   private btnRight = false;
   private btnTurbo = false;
@@ -115,6 +117,8 @@ export class Input {
       if (!e.repeat) this.strikeQueued = true;
     }
     if (e.code === 'Escape' || e.code === 'KeyP') this.onPause();
+    if (e.code === 'KeyE' && !e.repeat) this.baitQueued = true;
+    if (e.code === 'KeyQ' && !e.repeat) this.cycleQueued = true;
     if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.code)) e.preventDefault();
     this.keys.add(e.code);
   };
@@ -124,6 +128,32 @@ export class Input {
     const l = this.btnLeft || this.keys.has('KeyA') || this.keys.has('ArrowLeft');
     const r = this.btnRight || this.keys.has('KeyD') || this.keys.has('ArrowRight');
     return (r ? 1 : 0) - (l ? 1 : 0);
+  }
+
+  bindTapButton(el: HTMLElement, what: 'bait' | 'cycle'): void {
+    el.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      this.gesture(e);
+      if (what === 'bait') this.baitQueued = true;
+      else this.cycleQueued = true;
+      el.classList.add('held');
+    });
+    const release = () => el.classList.remove('held');
+    el.addEventListener('pointerup', release);
+    el.addEventListener('pointercancel', release);
+  }
+
+  consumeBait(): boolean {
+    const b = this.baitQueued;
+    this.baitQueued = false;
+    return b;
+  }
+
+  consumeBaitCycle(): boolean {
+    const b = this.cycleQueued;
+    this.cycleQueued = false;
+    return b;
   }
 
   turbo(): boolean {
@@ -138,6 +168,8 @@ export class Input {
 
   reset(): void {
     this.strikeQueued = false;
+    this.baitQueued = false;
+    this.cycleQueued = false;
     this.keys.clear();
     this.btnLeft = this.btnRight = this.btnTurbo = false;
   }

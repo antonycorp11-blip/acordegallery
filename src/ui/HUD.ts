@@ -15,7 +15,14 @@ export class HUD {
   private bossBox: HTMLElement;
   private bannerEl: HTMLElement;
   readonly pauseBtn: HTMLButtonElement;
-  private last = { t: '', c: -1, n: -1, d: -1, r: -1, k: '', warn: false, turbo: -1, boss: '' };
+  private quotaBar: HTMLElement;
+  private quotaTxt: HTMLElement;
+  private quotaBox: HTMLElement;
+  private baitDot: HTMLElement;
+  private baitTxt: HTMLElement;
+  /** mirrors the bait counter on the touch button */
+  onBait: (name: string, count: number, color: string) => void = () => {};
+  private last = { t: '', c: -1, n: -1, d: -1, r: -1, k: '', warn: false, turbo: -1, boss: '', q: '', b: '' };
   private prevTime = 0;
   private bonusUntil = 0;
   private bannerQueue: { title: string; sub: string; color: string }[] = [];
@@ -39,6 +46,8 @@ export class HUD {
         <span><span class="caps">0</span> <span class="lbl">capturas</span></span>
         <span><span class="depth">0 m</span> <span class="rec"></span></span>
       </div>
+      <div id="hud-quota" class="hud-box"><span class="q-lbl">COTA</span><div class="q-bar"><i></i></div><span class="q-txt"></span></div>
+      <div id="hud-bait" class="hud-box"><i class="dot"></i><span class="b-txt"></span><span class="keys">E jogar · Q trocar</span></div>
       <div id="hud-banner"></div>`;
     parent.appendChild(this.root);
     const q = (s: string) => this.root.querySelector(s) as HTMLElement;
@@ -52,6 +61,11 @@ export class HUD {
     this.bossBox = q('#hud-boss');
     this.bannerEl = q('#hud-banner');
     this.pauseBtn = q('#hud-pause') as HTMLButtonElement;
+    this.quotaBox = q('#hud-quota');
+    this.quotaBar = q('#hud-quota .q-bar i');
+    this.quotaTxt = q('#hud-quota .q-txt');
+    this.baitDot = q('#hud-bait .dot');
+    this.baitTxt = q('#hud-bait .b-txt');
   }
 
   show(v: boolean): void {
@@ -139,6 +153,21 @@ export class HUD {
       this.last.turbo = tb;
       this.turboBar.style.width = `${tb * 2}%`;
     }
+    const qk = `${h.quota.kg.toFixed(1)}|${h.quota.target}|${h.quota.divesLeft}`;
+    if (qk !== this.last.q) {
+      this.last.q = qk;
+      const pct = Math.min(100, (h.quota.kg / h.quota.target) * 100);
+      this.quotaBar.style.width = `${pct}%`;
+      this.quotaBox.classList.toggle('met', pct >= 100);
+      this.quotaTxt.textContent = `${h.quota.kg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}/${h.quota.target} kg · ${h.quota.divesLeft === 1 ? 'último mergulho' : `${h.quota.divesLeft} mergulhos`}`;
+    }
+    const bk2 = `${h.bait.name}|${h.bait.count}`;
+    if (bk2 !== this.last.b) {
+      this.last.b = bk2;
+      this.baitDot.style.background = h.bait.color;
+      this.baitTxt.textContent = `${h.bait.name} ×${h.bait.count}`;
+      this.onBait(h.bait.name, h.bait.count, h.bait.color);
+    }
     const bk = h.boss ? `${h.boss.name}|${h.boss.hp}|${h.boss.open}` : '';
     if (bk !== this.last.boss) {
       this.last.boss = bk;
@@ -157,6 +186,8 @@ export class TouchControls {
   readonly right: HTMLButtonElement;
   readonly turbo: HTMLButtonElement;
   readonly strike: HTMLButtonElement;
+  readonly bait: HTMLButtonElement;
+  readonly cycle: HTMLButtonElement;
 
   constructor(parent: HTMLElement) {
     this.root = document.createElement('div');
@@ -166,12 +197,23 @@ export class TouchControls {
       <button id="t-left" aria-label="Esquerda">◀</button>
       <button id="t-right" aria-label="Direita">▶</button>
       <button id="t-turbo" aria-label="Turbo">TURBO</button>
+      <button id="t-bait" aria-label="Jogar isca"><i class="dot"></i><span>ISCA</span><b>×0</b></button>
+      <button id="t-cycle" aria-label="Trocar isca">⇄</button>
       <button id="t-strike">CAPTURAR</button>`;
     parent.appendChild(this.root);
     this.left = this.root.querySelector('#t-left')!;
     this.right = this.root.querySelector('#t-right')!;
     this.turbo = this.root.querySelector('#t-turbo')!;
     this.strike = this.root.querySelector('#t-strike')!;
+    this.bait = this.root.querySelector('#t-bait')!;
+    this.cycle = this.root.querySelector('#t-cycle')!;
+  }
+
+  setBait(name: string, count: number, color: string): void {
+    (this.bait.querySelector('.dot') as HTMLElement).style.background = color;
+    this.bait.querySelector('b')!.textContent = `×${count}`;
+    this.bait.title = name;
+    this.bait.classList.toggle('empty', count <= 0);
   }
 
   show(v: boolean): void {
