@@ -3,7 +3,7 @@ import { CONFIG } from '../src/config';
 import { seededRandom } from '../src/core/RNG';
 import { defaultSave } from '../src/core/Save';
 import { Claw } from '../src/entities/Claw';
-import { resolveStrike, type Hittable } from '../src/entities/Hit';
+import { findPathHit, resolveStrike, type Hittable } from '../src/entities/Hit';
 import { RARITIES, SPECIES_BY_ID } from '../src/entities/Species';
 import { ComboTracker, captureValue, depthValueMult, recordCapture } from '../src/systems/Economy';
 import { computeStats } from '../src/systems/Upgrades';
@@ -37,6 +37,24 @@ describe('hit resolution', () => {
   });
 });
 
+describe('column dive (touch)', () => {
+  it('grabs the first creature in the path, not the one further down', () => {
+    const upper = box(100, 80);
+    const lower = box(102, 150);
+    const hit = findPathHit(100, 20, 200, 9, 0, [lower, upper]);
+    expect(hit?.target).toBe(upper);
+    expect(hit!.y).toBeLessThan(80);
+  });
+
+  it('ignores creatures outside the column, hidden ones, and those already passed', () => {
+    expect(findPathHit(100, 20, 200, 9, 0, [box(130, 80)])).toBeNull();
+    expect(findPathHit(100, 20, 200, 9, 0, [box(100, 80, 10, 8, false)])).toBeNull();
+    expect(findPathHit(100, 120, 200, 9, 0, [box(100, 80)])).toBeNull();
+    expect(findPathHit(100, 20, 60, 9, 0, [box(100, 80)])).toBeNull(); // dive stops before reaching it
+    expect(findPathHit(100, 20, 70, 9, 0, [box(100, 80)])?.y).toBeCloseTo(80 - 8 * 0.42 - 9);
+  });
+});
+
 describe('claw state machine', () => {
   it('snaps down fast: contact right after anticipation + strike time', () => {
     const stats = computeStats(defaultSave());
@@ -56,6 +74,17 @@ describe('claw state machine', () => {
     expect(t).toBeGreaterThanOrEqual(cycle - 2);
     expect(cycle).toBeGreaterThanOrEqual(450);
     expect(cycle).toBeLessThanOrEqual(650);
+  });
+
+  it('stops the dive early on contact', () => {
+    const claw = new Claw(computeStats(defaultSave()));
+    claw.trigger(0, 250, 20);
+    for (let i = 0; i < 60; i++) claw.update(1, 0, 20);
+    expect(claw.state).toBe('STRIKE');
+    claw.stopAt(90);
+    expect(claw.contactPending).toBe(true);
+    expect(claw.state).toBe('CLOSE');
+    expect(claw.targetY).toBe(90);
   });
 
   it('ignores clicks while busy but buffers one', () => {

@@ -49,3 +49,33 @@ export function resolveStrike<T extends Hittable>(
   hits.sort((a, b) => a.dist - b.dist);
   return hits.slice(0, Math.max(1, maxTargets));
 }
+
+/**
+ * Vertical dive: the mouth travels straight down column `x` from y0 to y1.
+ * Returns the first point where it touches a target (and which one), or null.
+ */
+export function findPathHit<T extends Hittable>(
+  x: number,
+  y0: number,
+  y1: number,
+  opening: number,
+  precision: number,
+  targets: readonly T[],
+): { y: number; target: T } | null {
+  const r = opening + precision;
+  let best: { y: number; target: T } | null = null;
+  for (const t of targets) {
+    if (!t.hittable) continue;
+    const hw = t.w * 0.42;
+    const hh = t.h * 0.42;
+    const dx = Math.max(0, Math.abs(x - t.x) - hw);
+    if (dx > r) continue;
+    const reach = Math.sqrt(r * r - dx * dx);
+    const top = t.y - hh - reach;
+    const bottom = t.y + hh + reach;
+    if (top > y1 || bottom < y0) continue;
+    const y = Math.max(y0, top);
+    if (!best || y < best.y) best = { y, target: t };
+  }
+  return best;
+}

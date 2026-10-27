@@ -22,6 +22,8 @@ export interface RenderView {
   aimX: number;
   aimY: number;
   showReticle: boolean;
+  /** touch play: vertical dive guide and the creature currently in the path */
+  path: { x: number; floorY: number; target: { x: number; y: number; w: number; h: number } | null } | null;
   sonar: { x: number; y: number; color: string } | null;
   warn: number; // 0..1 low-time pulse
 }
@@ -99,7 +101,8 @@ export class Renderer {
     for (let i = first; i <= last; i++) if (i >= 0) this.drawLiveDecor(ctx, v.terrain, i, camX, camY, v.time, true);
 
     this.drawClaw(ctx, v, camX, camY);
-    if (v.showReticle) this.drawReticle(ctx, v);
+    if (v.path) this.drawPath(ctx, v);
+    else if (v.showReticle) this.drawReticle(ctx, v);
     if (v.sonar) this.drawSonar(ctx, v.sonar, v.time);
 
     if (v.warn > 0) {
@@ -550,6 +553,45 @@ export class Renderer {
       ctx.fillRect(x - r, y + r + 3, r * 2 + 1, 2);
       ctx.fillStyle = '#7affea';
       ctx.fillRect(x - r, y + r + 3, Math.round((r * 2 + 1) * k), 2);
+    }
+  }
+
+  private drawPath(ctx: CanvasRenderingContext2D, v: RenderView): void {
+    const p = v.path!;
+    const x = Math.round(p.x);
+    const ready = !v.claw.busy;
+    const t = p.target;
+    const endY = Math.round(t ? t.y : p.floorY);
+    // dotted dive line from the claw to the target (or the sand)
+    ctx.globalAlpha = ready ? 0.45 : 0.15;
+    ctx.fillStyle = t ? '#ffe14a' : '#ffffff';
+    const phase = Math.floor(v.time * 20) % 6;
+    for (let y = 36 + phase; y < endY - 2; y += 6) ctx.fillRect(x, y, 1, 3);
+    ctx.globalAlpha = 1;
+    if (t && ready) {
+      // lock-on brackets around whatever is in the way
+      const hw = Math.round(t.w / 2) + 3;
+      const hh = Math.round(t.h / 2) + 3;
+      const tx = Math.round(t.x);
+      const ty = Math.round(t.y);
+      const pulse = Math.sin(v.time * 10) > 0 ? 1 : 0;
+      ctx.fillStyle = '#ffe14a';
+      for (const [sx, sy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+        const cx = tx + sx * (hw + pulse);
+        const cy = ty + sy * (hh + pulse);
+        ctx.fillRect(sx < 0 ? cx : cx - 2, cy, 3, 1);
+        ctx.fillRect(cx, sy < 0 ? cy : cy - 2, 1, 3);
+      }
+    } else if (ready) {
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillRect(x - 3, endY, 7, 1);
+    }
+    if (!ready) {
+      const k = v.claw.cooldownProgress;
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      ctx.fillRect(x - 8, 40, 17, 2);
+      ctx.fillStyle = '#7affea';
+      ctx.fillRect(x - 8, 40, Math.round(17 * k), 2);
     }
   }
 

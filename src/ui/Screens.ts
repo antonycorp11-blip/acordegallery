@@ -147,7 +147,7 @@ export class Screens {
           <button class="btn" data-act="tab" data-id="catalog">Catálogo</button>
           <button class="btn" data-act="tab" data-id="settings">Config.</button>
         </div>
-        <div class="help">PC: mouse mira · clique ou Espaço ataca · A/D ou ◀ ▶ navega · Esc pausa &nbsp;|&nbsp; Celular: toque no mar para mirar · CAPTURAR ataca · ◀ ▶ navega</div>
+        <div class="help">PC: mouse mira · clique ou Espaço ataca · A/D ou ◀ ▶ navega · Esc pausa &nbsp;|&nbsp; Celular: ◀ ▶ alinham a garra · CAPTURAR desce e pega o que estiver no caminho</div>
       </div>`;
   }
 
@@ -229,7 +229,7 @@ export class Screens {
         <button class="btn" data-act="mute">${s.settings.muted ? '🔇 Som desligado' : '🔊 Som ligado'}</button>
       </div>
       <p><b>Controles no PC:</b> mova o mouse para mirar, <kbd>clique</kbd> ou <kbd>Espaço</kbd> para atacar, <kbd>A</kbd>/<kbd>D</kbd> ou <kbd>◀</kbd>/<kbd>▶</kbd> para navegar, <kbd>Esc</kbd>/<kbd>P</kbd> pausa.</p>
-      <p><b>No celular (horizontal):</b> toque ou arraste no mar para mirar, botão <kbd>CAPTURAR</kbd> ataca, <kbd>◀</kbd> <kbd>▶</kbd> navegam. Dá para mirar com um dedo e atacar com outro.</p>
+      <p><b>No celular (horizontal):</b> a garra fica no centro; <kbd>◀</kbd> <kbd>▶</kbd> alinham o oceano com ela e <kbd>CAPTURAR</kbd> faz a garra descer reto e pegar o primeiro bicho no caminho (o alvo fica marcado em amarelo). Dá para navegar com um dedo e atacar com outro.</p>
       <p>Estatísticas: ${s.totalRuns} mergulhos · ${s.totalCaptures} capturas · ${$(s.totalEarned)} ganhos · distância recorde ${Math.round(s.bestDistance).toLocaleString('pt-BR')}</p>
       <div class="row" style="justify-content:flex-start">
         ${this.confirmReset

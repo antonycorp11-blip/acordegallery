@@ -1,7 +1,7 @@
 import { CONFIG, VIEW_H, VIEW_W } from '../config';
 import { Claw, type ClawState } from '../entities/Claw';
 import { updateSchool, type Creature, type CreatureEvent } from '../entities/Creature';
-import { resolveStrike } from '../entities/Hit';
+import { findPathHit, resolveStrike } from '../entities/Hit';
 import { RARITIES, RARITY_COLOR, VARIANTS, type Rarity, type VariantId } from '../entities/Species';
 import { Effects } from '../render/Effects';
 import { Renderer } from '../render/Renderer';
@@ -275,17 +275,24 @@ export class Game {
     this.maxDistance = Math.max(this.maxDistance, centerX);
     this.maxDepth = Math.max(this.maxDepth, depthAt(centerX));
 
-    // aim + strike
+    // aim + strike (touch: the claw stays centered and dives down its column)
     const k = 1 - Math.pow(0.0001, dt);
-    this.aimSX += (this.input.aimX - this.aimSX) * k;
+    this.aimSX += (this.aimScreenX() - this.aimSX) * k;
     const restY = this.cam.y + CONFIG.claw.restTipY;
     if (this.input.consumeStrike() || this.claw.takeBuffered()) this.tryStrike(restY);
+    const prevTip = this.claw.tipY;
+    const wasStriking = this.claw.state === 'STRIKE';
     this.claw.update(dt * 1000, this.cam.x + this.aimSX, restY);
+    if (this.pathMode && wasStriking) {
+      // grab the first thing the mouth runs into on its way down
+      const hit = findPathHit(this.claw.x, prevTip, this.claw.tipY, stats.opening, stats.precision, this.spawn.creatures.filter((c) => !c.frozen));
+      if (hit) this.claw.stopAt(hit.y);
+    }
     if (this.claw.contactPending) this.resolveContact();
     if (this.prevClawState === 'RETRACT' && this.claw.state === 'COOLDOWN') this.deliverHeld();
     this.prevClawState = this.claw.state;
 
-    this.spawn.update(dt, this.cam.x, this.cam.x + this.input.aimX, dir);
+    this.spawn.update(dt, this.cam.x, this.cam.x + this.aimScreenX(), dir);
     this.updateCreatures(dt);
     if (this.combo.expired(this.time * 1000)) this.combo.miss();
     this.effects.update(dt);
@@ -343,20 +350,30 @@ export class Game {
 
   // ───────────────────────── strike & contact
 
+  /** Touch play: no tapping on targets; the claw dives down its own column. */
+  get pathMode(): boolean {
+    return this.input.touchMode;
+  }
+
+  private aimScreenX(): number {
+    return this.pathMode ? VIEW_W / 2 : this.input.aimX;
+  }
+
   private tryStrike(restY: number): void {
     const stats = this.stats;
-    const aimY = Math.min(this.input.aimY, stats.reach);
-    const wx = this.cam.x + this.input.aimX;
-    let wy = this.cam.y + aimY;
-    // the mouth can't go through the seabed
-    wy = Math.min(wy, this.terrain.seabedY(wx) - 1);
+    const wx = this.cam.x + this.aimScreenX();
+    const floor = this.terrain.seabedY(wx) - 1;
+    // the mouth can't go through the seabed; in path mode it dives all the way down
+    const wy = this.pathMode ? floor : Math.min(this.cam.y + Math.min(this.input.aimY, stats.reach), floor);
     if (!this.claw.trigger(wx, wy, restY)) return;
     this.audio.play('strike');
     this.perceivers = [];
     for (const c of this.spawn.creatures) {
       if (c.frozen || c.removed) continue;
       c.fled = false;
-      if (c.notifyStrike(wx, wy, stats.claw.reactionMult)) this.perceivers.push(c);
+      // in path mode the threat is the whole column, felt at the creature's own height
+      const ty = this.pathMode ? Math.max(restY, Math.min(wy, c.y)) : wy;
+      if (c.notifyStrike(wx, ty, stats.claw.reactionMult)) this.perceivers.push(c);
     }
   }
 
@@ -516,9 +533,24 @@ export class Game {
       aimX: this.input.aimX,
       aimY: this.input.aimY,
       showReticle: playing,
+      path: playing && this.pathMode ? this.pathPreview() : null,
       sonar: this.sonarTarget(),
       warn,
     });
+  }
+
+  /** What the claw would grab right now if it dove down its column. */
+  private pathPreview(): { x: number; floorY: number; target: { x: number; y: number; w: number; h: number } | null } {
+    const x = this.claw.x;
+    const floorY = this.terrain.seabedY(x) - 1;
+    const hit = this.claw.busy
+      ? null
+      : findPathHit(x, this.cam.y + CONFIG.claw.restTipY, floorY, this.stats.opening, this.stats.precision, this.spawn.creatures.filter((c) => !c.frozen));
+    return {
+      x: x - this.cam.x,
+      floorY: floorY - this.cam.y,
+      target: hit ? { x: hit.target.x - this.cam.x, y: hit.target.y - this.cam.y, w: hit.target.w, h: hit.target.h } : null,
+    };
   }
 
   /** Test/debug helper: visible creatures in view coordinates. */

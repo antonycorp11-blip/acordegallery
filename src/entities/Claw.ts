@@ -139,6 +139,14 @@ export class Claw {
     }
   }
 
+  /** Ends the dive early: the mouth met something on its way down. */
+  stopAt(y: number): void {
+    this.targetY = y;
+    this.tipY = y;
+    this.contactPending = true;
+    this.set('CLOSE');
+  }
+
   /** Consumes a buffered click if the claw just became ready. */
   takeBuffered(): boolean {
     if (this.state === 'READY' && this.bufferedMs > 0) {
