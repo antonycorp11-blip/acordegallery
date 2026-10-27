@@ -34,7 +34,7 @@ export type Behavior =
   | 'predator'
   | 'mimic';
 
-export type ShapeKind = 'star' | 'crab' | 'fish' | 'lobster' | 'eel' | 'boxfish' | 'octopus' | 'jelly' | 'angler' | 'eye' | 'shark' | 'chest';
+export type ShapeKind = 'star' | 'crab' | 'fish' | 'lobster' | 'eel' | 'boxfish' | 'octopus' | 'jelly' | 'angler' | 'eye' | 'shark' | 'chest' | 'puffer' | 'seahorse' | 'hermit' | 'ray';
 
 export interface SpeciesPalette {
   main: string;
@@ -115,6 +115,60 @@ export const SPECIES: SpeciesDefinition[] = [
     fleeAcceleration: 800, fleeSpeed: 95, mass: 1.3, armor: 0.4, behavior: 'crawler',
     palette: { main: '#f2e6ff', dark: '#8a5cc8', light: '#ffffff', accent: '#ff7ff5', eye: '#2a0a3a' },
     shapeParts: 'crab', special: [],
+  },
+  {
+    id: 'tangFish', name: 'Cirurgião-Azul', rarity: 'common', baseValue: 18,
+    description: 'Azul elétrico com cauda amarela. Nada rápido entre os corais.',
+    minDepth: 0, maxDepth: 400, biomeWeights: [1.3, 0.5, 0.1, 0, 0],
+    size: { w: 13, h: 10 }, swimSpeed: 32, perceptionRange: 40, reactionTime: 120,
+    fleeAcceleration: 950, fleeSpeed: 130, mass: 0.7, armor: 0, behavior: 'swimmer',
+    palette: { main: '#2f6bff', dark: '#14308a', light: '#7fb0ff', accent: '#ffd23a', eye: '#0a0a14' },
+    shapeParts: 'fish', special: [],
+  },
+  {
+    id: 'parrotFish', name: 'Peixe-Papagaio', rarity: 'common', baseValue: 24,
+    description: 'Rói coral com o bico. Grande e colorido, mas desconfiado.',
+    minDepth: 0, maxDepth: 600, biomeWeights: [1.1, 0.7, 0.2, 0, 0],
+    size: { w: 17, h: 10 }, swimSpeed: 22, perceptionRange: 46, reactionTime: 130,
+    fleeAcceleration: 800, fleeSpeed: 115, mass: 1.0, armor: 0.2, behavior: 'swimmer',
+    palette: { main: '#3ad08a', dark: '#1a7a5a', light: '#9affc8', accent: '#ff6fb0', eye: '#101018' },
+    shapeParts: 'fish', special: [],
+  },
+  {
+    id: 'hermitCrab', name: 'Ermitão', rarity: 'common', baseValue: 15,
+    description: 'Mora numa concha emprestada. A concha torna mais difícil segurá-lo.',
+    minDepth: 0, maxDepth: 500, biomeWeights: [1.2, 0.8, 0.3, 0, 0],
+    size: { w: 13, h: 11 }, swimSpeed: 10, perceptionRange: 30, reactionTime: 170,
+    fleeAcceleration: 500, fleeSpeed: 60, mass: 0.9, armor: 0.7, behavior: 'crawler',
+    palette: { main: '#e87a3a', dark: '#8a3a1a', light: '#ffc89a', accent: '#f4e2c8', eye: '#1a0a12' },
+    shapeParts: 'hermit', special: [],
+  },
+  {
+    id: 'pufferfish', name: 'Baiacu', rarity: 'uncommon', baseValue: 38,
+    description: 'Lento e redondo, coberto de espinhos. Precisa de força para segurar.',
+    minDepth: 0, maxDepth: 900, biomeWeights: [1.0, 1.0, 0.5, 0.2, 0],
+    size: { w: 13, h: 12 }, swimSpeed: 10, perceptionRange: 34, reactionTime: 200,
+    fleeAcceleration: 300, fleeSpeed: 50, mass: 1.2, armor: 1.0, behavior: 'tank',
+    palette: { main: '#e8d27a', dark: '#8a7a3a', light: '#fff6d0', accent: '#5a4a2a', eye: '#141010' },
+    shapeParts: 'puffer', special: [],
+  },
+  {
+    id: 'seahorse', name: 'Cavalo-Marinho', rarity: 'uncommon', baseValue: 44,
+    description: 'Flutua devagar perto das algas. Fácil de pegar, difícil de achar.',
+    minDepth: 10, maxDepth: 500, biomeWeights: [1.0, 0.6, 0.1, 0, 0],
+    size: { w: 8, h: 15 }, swimSpeed: 6, perceptionRange: 0, reactionTime: 9999,
+    fleeAcceleration: 0, fleeSpeed: 0, mass: 0.4, armor: 0, behavior: 'jelly',
+    palette: { main: '#ff9a3a', dark: '#a84a10', light: '#ffd28a', accent: '#fff2c4', eye: '#1a0a00' },
+    shapeParts: 'seahorse', special: [],
+  },
+  {
+    id: 'mantaRay', name: 'Raia-Manta', rarity: 'rare', baseValue: 150,
+    description: 'Plana pelo recife com asas enormes. Grande, mas percebe tudo.',
+    minDepth: 40, maxDepth: 1500, biomeWeights: [0.8, 1.0, 0.6, 0.2, 0],
+    size: { w: 34, h: 13 }, swimSpeed: 28, perceptionRange: 60, reactionTime: 110,
+    fleeAcceleration: 700, fleeSpeed: 120, mass: 2.4, armor: 0.2, behavior: 'swimmer',
+    palette: { main: '#3a4a6a', dark: '#1a2238', light: '#e8eef6', accent: '#7ad8ff', eye: '#0a0a10' },
+    shapeParts: 'ray', special: [],
   },
   {
     id: 'blueLobster', name: 'Lagosta Azul', rarity: 'uncommon', baseValue: 42,

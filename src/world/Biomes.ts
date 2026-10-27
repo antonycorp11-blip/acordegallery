@@ -49,7 +49,7 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'rocky',
     name: 'Costa Rochosa',
-    startX: 1500,
+    startX: 6000,
     lightRays: 0.6,
     decor: [7, 2, 3, 4, 2, 0, 0, 0, 5, 2, 0, 0],
     palette: {
@@ -63,7 +63,7 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'wreck',
     name: 'Naufrágios e Ruínas',
-    startX: 4000,
+    startX: 15000,
     lightRays: 0.25,
     decor: [4, 1, 2, 2, 1, 5, 3, 1, 2, 1, 0, 2],
     palette: {
@@ -77,7 +77,7 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'forest',
     name: 'Floresta Abissal',
-    startX: 7000,
+    startX: 27000,
     lightRays: 0,
     decor: [3, 2, 3, 2, 1, 1, 0, 5, 6, 1, 1, 2],
     palette: {
@@ -91,7 +91,7 @@ export const BIOMES: BiomeDef[] = [
   {
     id: 'abyss',
     name: 'Abismo Impossível',
-    startX: 11000,
+    startX: 42000,
     lightRays: 0,
     decor: [4, 2, 1, 3, 0, 2, 0, 4, 1, 0, 7, 3],
     palette: {
@@ -104,7 +104,7 @@ export const BIOMES: BiomeDef[] = [
   },
 ];
 
-const TRANSITION = 600;
+const TRANSITION = 1400;
 
 /** Which biome dominates at x, plus the neighbor it is blending into. */
 export function biomeBlend(worldX: number): { a: number; b: number; t: number } {

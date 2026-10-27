@@ -37,8 +37,9 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
   - Bater a cota paga moedas e ★ (o excedente rende bônus), sobe a **licença** (+4% no valor das capturas por nível) e aumenta a próxima cota.
   - Falhar custa multa de 15% do saldo e um nível de licença, e a cota se repete.
 
+- **Mundo longo**: cada bioma tem milhares de metros de distância (o primeiro guardião está a 5.800). Atravessar um bioma leva vários mergulhos e melhorias; no meio de cada bioma há uma **boia** que vira ponto de partida quando você a alcança.
 - **Guardiões de bioma**: cinco chefes gigantes bloqueiam o caminho com uma parede de correnteza: Caranguejo-Rei, Moreia Colossal, Polvo do Naufrágio, Água-Viva Catedral e Leviatã Primordial.
-  - Para capturá-los, agarre um a um os **pontos fracos brilhantes** quando abrirem, e só com força suficiente. O dano persiste entre mergulhos.
+  - Para capturá-los, agarre um a um os **pontos fracos brilhantes** quando abrirem (cada um 2 vezes), e só com força suficiente; o primeiro já exige Força na árvore. O dano persiste entre mergulhos. O Caranguejo-Rei tem arte e animação próprias: anda, abre e fecha as pinças, ergue-as para atacar e reage ao dano.
   - Eles avisam antes de atacar (brilho vermelho). O ataque atordoa a garra que estiver perto.
   - Cada vitória paga moedas, estrelas e +10 s, e libera um **ponto de partida** no bioma seguinte.
 - **Encomendas**: três pedidos ativos por vez (capturar espécies, raridades ou variantes, chegar a uma profundidade, fazer combos, ganhar moedas num só mergulho). Pagam moedas e ★, e são resgatadas na base.
@@ -64,7 +65,7 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
   - **Correnteza** (empurra para águas fundas);
   - **Tubarão-Martelo** (devora os bichos pequenos e morde garras fracas; com força suficiente, dá para capturá-lo).
 - **Baús de tesouro** (moedas e às vezes ★) e **Baús-Mímicos**, que fingem ser baú, mostram os dentes e fogem.
-- **16 espécies** com IA própria, raridades de comum a anômala e variantes mini, gigante, dourado, bioluminescente e mutante.
+- **22 espécies** com IA própria (o recife tem 12, incluindo Cirurgião-Azul, Peixe-Papagaio, Ermitão, Baiacu, Cavalo-Marinho e Raia-Manta), raridades de comum a anômala e variantes mini, gigante, dourado, bioluminescente e mutante.
 - **8 garras**:
   - **Sucata**: equilibrada.
   - **Relâmpago**: muito rápida, pouca força.

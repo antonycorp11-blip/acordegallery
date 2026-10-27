@@ -17,9 +17,9 @@ import { licenseBonus, quotaReward, quotaTarget } from '../systems/Quota';
 import { CLAW_TIER_NAMES, UPGRADES, buyClaw, canBuy, canBuyClaw, clawPrice, computeStats } from '../systems/Upgrades';
 import { BIOMES } from '../world/Biomes';
 import { mountAquariumTank } from './AquariumView';
-import { SkillTree } from './SkillTree';
+import { iconUrl, SkillTree } from './SkillTree';
 
-type Tab = 'skills' | 'essence' | 'workshop' | 'aquarium' | 'catalog' | 'settings';
+type Tab = 'skills' | 'essence' | 'workshop' | 'missions' | 'aquarium' | 'catalog' | 'settings';
 
 const $ = (n: number) => `$${formatCoins(n)}`;
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]!);
@@ -51,9 +51,18 @@ export class Screens {
       case 'tab': this.confirm = null; this.showBase(id as Tab); g.audio.play('click'); break;
       case 'home': this.showBase(); g.audio.play('click'); break;
       case 'checkpoint':
-        if (checkpointUnlocked(s.bosses, Number(id))) { s.checkpoint = Number(id); g.persist(); g.audio.play('click'); }
+        if (checkpointUnlocked(s.bosses, Number(id), s.bestDistance)) { s.checkpoint = Number(id); g.persist(); g.audio.play('click'); }
         this.rerender();
         break;
+      case 'cpStep': {
+        const unlocked = CHECKPOINTS.map((_, i) => i).filter((i) => checkpointUnlocked(s.bosses, i, s.bestDistance));
+        const cur = Math.max(0, unlocked.indexOf(s.checkpoint));
+        s.checkpoint = unlocked[(cur + Number(id) + unlocked.length) % unlocked.length];
+        g.persist();
+        g.audio.play('click');
+        this.rerender();
+        break;
+      }
       case 'claim':
         if (claimOrder(s, Number(id))) { g.persist(); g.audio.play('buy'); }
         this.rerender();
@@ -165,7 +174,7 @@ export class Screens {
       this.showTreeScreen(tab);
       return;
     }
-    const tabs: [Tab, string][] = [['skills', 'Habilidades'], ['workshop', 'Oficina'], ['aquarium', 'Aquário'], ['catalog', 'Catálogo'], ['essence', 'Renascer'], ['settings', 'Config.']];
+    const tabs: [Tab, string][] = [['skills', 'Habilidades'], ['workshop', 'Oficina'], ['missions', 'Missões'], ['aquarium', 'Aquário'], ['catalog', 'Catálogo'], ['essence', 'Renascer'], ['settings', 'Config.']];
     this.root.innerHTML = `
       <div class="panel">
         <div class="panel-head">
@@ -214,6 +223,7 @@ export class Screens {
       case 'workshop': return '<div class="claws"></div>';
       case 'catalog': return '<div class="catalog"></div>';
       case 'aquarium': return this.aquariumHtml();
+      case 'missions': return this.missionsHtml();
       case 'settings': return this.settingsHtml();
     }
   }
@@ -235,14 +245,14 @@ export class Screens {
     }
     const st = computeStats(s);
     const dmg = s.bossDamage[b.id] ?? 0;
-    const pips = b.weakPoints.map((_, i) => `<i class="${i < dmg ? 'done' : ''}"></i>`).join('');
+    const pips = Array.from({ length: b.weakPoints.length * b.hits }, (_, i) => `<i class="${i < dmg ? 'done' : ''}"></i>`).join('');
     const strong = st.strength >= b.strength;
     const idx = BOSSES.indexOf(b);
     return `<div class="card objective">
       <div class="obj-kicker">OBJETIVO · GUARDIÃO ${idx + 1}/${BOSSES.length}</div>
       <b>Capture: ${esc(b.name)}</b>
       <p class="desc">Bloqueia o fim do bioma ${esc(BIOMES[Math.min(idx, BIOMES.length - 1)].name)} (distância ${b.x.toLocaleString('pt-BR')}). Agarre os pontos fracos brilhantes quando abrirem.</p>
-      <div class="obj-row"><div class="pips boss-pips">${pips}</div><span>${dmg}/${b.weakPoints.length} pontos fracos</span></div>
+      <div class="obj-row"><div class="pips boss-pips">${pips}</div><span>${dmg}/${b.weakPoints.length * b.hits} agarrões nos pontos fracos</span></div>
       <div class="obj-row"><span class="${strong ? 'ok' : 'lock'}">Força ${st.strength.toFixed(1)} / ${b.strength.toFixed(1)}${strong ? ' ✔' : ' — compre Força na árvore'}</span></div>
       <div class="obj-row reward">Recompensa: ${$(b.coins)} · ${b.stars}★ · novo ponto de partida</div>
     </div>`;
@@ -288,55 +298,69 @@ export class Screens {
     const s = this.game.save;
     const now = Date.now();
     const n = this.affordableCount();
-    const st = computeStats(s);
-    const found = SPECIES.filter((sp) => isCreature(sp) && (s.species[sp.id]?.caught ?? 0) > 0).length;
-    const total = SPECIES.filter(isCreature).length;
     const daily = dailyAvailable(s, now) ? dailyPreview(s, now) : null;
     const pending = aquariumPending(s, now);
-    const cps = CHECKPOINTS.map((c, i) => {
-      const ok = checkpointUnlocked(s.bosses, i);
-      return `<button class="cp ${s.checkpoint === i ? 'on' : ''}" data-act="checkpoint" data-id="${i}" ${ok ? '' : 'disabled'}>${ok ? '' : '🔒 '}${esc(c.name)}</button>`;
-    }).join('');
+    const cp = CHECKPOINTS[checkpointUnlocked(s.bosses, s.checkpoint, s.bestDistance) ? s.checkpoint : 0];
+    const unlockedCps = CHECKPOINTS.filter((_, i) => checkpointUnlocked(s.bosses, i, s.bestDistance)).length;
     const prestigeReady = canPrestige(s);
+    const b = nextBoss(s.bosses);
+    const st = computeStats(s);
+    const q = s.quota;
+    const qTarget = quotaTarget(q.tier);
+    const ready = s.orders.filter(isComplete).length;
+    const tile = (act: string, id: string, icon: string, label: string, badge = '', extra = '') =>
+      `<button class="tile ${extra}" data-act="${act}" data-id="${id}"><img src="${icon}" alt=""><span>${label}</span>${badge ? `<i class="badge">${badge}</i>` : ''}</button>`;
+    const bossDone = b ? Math.floor((s.bossDamage[b.id] ?? 0) / b.hits) : 0;
     return `
-      <div class="base">
-        <div class="base-top">
-          <h1 class="logo">ABYSS <span>CLAW</span></h1>
-          <div class="chips">
-            <span class="chip">Saldo <b>${$(s.coins)}</b></span>
-            <span class="chip">Estrelas <b>${s.stars}★</b></span>
-            ${s.essence || s.prestiges ? `<span class="chip">Essência <b class="ess">✦${s.essence}</b></span>` : ''}
-            <span class="chip">Recorde <b>${Math.round(s.bestDepth).toLocaleString('pt-BR')} m</b></span>
-            <span class="chip">Espécies <b>${found}/${total}</b></span>
+      <div class="home">
+        <div class="home-top">
+          <div class="pills">
+            <span class="pill gold">$${formatCoins(s.coins)}</span>
+            <span class="pill star">${s.stars}★</span>
+            ${s.essence || s.prestiges ? `<span class="pill ess">✦${s.essence}</span>` : ''}
+          </div>
+          <div class="pills">
+            ${daily ? `<button class="pill gift" data-act="daily">🎁 Presente!</button>` : ''}
+            ${pending > 0 ? `<button class="pill tank" data-act="collect">🐠 +${$(pending)}</button>` : ''}
+            <button class="pill icon" data-act="tab" data-id="settings" aria-label="Configurações">⚙</button>
           </div>
         </div>
-        <div class="base-grid">
-          <div class="base-col">
-            ${this.objectiveHtml()}
-            <div class="start-box">
-              <button class="btn primary" data-act="start">INICIAR MERGULHO</button>
-              <div class="cp-row"><span class="cp-label">Partida:</span>${cps}</div>
-              <div class="mini">${st.runSeconds}s · garra ${esc(st.claw.name)} · força ${st.strength.toFixed(1)}</div>
-            </div>
-          </div>
-          <div class="base-col">
-            ${this.quotaHtml()}
-            ${this.ordersHtml()}
-            <div class="row gifts">
-              ${daily ? `<button class="btn gift" data-act="daily">🎁 Presente do dia ${daily.streak}: ${$(daily.coins)} + ${daily.stars}★ + iscas</button>` : ''}
-              ${s.aquarium.last ? `<button class="btn tankbtn" data-act="collect" ${pending > 0 ? '' : 'disabled'}>🐠 Aquário: <b data-live="tank">${$(pending)}</b> · Coletar</button>` : ''}
-            </div>
+        <div class="home-center">
+          <h1 class="logo big">ABYSS<span>CLAW</span></h1>
+          <button class="dive-btn" data-act="start">MERGULHAR</button>
+          <div class="cp-pick">
+            <button data-act="cpStep" data-id="-1" ${unlockedCps > 1 ? '' : 'disabled'}>◀</button>
+            <span>Partida: <b>${esc(cp.name)}</b></span>
+            <button data-act="cpStep" data-id="1" ${unlockedCps > 1 ? '' : 'disabled'}>▶</button>
           </div>
         </div>
-        <div class="row nav">
-          <button class="btn" data-act="tab" data-id="skills">Habilidades${n ? `<span class="badge">${n}</span>` : ''}</button>
-          <button class="btn" data-act="tab" data-id="workshop">Oficina</button>
-          <button class="btn" data-act="tab" data-id="aquarium">Aquário</button>
-          <button class="btn" data-act="tab" data-id="catalog">Catálogo</button>
-          <button class="btn ${prestigeReady ? 'glow' : ''}" data-act="tab" data-id="essence">Renascer${prestigeReady ? '<span class="badge">!</span>' : ''}</button>
-          <button class="btn" data-act="tab" data-id="settings">Config.</button>
+        <button class="widget left" data-act="tab" data-id="missions">
+          ${b ? `<span class="w-kick">GUARDIÃO ${BOSSES.indexOf(b) + 1}/${BOSSES.length}</span>
+          <b>${esc(b.name)}</b>
+          <div class="pips boss-pips">${b.weakPoints.map((_, i) => `<i class="${i < bossDone ? 'done' : ''}"></i>`).join('')}</div>
+          <span class="${st.strength >= b.strength ? 'ok' : 'lock'}">força ${st.strength.toFixed(1)}/${b.strength.toFixed(1)}</span>
+          <span class="w-sub">a ${b.x.toLocaleString('pt-BR')} de distância</span>` : '<span class="w-kick">ABISMO CONQUISTADO</span><b>Renasça!</b>'}
+        </button>
+        <button class="widget right" data-act="tab" data-id="missions">
+          <span class="w-kick q">COTA · DIA ${q.day}</span>
+          <b>${q.deliveredKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} / ${qTarget} kg</b>
+          <div class="bar big"><i style="width:${Math.min(100, Math.round((q.deliveredKg / qTarget) * 100))}%"></i></div>
+          <span class="w-sub">${q.divesLeft} mergulho(s) · licença ${q.license}</span>
+          <span class="w-kick">ENCOMENDAS ${ready ? `<i class="badge">${ready} pronta(s)</i>` : `${s.orders.length}`}</span>
+        </button>
+        <div class="dock">
+          ${tile('tab', 'skills', iconUrl('variants', '#ffd84a'), 'Habilidades', n ? String(n) : '')}
+          ${tile('tab', 'workshop', iconUrl('opening', '#cfefff'), 'Oficina')}
+          ${tile('tab', 'missions', iconUrl('perfect', '#ff8a6a'), 'Missões', ready ? String(ready) : '')}
+          ${tile('tab', 'aquarium', iconUrl('aquarium', '#7affea'), 'Aquário')}
+          ${tile('tab', 'catalog', iconUrl('density', '#ff9a1f'), 'Catálogo')}
+          ${tile('tab', 'essence', iconUrl('frenzy', '#ff7ff5'), 'Renascer', prestigeReady ? '!' : '', prestigeReady ? 'glow' : '')}
         </div>
       </div>`;
+  }
+
+  private missionsHtml(): string {
+    return `<div class="missions">${this.objectiveHtml()}${this.quotaHtml()}${this.ordersHtml()}</div>`;
   }
 
   // ───────────────────────── tabs

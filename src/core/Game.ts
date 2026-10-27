@@ -117,6 +117,7 @@ export class Game {
   private lastOrderDepth = 0;
   private barrierHint = 0;
   private bossIntroShown = new Set<string>();
+  private buoysAnnounced = new Set<string>();
   private valueMult = 1;
   private runCommitted = true;
   private perceivers: Creature[] = [];
@@ -213,7 +214,7 @@ export class Game {
   // ───────────────────────── run lifecycle
 
   startCheckpointX(): number {
-    const i = checkpointUnlocked(this.save.bosses, this.save.checkpoint) ? this.save.checkpoint : 0;
+    const i = checkpointUnlocked(this.save.bosses, this.save.checkpoint, this.save.bestDistance) ? this.save.checkpoint : 0;
     return CHECKPOINTS[i].x;
   }
 
@@ -405,6 +406,14 @@ export class Game {
     const centerX = this.cam.x + VIEW_W / 2;
     this.maxDistance = Math.max(this.maxDistance, centerX);
     this.maxDepth = Math.max(this.maxDepth, depthAt(centerX));
+    for (const c of CHECKPOINTS) {
+      if (!c.minDistance || this.save.bestDistance >= c.minDistance || this.buoysAnnounced.has(c.name)) continue;
+      if (this.maxDistance >= c.minDistance && (c.requires === null || this.save.bosses.includes(c.requires))) {
+        this.buoysAnnounced.add(c.name);
+        this.onBanner(`BOIA ALCANÇADA: ${c.name.toUpperCase()}`, 'Novo ponto de partida liberado ao fim do mergulho', '#7ad8ff');
+        this.audio.play('bonus');
+      }
+    }
     if (this.maxDepth - this.lastOrderDepth >= 5) {
       this.lastOrderDepth = this.maxDepth;
       this.orderEvent({ type: 'depth', meters: this.maxDepth });
@@ -452,7 +461,7 @@ export class Game {
       combo: this.combo.count,
       frenzy: this.frenzy > 0 ? this.frenzy / stats.frenzySeconds : 0,
       turbo: this.turbo / stats.turboSeconds,
-      boss: b ? { name: b.def.name, hp: b.hp, max: b.def.weakPoints.length, open: b.open } : null,
+      boss: b ? { name: b.def.name, hp: b.hp, max: b.total, open: b.open } : null,
       quota: { kg: this.save.quota.deliveredKg + this.runKg, target: quotaTarget(this.save.quota.tier), divesLeft: this.save.quota.divesLeft },
       bait: this.baitHud(),
     });

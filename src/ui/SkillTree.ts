@@ -33,7 +33,7 @@ const ICONS: Record<StatKey | 'core', string[]> = {
 };
 
 const iconCache = new Map<string, string>();
-function iconUrl(key: StatKey | 'core', color: string): string {
+export function iconUrl(key: StatKey | 'core', color: string): string {
   const k = key + color;
   let url = iconCache.get(k);
   if (url) return url;

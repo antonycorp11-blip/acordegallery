@@ -29,16 +29,17 @@ describe('depthAt', () => {
 describe('biomes', () => {
   it('maps distance ranges to the right biome', () => {
     expect(BIOMES[biomeIndexAt(500)].id).toBe('reef');
-    expect(BIOMES[biomeIndexAt(2500)].id).toBe('rocky');
-    expect(BIOMES[biomeIndexAt(5500)].id).toBe('wreck');
-    expect(BIOMES[biomeIndexAt(9000)].id).toBe('forest');
-    expect(BIOMES[biomeIndexAt(15000)].id).toBe('abyss');
+    expect(BIOMES[biomeIndexAt(4000)].id).toBe('reef');
+    expect(BIOMES[biomeIndexAt(9000)].id).toBe('rocky');
+    expect(BIOMES[biomeIndexAt(20000)].id).toBe('wreck');
+    expect(BIOMES[biomeIndexAt(34000)].id).toBe('forest');
+    expect(BIOMES[biomeIndexAt(50000)].id).toBe('abyss');
   });
 
   it('blends continuously across a boundary', () => {
     let prevT = -1;
     let prevPair = '';
-    for (let x = 1100; x <= 1900; x += 5) {
+    for (let x = 5000; x <= 7000; x += 5) {
       const b = biomeBlend(x);
       const pair = `${b.a}-${b.b}`;
       if (pair === '0-1') {
@@ -49,7 +50,7 @@ describe('biomes', () => {
       expect(b.t).toBeGreaterThanOrEqual(0);
       expect(b.t).toBeLessThanOrEqual(1);
     }
-    expect(biomeBlend(1500 - 1).t).toBeCloseTo(biomeBlend(1500).t, 1);
+    expect(biomeBlend(6000 - 1).t).toBeCloseTo(biomeBlend(6000).t, 1);
   });
 
   it('interpolated palette is valid hex everywhere', () => {

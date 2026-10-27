@@ -150,9 +150,15 @@ describe('guardians', () => {
     expect(nextBoss(['kingCrab'])!.id).toBe('colossalEel');
     expect(nextBoss(BOSSES.map((b) => b.id))).toBeNull();
     expect(checkpointUnlocked([], 0)).toBe(true);
-    expect(checkpointUnlocked([], 1)).toBe(false);
-    expect(checkpointUnlocked(['kingCrab'], 1)).toBe(true);
-    for (let i = 1; i < CHECKPOINTS.length; i++) expect(CHECKPOINTS[i].x).toBeGreaterThan(BOSSES[i - 1].x);
+    // mid-biome buoy: unlocked by reaching it
+    expect(checkpointUnlocked([], 1, 0)).toBe(false);
+    expect(checkpointUnlocked([], 1, 3000)).toBe(true);
+    // next biome: needs the guardian
+    expect(checkpointUnlocked([], 2, 99999)).toBe(false);
+    expect(checkpointUnlocked(['kingCrab'], 2)).toBe(true);
+    for (const c of CHECKPOINTS) if (c.requires) expect(c.x).toBeGreaterThan(BOSSES.find((b) => b.id === c.requires)!.x);
+    // biomes are long: the first guardian is far from the start
+    expect(BOSSES[0].x).toBeGreaterThan(5000);
   });
 
   it('only the exposed weak point counts; the body is armored', () => {
@@ -170,19 +176,30 @@ describe('guardians', () => {
     mid.update(0.01, () => 300);
     const mp = mid.weakPointPos(mid.activeWeak);
     expect(mid.pathHit(mp.x, 0, 400, 9)?.kind).toBe('weak');
-    expect(mid.pathHit(mid.x + mid.def.w * 0.35, 0, 400, 9)?.kind).toBe('body');
+    expect(mid.pathHit(mid.x, 0, 400, 9)?.kind).toBe('body');
   });
 
   it('closes after a hit, persists damage and is defeated after all weak points', () => {
-    const b = new Boss(BOSSES[0], 2);
+    const b = new Boss(BOSSES[0], BOSSES[0].weakPoints.length * BOSSES[0].hits - 1);
     expect(b.hp).toBe(1);
     expect(b.hitWeak()).toBe(true);
     expect(b.defeated).toBe(true);
     expect(b.hitTest(b.x, b.y, 9)).toBeNull();
   });
 
-  it('the first guardian is beatable with the starting claw', () => {
-    expect(computeStats(defaultSave()).strength).toBeGreaterThanOrEqual(BOSSES[0].strength);
-    expect(computeStats(defaultSave()).strength).toBeLessThan(BOSSES[1].strength);
+  it('each weak point needs several grabs', () => {
+    const b = new Boss(BOSSES[0], 0);
+    expect(b.activeWeak).toBe(0);
+    b.hitWeak();
+    expect(b.activeWeak).toBe(0);
+    b.hitWeak();
+    expect(b.activeWeak).toBe(1);
+  });
+
+  it('the first guardian needs some Força upgrades', () => {
+    const s = defaultSave();
+    expect(computeStats(s).strength).toBeLessThan(BOSSES[0].strength);
+    s.upgrades = { core: 1, strikeSpeed: 1, strength: 2 };
+    expect(computeStats(s).strength).toBeGreaterThanOrEqual(BOSSES[0].strength);
   });
 });

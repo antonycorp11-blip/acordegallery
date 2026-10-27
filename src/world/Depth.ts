@@ -8,11 +8,11 @@ export interface DepthKey {
 
 export const DEPTH_KEYS: DepthKey[] = [
   { x: 0, m: 0 },
-  { x: 1500, m: 100 },
-  { x: 4000, m: 500 },
-  { x: 7000, m: 1500 },
-  { x: 11000, m: 4000 },
-  { x: 16000, m: 9000 },
+  { x: 6000, m: 150 },
+  { x: 15000, m: 600 },
+  { x: 27000, m: 1800 },
+  { x: 42000, m: 4500 },
+  { x: 60000, m: 10000 },
 ];
 
 export function depthAt(worldX: number, keys: DepthKey[] = DEPTH_KEYS): number {

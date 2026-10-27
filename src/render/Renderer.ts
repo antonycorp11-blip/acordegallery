@@ -9,6 +9,7 @@ import type { Terrain } from '../world/Terrain';
 import type { Effects } from './Effects';
 import { creatureSprite, drawEel, glowSprite, makeCanvas, variantPalette } from './PixelArt';
 import { Scenery } from './Scenery';
+import { kingCrabFrame } from './BossArt';
 
 export interface RenderView {
   cam: Camera;
@@ -144,7 +145,20 @@ export class Renderer {
     ctx.globalAlpha = fade;
     const w = Math.max(4, Math.round(d.w * scale));
     const h = Math.max(4, Math.round(d.h * scale));
-    if (d.shape === 'eel') {
+    if (d.id === 'kingCrab') {
+      const pose = boss.flinch > 0 ? 'hurt' : boss.telegraph > 0 ? 'raise' : 'walk';
+      const { canvas, pad } = kingCrabFrame(w, h, d.palette, Math.floor(t * 8) % 8, pose);
+      const bob = pose === 'walk' ? Math.round(Math.abs(Math.sin(t * 8)) * 1.5) : pose === 'raise' ? -2 : 0;
+      ctx.drawImage(canvas, Math.round(sx - w / 2 - pad), Math.round(sy - h / 2 - pad - bob));
+      if (boss.flinch > 0.3) {
+        // hit flash
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.35;
+        ctx.drawImage(canvas, Math.round(sx - w / 2 - pad), Math.round(sy - h / 2 - pad - bob));
+        ctx.globalAlpha = 1;
+        ctx.globalCompositeOperation = 'source-over';
+      }
+    } else if (d.shape === 'eel') {
       drawEel(ctx, Math.round(sx), Math.round(sy), w, h, boss.facing, t * 3, d.palette);
     } else {
       const frame = Math.floor(t * 3) % 4;
@@ -177,7 +191,7 @@ export class Renderer {
       const p = boss.weakPointPos(i);
       const px = Math.round(p.x - camX + (sx - (boss.x - camX)));
       const py = Math.round(p.y - camY);
-      if (i < boss.damage) {
+      if (i < Math.floor(boss.damage / d.hits)) {
         ctx.fillStyle = '#2a0a10';
         ctx.fillRect(px - 2, py - 1, 5, 3);
         ctx.fillStyle = '#5a1a20';

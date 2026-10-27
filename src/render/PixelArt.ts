@@ -100,6 +100,10 @@ export function creatureSprite(def: SpeciesDefinition, variant: VariantId, w: nu
     case 'eye': drawEye(P, w, h, pal, frame); break;
     case 'shark': drawShark(P, w, h, pal, frame); break;
     case 'chest': drawChest(P, w, h, pal, frame); break;
+    case 'puffer': drawPuffer(P, w, h, pal, frame); break;
+    case 'seahorse': drawSeahorse(P, w, h, pal, frame); break;
+    case 'hermit': drawHermit(P, w, h, pal, frame); break;
+    case 'ray': drawRay(P, w, h, pal, frame); break;
     case 'eel': break; // drawn live (segmented)
   }
   if (variant === 'mutant' && def.shapeParts !== 'eye') {
@@ -392,6 +396,96 @@ function drawAngler(P: Painter, w: number, h: number, pal: SpeciesPalette, frame
   P.line(sx, sy, sx + 4, sy - 5, pal.light);
   P.line(sx + 4, sy - 5, sx + 9, sy - 4 + sway, pal.light);
   P.rect(sx + 9, sy - 5 + sway, 2, 2, pal.accent);
+}
+
+function drawPuffer(P: Painter, w: number, h: number, pal: SpeciesPalette, frame: number): void {
+  const cx = w * 0.55, cy = h / 2, r = Math.min(w, h) / 2 - 1.5;
+  // spikes all around
+  for (let k = 0; k < 12; k++) {
+    const a = (k / 12) * Math.PI * 2 + (frame % 2) * 0.1;
+    P.p(cx + Math.cos(a) * (r + 1.2), cy + Math.sin(a) * (r + 1.2), pal.accent);
+  }
+  shadedEllipse(P, cx, cy, r, r, pal);
+  for (let k = 0; k < 6; k++) P.p(cx - r * 0.5 + (k % 3) * r * 0.5, cy + (k < 3 ? -1 : 2), pal.accent);
+  // little tail and fins
+  const wag = [0, 1, 0, -1][frame % 4];
+  P.rect(0, Math.round(cy - 1 + wag), 2, 3, pal.dark);
+  P.p(Math.round(cx), Math.round(cy + r) - 1 + (frame % 2), pal.dark);
+  // big eye + pouty mouth
+  P.rect(Math.round(cx + r * 0.35), Math.round(cy - r * 0.45), 2, 2, '#ffffff');
+  P.p(Math.round(cx + r * 0.35) + 1, Math.round(cy - r * 0.45) + 1, pal.eye);
+  P.rect(w - 2, Math.round(cy), 2, 1, '#c04a3a');
+}
+
+function drawSeahorse(P: Painter, w: number, h: number, pal: SpeciesPalette, frame: number): void {
+  const sway = [0, 1, 0, -1][frame % 4] * 0.5;
+  // curled tail
+  for (let i = 0; i < 6; i++) {
+    const a = i * 0.9;
+    P.p(w * 0.4 + Math.cos(a) * (2.5 - i * 0.3), h - 3 + Math.sin(a) * 2, pal.dark);
+  }
+  // body: stacked segments leaning forward
+  for (let y = 2; y < h - 3; y++) {
+    const t = y / h;
+    const bw = Math.max(2, Math.round(3.5 * Math.sin(t * Math.PI) + 1));
+    const x0 = Math.round(w * 0.3 + Math.sin(t * 3) * 1.2 + sway * t);
+    for (let x = 0; x < bw; x++) P.p(x0 + x, y, x === 0 ? pal.dark : y % 2 ? pal.main : pal.light);
+  }
+  // head + snout
+  P.rect(Math.round(w * 0.35), 0, 3, 3, pal.main);
+  P.rect(Math.round(w * 0.35) + 3, 1, 3, 1, pal.dark);
+  P.p(Math.round(w * 0.35) + 1, 1, pal.eye);
+  P.p(Math.round(w * 0.35), 0, pal.accent);
+  // dorsal fin flutter
+  P.p(Math.round(w * 0.3) - 1, Math.round(h * 0.5) + (frame % 2), pal.accent);
+}
+
+function drawHermit(P: Painter, w: number, h: number, pal: SpeciesPalette, frame: number): void {
+  const step = frame % 2;
+  // legs and claw peeking out (facing right)
+  for (let i = 0; i < 3; i++) {
+    const lx = Math.round(w * 0.55 + i * 2);
+    P.line(lx, h - 4, lx + 1, h - 1 - ((i + step) % 2), pal.main);
+  }
+  P.rect(w - 4, h - 6, 3, 3, pal.main);
+  P.p(w - 2, h - 6, pal.light);
+  // eye stalks
+  P.p(w - 5, h - 9, pal.eye);
+  P.p(w - 5, h - 8, pal.main);
+  // spiral shell
+  const cx = w * 0.4, cy = h * 0.48, r = Math.min(w * 0.38, h * 0.48);
+  shadedEllipse(P, cx, cy, r, r * 0.95, { ...pal, main: pal.accent, light: '#ffffff', dark: '#c8a88a' });
+  for (let i = 0; i < 14; i++) {
+    const a = i * 0.55;
+    const rr = r * (1 - i / 16);
+    P.p(cx + Math.cos(a) * rr * 0.7, cy + Math.sin(a) * rr * 0.7, '#a07a5a');
+  }
+  P.p(Math.round(cx), Math.round(cy), '#7a5a3a');
+}
+
+function drawRay(P: Painter, w: number, h: number, pal: SpeciesPalette, frame: number): void {
+  const flap = [0, 1, 2, 1][frame % 4];
+  const cx = w * 0.55, cy = h * 0.5;
+  // diamond wings seen from the side-top, flapping
+  for (let x = 0; x < w; x++) {
+    const u = (x - cx) / (w * 0.45);
+    if (Math.abs(u) > 1.05) continue;
+    const span = (1 - Math.abs(u)) * h * 0.5;
+    const tipLift = Math.abs(u) > 0.5 ? (Math.abs(u) - 0.5) * flap * 2.2 : 0;
+    const top = Math.round(cy - span * 0.55 - tipLift);
+    const bot = Math.round(cy + span * 0.45 - tipLift * 0.6);
+    for (let y = top; y <= bot; y++) P.p(x, y, y === top ? pal.dark : y > cy + 1 ? pal.light : pal.main);
+  }
+  // long thin tail
+  for (let x = 0; x < w * 0.12; x++) P.p(x, Math.round(cy + (x % 3 === 0 ? 0 : 1)), pal.dark);
+  // cephalic fins + eye
+  P.rect(w - 3, Math.round(cy - 2), 2, 1, pal.dark);
+  P.rect(w - 3, Math.round(cy + 1), 2, 1, pal.dark);
+  P.p(Math.round(w * 0.82), Math.round(cy - 1), '#ffffff');
+  P.p(Math.round(w * 0.82) + 1, Math.round(cy - 1), pal.eye);
+  // pale spots
+  P.p(Math.round(cx), Math.round(cy - 1), pal.accent);
+  P.p(Math.round(cx + 3), Math.round(cy - 2), pal.accent);
 }
 
 function drawShark(P: Painter, w: number, h: number, pal: SpeciesPalette, frame: number): void {
