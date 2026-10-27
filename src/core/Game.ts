@@ -1,6 +1,6 @@
 import { CONFIG, VIEW_H, VIEW_W } from '../config';
 import { BAITS, BAITS_BY_ID, baitAttracts, type BaitDef } from '../entities/Baits';
-import { Boss, CHECKPOINTS, checkpointUnlocked, nextBoss, type BossDef } from '../entities/Boss';
+import { BOSSES, Boss, CHECKPOINTS, bossAwake, checkpointUnlocked, nextBoss, type BossDef } from '../entities/Boss';
 import { Claw, type ClawState } from '../entities/Claw';
 import { updateSchool, type Creature, type CreatureEvent } from '../entities/Creature';
 import { findPathHit, resolveStrike } from '../entities/Hit';
@@ -49,6 +49,17 @@ export interface RunSummary {
   kg: number;
   quota: QuotaOutcome;
   quotaTargetKg: number;
+  clawBroken: boolean;
+}
+
+export interface BossShot {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  t: number;
+  color: string;
+  dark: string;
 }
 
 export interface RunHud {
@@ -62,7 +73,7 @@ export interface RunHud {
   frenzy: number;
   /** 0..1 turbo gauge */
   turbo: number;
-  boss: { name: string; hp: number; max: number; open: boolean } | null;
+  boss: { name: string; hp: number; max: number; open: boolean; hearts: number } | null;
   quota: { kg: number; target: number; divesLeft: number };
   bait: { name: string; count: number; color: string };
 }
@@ -110,6 +121,10 @@ export class Game {
   current = { t: 0, dir: 1 };
   runKg = 0;
   baits: ActiveBait[] = [];
+  /** claw integrity during guardian fights */
+  hearts = 3;
+  shots: BossShot[] = [];
+  private clawBroken = false;
   private bossesDefeated: string[] = [];
   private weakPointsHit = 0;
   private ordersCompleted: string[] = [];
@@ -238,6 +253,9 @@ export class Game {
     this.current = { t: 0, dir: 1 };
     this.runKg = 0;
     this.baits = [];
+    this.hearts = 3;
+    this.shots = [];
+    this.clawBroken = false;
     this.bossesDefeated = [];
     this.weakPointsHit = 0;
     this.ordersCompleted = [];
@@ -311,7 +329,9 @@ export class Game {
       kg: this.runKg,
       quota,
       quotaTargetKg,
+      clawBroken: this.clawBroken,
     };
+    this.shots = [];
     this.baits = [];
     this.claw.held = [];
     this.frenzy = 0;
@@ -420,6 +440,7 @@ export class Game {
     }
 
     this.updateBoss(dt);
+    this.updateShots(dt);
     this.updateEvents(dt);
 
     // aim + strike (touch: the claw stays centered and dives down its column)
@@ -461,7 +482,7 @@ export class Game {
       combo: this.combo.count,
       frenzy: this.frenzy > 0 ? this.frenzy / stats.frenzySeconds : 0,
       turbo: this.turbo / stats.turboSeconds,
-      boss: b ? { name: b.def.name, hp: b.hp, max: b.total, open: b.open } : null,
+      boss: b ? { name: b.def.name, hp: b.hp, max: b.total, open: b.open, hearts: this.hearts } : null,
       quota: { kg: this.save.quota.deliveredKg + this.runKg, target: quotaTarget(this.save.quota.tier), divesLeft: this.save.quota.divesLeft },
       bait: this.baitHud(),
     });
@@ -473,16 +494,18 @@ export class Game {
   private applyBarrier(): void {
     const nb = nextBoss(this.save.bosses);
     // the claw column must be able to sweep the whole guardian
-    if (this.cam.clampFocus(nb ? nb.x + nb.w * 0.5 + 12 : Infinity) && this.time - this.barrierHint > 6) {
+    if (this.cam.clampFocus(nb ? nb.x + nb.w * 0.5 + 12 : Infinity) && nb && this.time - this.barrierHint > 6) {
       this.barrierHint = this.time;
-      this.effects.text(this.cam.x + VIEW_W * 0.8, this.cam.y + 120, 'CORRENTEZA BLOQUEIA!', '#9fd8e8');
+      const left = nb.rage - (this.save.bossRage[nb.id] ?? 0);
+      if (left > 0) this.onBanner(`${nb.name.toUpperCase()} DORME`, `A correnteza dele bloqueia o caminho. Capture mais ${left} bicho(s) deste bioma para provocá-lo.`, '#9fd8e8');
+      else this.effects.text(this.cam.x + VIEW_W * 0.8, this.cam.y + 120, 'CORRENTEZA BLOQUEIA!', '#9fd8e8');
     }
   }
 
   private updateBoss(dt: number): void {
     const nb = nextBoss(this.save.bosses);
     const centerX = this.cam.x + VIEW_W / 2;
-    if (!this.boss && nb && Math.abs(nb.x - centerX) < 650) {
+    if (!this.boss && nb && bossAwake(nb, this.save.bossRage) && Math.abs(nb.x - centerX) < 650) {
       this.boss = new Boss(nb, this.save.bossDamage[nb.id] ?? 0);
       if (!this.bossIntroShown.has(nb.id)) {
         this.bossIntroShown.add(nb.id);
@@ -498,6 +521,7 @@ export class Game {
     }
     const ev = boss.update(dt, (x) => this.terrain.seabedY(x));
     if (ev === 'slam') {
+      this.throwShots(boss);
       this.effects.shake = Math.max(this.effects.shake, 6);
       this.effects.burst('ring', boss.x, boss.y + boss.def.h * 0.4, 1, 0, 0.6, ['#ffffff'], 60);
       const p = paletteAt(boss.x);
@@ -510,6 +534,57 @@ export class Game {
         this.vibrate(60);
       }
       for (const c of this.spawn.creatures) if (!c.frozen && Math.abs(c.x - boss.x) < 140) c.notifyStrike(boss.x, c.y, 0.5);
+    }
+  }
+
+  /** The guardian hurls rocks (or zaps) at the claw: dodge them with the arrows. */
+  private throwShots(boss: Boss): void {
+    const sh = boss.def.shot;
+    const tx = this.claw.x;
+    const ty = this.cam.y + CONFIG.claw.restTipY - 8;
+    for (let k = 0; k < sh.count; k++) {
+      const x = boss.x + (this.rng() - 0.5) * boss.def.w * 0.5;
+      const y = boss.y - boss.def.h * 0.35;
+      const aimX = tx + (k - (sh.count - 1) / 2) * 24 + (this.rng() - 0.5) * 6;
+      const d = Math.hypot(aimX - x, ty - y) || 1;
+      const sp = sh.speed * (0.9 + this.rng() * 0.25);
+      this.shots.push({ x, y, vx: ((aimX - x) / d) * sp, vy: ((ty - y) / d) * sp, t: 0, color: sh.color, dark: sh.dark });
+    }
+  }
+
+  private updateShots(dt: number): void {
+    const headY = this.claw.tipY - 8;
+    for (let i = this.shots.length - 1; i >= 0; i--) {
+      const p = this.shots[i];
+      p.t += dt;
+      p.x += p.vx * dt;
+      p.y += p.vy * dt;
+      const onHead = Math.hypot(p.x - this.claw.x, p.y - headY) < 11;
+      const onShaft = Math.abs(p.x - this.claw.x) < 4 && p.y > this.cam.y && p.y < headY;
+      if (onHead || onShaft) {
+        this.shots.splice(i, 1);
+        this.hurtClaw(p.x, p.y);
+        continue;
+      }
+      if (p.t > 4 || p.y < this.cam.y - 30) this.shots.splice(i, 1);
+    }
+  }
+
+  private hurtClaw(x: number, y: number): void {
+    if (this.clawBroken) return;
+    this.hearts--;
+    this.timeLeft = Math.max(0.1, this.timeLeft - 3);
+    this.claw.extraCooldownMs += 500;
+    this.effects.shake = 9;
+    this.effects.flash = 0.5;
+    this.effects.text(x, y + 14, this.hearts > 0 ? 'DANO! -3s' : 'GARRA DESTRUÍDA!', '#ff4a5a', true);
+    this.effects.burst('spark', x, y, 14, 90, 0.5, ['#ff4a5a', '#ffd0a0', '#ffffff']);
+    this.vibrate([90, 40, 90]);
+    this.audio.play('resist');
+    if (this.hearts <= 0) {
+      this.clawBroken = true;
+      this.onBanner('GARRA DESTRUÍDA!', 'O guardião venceu desta vez. Melhore a garra e volte.', '#ff4a5a');
+      this.timeLeft = Math.min(this.timeLeft, 1.2);
     }
   }
 
@@ -964,6 +1039,7 @@ export class Game {
         this.audio.play('capture');
       }
       this.orderEvent({ type: 'capture', speciesId: c.def.id, rarity: c.def.rarity, variant: c.variant });
+      this.feedRage(c.x);
     }
     const variantLabel = VARIANTS[c.variant].label;
     const extra = [variantLabel ? variantLabel.toUpperCase() : '', this.combo.count > 1 ? `COMBO x${this.combo.count}` : '', frenzyMult > 1 ? 'FRENESI' : '']
@@ -1000,6 +1076,19 @@ export class Game {
     }
     if (tier >= 2) fx.flash = Math.max(fx.flash, 0.4 + tier * 0.1);
     fx.burst('star', c.x, c.y, 6 + tier * 2, 60, 0.45, ['#ffffff', RARITY_COLOR[c.def.rarity], '#ffe14a']);
+  }
+
+  /** Taking creatures from a guardian's biome slowly wakes it up. */
+  private feedRage(x: number): void {
+    const nb = nextBoss(this.save.bosses);
+    if (!nb || biomeIndexAt(x) !== BOSSES.indexOf(nb) || bossAwake(nb, this.save.bossRage)) return;
+    this.save.bossRage[nb.id] = (this.save.bossRage[nb.id] ?? 0) + 1;
+    if (bossAwake(nb, this.save.bossRage)) {
+      this.onBanner(`${nb.name.toUpperCase()} ACORDOU!`, 'Você tirou comida demais do território dele. Ele espera no fim do bioma.', '#ff6a5a');
+      this.audio.play('resist');
+      this.effects.shake = 8;
+      this.vibrate([60, 60, 120]);
+    }
   }
 
   private deliverHeld(): void {
@@ -1056,6 +1145,7 @@ export class Game {
       current: this.current.t > 0 ? Math.min(1, this.current.t) * this.current.dir : 0,
       frenzy: playing && this.frenzy > 0 ? this.frenzy / this.stats.frenzySeconds : 0,
       baits: playing ? this.baits : [],
+      shots: playing ? this.shots : [],
     });
   }
 

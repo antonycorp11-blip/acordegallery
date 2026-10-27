@@ -2,7 +2,7 @@ import { CONFIG } from '../config';
 import type { Game, RunSummary } from '../core/Game';
 import { clearSave, defaultSave } from '../core/Save';
 import { BAITS, BAITS_BY_ID } from '../entities/Baits';
-import { BOSSES, CHECKPOINTS, checkpointUnlocked, nextBoss } from '../entities/Boss';
+import { BOSSES, CHECKPOINTS, LORE_INTRO, bossAwake, checkpointUnlocked, nextBoss } from '../entities/Boss';
 import { CLAWS, type ClawDefinition } from '../entities/ClawsCatalog';
 import { RARITIES, RARITY_COLOR, RARITY_LABEL, SPECIES, SPECIES_BY_ID, VARIANTS, isCreature, strengthRequired } from '../entities/Species';
 import { paintClaw } from '../render/ClawArt';
@@ -63,6 +63,12 @@ export class Screens {
         this.rerender();
         break;
       }
+      case 'loreOk':
+        s.loreSeen = true;
+        g.persist();
+        g.audio.play('click');
+        this.rerender();
+        break;
       case 'claim':
         if (claimOrder(s, Number(id))) { g.persist(); g.audio.play('buy'); }
         this.rerender();
@@ -253,6 +259,7 @@ export class Screens {
       <b>Capture: ${esc(b.name)}</b>
       <p class="desc">Bloqueia o fim do bioma ${esc(BIOMES[Math.min(idx, BIOMES.length - 1)].name)} (distância ${b.x.toLocaleString('pt-BR')}). Agarre os pontos fracos brilhantes quando abrirem.</p>
       <div class="obj-row"><div class="pips boss-pips">${pips}</div><span>${dmg}/${b.weakPoints.length * b.hits} agarrões nos pontos fracos</span></div>
+      <div class="obj-row">${bossAwake(b, s.bossRage) ? '<span class="awake">ACORDADO — está esperando no fim do bioma</span>' : `<span>Dormindo. Fúria: ${s.bossRage[b.id] ?? 0}/${b.rage} bichos capturados no bioma dele</span>`}</div>
       <div class="obj-row"><span class="${strong ? 'ok' : 'lock'}">Força ${st.strength.toFixed(1)} / ${b.strength.toFixed(1)}${strong ? ' ✔' : ' — compre Força na árvore'}</span></div>
       <div class="obj-row reward">Recompensa: ${$(b.coins)} · ${b.stars}★ · novo ponto de partida</div>
     </div>`;
@@ -338,8 +345,10 @@ export class Screens {
           ${b ? `<span class="w-kick">GUARDIÃO ${BOSSES.indexOf(b) + 1}/${BOSSES.length}</span>
           <b>${esc(b.name)}</b>
           <div class="pips boss-pips">${b.weakPoints.map((_, i) => `<i class="${i < bossDone ? 'done' : ''}"></i>`).join('')}</div>
-          <span class="${st.strength >= b.strength ? 'ok' : 'lock'}">força ${st.strength.toFixed(1)}/${b.strength.toFixed(1)}</span>
-          <span class="w-sub">a ${b.x.toLocaleString('pt-BR')} de distância</span>` : '<span class="w-kick">ABISMO CONQUISTADO</span><b>Renasça!</b>'}
+          ${bossAwake(b, s.bossRage)
+            ? `<span class="awake">ACORDADO! espera a ${b.x.toLocaleString('pt-BR')}</span>`
+            : `<span class="w-sub">dormindo · fúria ${s.bossRage[b.id] ?? 0}/${b.rage}</span><div class="bar rage"><i style="width:${Math.round(((s.bossRage[b.id] ?? 0) / b.rage) * 100)}%"></i></div>`}
+          <span class="${st.strength >= b.strength ? 'ok' : 'lock'}">força ${st.strength.toFixed(1)}/${b.strength.toFixed(1)}</span>` : '<span class="w-kick">ABISMO CONQUISTADO</span><b>Renasça!</b>'}
         </button>
         <button class="widget right" data-act="tab" data-id="missions">
           <span class="w-kick q">COTA · DIA ${q.day}</span>
@@ -348,6 +357,12 @@ export class Screens {
           <span class="w-sub">${q.divesLeft} mergulho(s) · licença ${q.license}</span>
           <span class="w-kick">ENCOMENDAS ${ready ? `<i class="badge">${ready} pronta(s)</i>` : `${s.orders.length}`}</span>
         </button>
+        ${s.loreSeen ? '' : `<div class="lore-modal"><div class="lore-card">
+          <div class="w-kick">REGISTRO DA COOPERATIVA ABISSAL</div>
+          <h2>O METEORO</h2>
+          <p>${esc(LORE_INTRO)}</p>
+          <button class="dive-btn small" data-act="loreOk">ACEITAR O CONTRATO</button>
+        </div></div>`}
         <div class="dock">
           ${tile('tab', 'skills', iconUrl('variants', '#ffd84a'), 'Habilidades', n ? String(n) : '')}
           ${tile('tab', 'workshop', iconUrl('opening', '#cfefff'), 'Oficina')}
@@ -360,7 +375,12 @@ export class Screens {
   }
 
   private missionsHtml(): string {
-    return `<div class="missions">${this.objectiveHtml()}${this.quotaHtml()}${this.ordersHtml()}</div>`;
+    const s = this.game.save;
+    const entries = BOSSES.map((b, i) => (s.bosses.includes(b.id)
+      ? `<p><b>${i + 1}. ${esc(b.name)}</b> — ${esc(b.lore)}</p>`
+      : `<p class="locked">${i + 1}. ??? — capture o guardião para ler.</p>`)).join('');
+    return `<div class="missions">${this.objectiveHtml()}${this.quotaHtml()}${this.ordersHtml()}</div>
+      <div class="card diary"><div class="obj-kicker">DIÁRIO · O METEORO</div><p>${esc(LORE_INTRO)}</p>${entries}</div>`;
   }
 
   // ───────────────────────── tabs

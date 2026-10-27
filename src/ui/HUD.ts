@@ -168,13 +168,14 @@ export class HUD {
       this.baitTxt.textContent = `${h.bait.name} ×${h.bait.count}`;
       this.onBait(h.bait.name, h.bait.count, h.bait.color);
     }
-    const bk = h.boss ? `${h.boss.name}|${h.boss.hp}|${h.boss.open}` : '';
+    const bk = h.boss ? `${h.boss.name}|${h.boss.hp}|${h.boss.open}|${h.boss.hearts}` : '';
     if (bk !== this.last.boss) {
       this.last.boss = bk;
       this.bossBox.classList.toggle('hidden', !h.boss);
       if (h.boss) {
         const pips = Array.from({ length: h.boss.max }, (_, i) => `<i class="${i < h.boss!.max - h.boss!.hp ? 'done' : ''}"></i>`).join('');
-        this.bossBox.innerHTML = `<b>${h.boss.name.toUpperCase()}</b><div class="pips">${pips}</div><span class="${h.boss.open ? 'open' : ''}">${h.boss.open ? 'PONTO FRACO ABERTO!' : 'protegido…'}</span>`;
+        const hearts = Array.from({ length: 3 }, (_, i) => `<em class="${i < h.boss!.hearts ? '' : 'lost'}">♥</em>`).join('');
+        this.bossBox.innerHTML = `<b>${h.boss.name.toUpperCase()}</b><div class="pips">${pips}</div><div class="hearts">GARRA ${hearts}</div><span class="${h.boss.open ? 'open' : ''}">${h.boss.open ? 'PONTO FRACO ABERTO!' : 'protegido…'}</span>`;
       }
     }
   }

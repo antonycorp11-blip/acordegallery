@@ -9,7 +9,7 @@ import type { Terrain } from '../world/Terrain';
 import type { Effects } from './Effects';
 import { creatureSprite, drawEel, glowSprite, makeCanvas, variantPalette } from './PixelArt';
 import { Scenery } from './Scenery';
-import { kingCrabFrame } from './BossArt';
+import { kingCrabFrame, meteorSprite } from './BossArt';
 
 export interface RenderView {
   cam: Camera;
@@ -34,6 +34,7 @@ export interface RenderView {
   /** 0..1 frenzy time left */
   frenzy: number;
   baits: readonly { def: { color: string; dark: string; seconds: number }; x: number; y: number; t: number; sinking: boolean }[];
+  shots: readonly { x: number; y: number; vx: number; vy: number; t: number; color: string; dark: string }[];
 }
 
 export class Renderer {
@@ -78,10 +79,27 @@ export class Renderer {
     this.scenery.drawBackground(camX, camY, v.time);
     if (v.barrierX !== null) this.drawBarrier(ctx, v.barrierX - camX, v.time);
     this.scenery.drawTerrain(v.terrain, camX, camY, v.time);
+    this.drawMeteor(ctx, v, camX, camY);
     if (v.boss) this.drawBoss(ctx, v.boss, camX, camY, v.time);
     for (const b of v.baits) this.drawBait(ctx, b, camX, camY, v.time);
     this.drawCreatures(ctx, v, camX, camY);
     this.drawParticles(ctx, v.effects, camX, camY);
+    for (const p of v.shots) {
+      const x = Math.round(p.x - camX);
+      const y = Math.round(p.y - camY);
+      const sp = Math.hypot(p.vx, p.vy) || 1;
+      ctx.fillStyle = p.color;
+      ctx.globalAlpha = 0.35;
+      for (let k = 1; k <= 3; k++) ctx.fillRect(Math.round(x - (p.vx / sp) * k * 3), Math.round(y - (p.vy / sp) * k * 3), 2, 2);
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = p.dark;
+      ctx.fillRect(x - 3, y - 2, 6, 5);
+      ctx.fillRect(x - 2, y - 3, 4, 7);
+      ctx.fillStyle = p.color;
+      ctx.fillRect(x - 2, y - 2, 4, 4);
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(x - 1, y - 2, 1, 1);
+    }
     if (v.current !== 0) this.drawCurrent(ctx, v.current, v.time);
     this.scenery.drawFront(v.terrain, camX, camY, v.time);
 
@@ -216,6 +234,22 @@ export class Renderer {
         if (i === boss.activeWeak) ctx.fillRect(px - 2, py - 2, 5, 1);
       }
     }
+  }
+
+  /** The alien meteor at the very end of the abyss. */
+  private drawMeteor(ctx: CanvasRenderingContext2D, v: RenderView, camX: number, camY: number): void {
+    const MX = 59600;
+    if (Math.abs(MX - (camX + VIEW_W / 2)) > VIEW_W + 120) return;
+    const spr = meteorSprite();
+    const x = Math.round(MX - camX - spr.width / 2);
+    const y = Math.round(v.terrain.seabedY(MX) - camY - spr.height + 16);
+    ctx.globalCompositeOperation = 'lighter';
+    ctx.globalAlpha = 0.35 + 0.15 * Math.sin(v.time * 1.7);
+    const g = glowSprite(90, '#7aff3a');
+    ctx.drawImage(g, x + spr.width / 2 - 90, y + spr.height / 2 - 100);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.drawImage(spr, x, y);
   }
 
   private drawBait(ctx: CanvasRenderingContext2D, b: RenderView['baits'][number], camX: number, camY: number, t: number): void {

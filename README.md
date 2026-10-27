@@ -2,6 +2,8 @@
 
 Jogo incremental/arcade 2D de capturas submarinas. Uma garra vem do topo da tela e dá um golpe seco (**PÁ!**) para pegar animais que podem fugir, esquivar ou resistir. Avance para a **direita**: o mar fica mais fundo, mais estranho e mais valioso, até chegar aos **guardiões** que bloqueiam cada bioma. Cada mergulho começa com **30 segundos**; com o dinheiro você compra habilidades, garras e muito mais.
 
+**História:** há décadas um meteoro alienígena caiu no ponto mais fundo do oceano e sua radiação reescreveu o DNA da vida marinha. Daí vêm os peixes que brilham, os mutantes e os guardiões gigantes. A Cooperativa Abissal contrata você para coletar espécimes e chegar até o meteoro, que aparece de verdade no fim do Abismo. Um diário, na aba Missões, libera um trecho da história a cada guardião capturado.
+
 Toda a arte é **pixel art desenhada por código** em Canvas 2D (270 px de altura, ampliada com nearest-neighbor). Não há imagens externas.
 
 ## Como rodar
@@ -38,6 +40,8 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
   - Falhar custa multa de 15% do saldo e um nível de licença, e a cota se repete.
 
 - **Mundo longo**: cada bioma tem milhares de metros de distância (o primeiro guardião está a 5.800). Atravessar um bioma leva vários mergulhos e melhorias; no meio de cada bioma há uma **boia** que vira ponto de partida quando você a alcança.
+- **Guardiões dormem até serem provocados**: cada bicho capturado no bioma de um guardião enche a **fúria** dele (você está tirando a comida dele). Quando enche, ele **acorda** e espera no fim do bioma; até lá, a correnteza dele bloqueia o caminho.
+- **Guardiões atacam**: arremessam pedras (ou orbes elétricos) na direção da garra. Desvie com ◀ ▶. A garra tem 3 ♥ na luta, e cada acerto custa um coração e 3 s. Sem corações, a garra quebra e o mergulho acaba.
 - **Guardiões de bioma**: cinco chefes gigantes bloqueiam o caminho com uma parede de correnteza: Caranguejo-Rei, Moreia Colossal, Polvo do Naufrágio, Água-Viva Catedral e Leviatã Primordial.
   - Para capturá-los, agarre um a um os **pontos fracos brilhantes** quando abrirem (cada um 2 vezes), e só com força suficiente; o primeiro já exige Força na árvore. O dano persiste entre mergulhos. O Caranguejo-Rei tem arte e animação próprias: anda, abre e fecha as pinças, ergue-as para atacar e reage ao dano.
   - Eles avisam antes de atacar (brilho vermelho). O ataque atordoa a garra que estiver perto.
@@ -107,7 +111,7 @@ scripts/smoke.cjs      smoke test com Playwright
 
 ## Testes
 
-- `npm test`: 61 testes unitários, cobrindo:
+- `npm test`: 63 testes unitários, cobrindo:
   - profundidade, biomas e determinismo do terreno;
   - custos e efeitos dos upgrades, estrutura das duas árvores e revelação de nós, garras com estrelas;
   - save/load e recuperação de save corrompido;
@@ -116,7 +120,7 @@ scripts/smoke.cjs      smoke test com Playwright
   - spawn (habitat, sorte, densidade, variantes, teto de entidades);
   - economia e combo;
   - encomendas, aquário e coleções, presente diário e prestígio;
-  - guardiões (pontos fracos, ordem, pontos de partida);
+  - guardiões (pontos fracos, ordem, pontos de partida, fúria para acordar);
   - cota diária, iscas e trilho da garra até a borda esquerda.
 - `npm run smoke`: no Chromium, faz uma run completa:
   1. inicia a run (00:30) e captura um animal;

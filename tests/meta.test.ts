@@ -203,3 +203,23 @@ describe('guardians', () => {
     expect(computeStats(s).strength).toBeGreaterThanOrEqual(BOSSES[0].strength);
   });
 });
+
+describe('guardian wake-up (rage)', () => {
+  it('sleeps until enough creatures are taken from its biome, and prestige resets it', async () => {
+    const { bossAwake } = await import('../src/entities/Boss');
+    const s = defaultSave();
+    expect(bossAwake(BOSSES[0], s.bossRage)).toBe(false);
+    s.bossRage.kingCrab = BOSSES[0].rage - 1;
+    expect(bossAwake(BOSSES[0], s.bossRage)).toBe(false);
+    s.bossRage.kingCrab++;
+    expect(bossAwake(BOSSES[0], s.bossRage)).toBe(true);
+    for (const b of BOSSES) {
+      expect(b.rage).toBeGreaterThan(30);
+      expect(b.lore.length).toBeGreaterThan(40);
+    }
+    s.bosses = ['kingCrab', 'colossalEel'];
+    s.earnedThisLife = 5000;
+    doPrestige(s);
+    expect(s.bossRage).toEqual({});
+  });
+});

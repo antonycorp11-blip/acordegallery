@@ -30,6 +30,8 @@ function assert(cond, msg) {
     await page.evaluate(() => localStorage.clear());
     await page.reload();
     await page.waitForTimeout(800);
+    // first launch shows the meteor story
+    await page.click('[data-act="loreOk"]');
 
     await page.click('[data-act="start"]');
     await page.waitForTimeout(600);

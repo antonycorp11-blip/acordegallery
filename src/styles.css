@@ -887,3 +887,19 @@ body.touch #hud-bait { display: none; }
 .tile.glow { background: linear-gradient(180deg, #b04ab0, #7a2a8a 55%, #4a1a5a); }
 .missions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: calc(var(--u) * 1.6); align-items: start; }
 .missions .card { font-size: 0.85em; }
+
+.awake { color: #ff6a5a; font-weight: 900; animation: pulse 0.8s steps(2) infinite; display: inline-block; }
+.bar.rage { width: 100%; height: calc(var(--u) * 0.9); background: #1a3f58; border-radius: 2px; overflow: hidden; }
+.bar.rage i { display: block; height: 100%; background: #ff6a5a; }
+#hud-boss .hearts { font-family: var(--pixel); color: #ffd0c8; }
+#hud-boss .hearts em { font-style: normal; color: #ff3a5a; margin-left: 2px; }
+#hud-boss .hearts em.lost { color: #3a1a20; }
+.lore-modal { position: absolute; inset: 0; background: rgba(2, 8, 14, 0.82); display: flex; align-items: center; justify-content: center; z-index: 20; }
+.lore-card { width: min(78%, calc(var(--u) * 120)); background: linear-gradient(180deg, #14082a, #06131f); border: calc(var(--u) * 0.6) solid #7a3aff; border-radius: calc(var(--u) * 2); padding: calc(var(--u) * 3) calc(var(--u) * 4); display: flex; flex-direction: column; gap: calc(var(--u) * 1.6); align-items: center; text-align: center; box-shadow: 0 0 calc(var(--u) * 8) rgba(122, 58, 255, 0.5); }
+.lore-card h2 { margin: 0; font-family: var(--pixel); font-size: calc(var(--u) * 7); color: #b6ff3a; text-shadow: 0 0 calc(var(--u) * 3) rgba(182, 255, 58, 0.6); }
+.lore-card p { margin: 0; color: #d8d0ff; line-height: 1.45; font-size: 0.95em; }
+.dive-btn.small { font-size: calc(var(--u) * 3.6); padding: calc(var(--u) * 1.4) calc(var(--u) * 4); }
+.diary { margin-top: calc(var(--u) * 1.6); font-size: 0.85em; }
+.diary .obj-kicker { color: #b6ff3a; }
+.diary p { margin: 0; color: #d8d0ff; line-height: 1.4; }
+.diary p.locked { color: #4a6a80; }

@@ -21,6 +21,12 @@ export interface BossDef {
   strength: number;
   /** grabs needed on each weak point */
   hits: number;
+  /** creatures taken from its biome before it wakes up */
+  rage: number;
+  /** projectile thrown when it attacks */
+  shot: { color: string; dark: string; count: number; speed: number };
+  /** diary entry unlocked when it is captured */
+  lore: string;
   coins: number;
   stars: number;
   /** touching the body shocks non-shockproof claws */
@@ -34,15 +40,19 @@ export const BOSSES: BossDef[] = [
     palette: { main: '#e8323a', dark: '#7a1020', light: '#ff8a6a', accent: '#ffd84a', eye: '#1a0008' },
     weakPoints: [{ dx: -0.41, dy: -0.29 }, { dx: 0.41, dy: -0.29 }, { dx: -0.13, dy: -0.22 }, { dx: 0.13, dy: -0.22 }],
     crown: { dx: 0, dy: -0.42 },
-    strength: 3.2, hits: 2, coins: 1200, stars: 4,
-    intro: 'Guarda a saída do recife. Agarre os pontos brilhantes quando abrirem — cada um 2 vezes!',
+    strength: 3.2, hits: 2, coins: 1200, stars: 4, rage: 60,
+    shot: { color: '#9a8a7a', dark: '#4a3a30', count: 3, speed: 120 },
+    lore: 'O Caranguejo-Rei comia os restos que a radiação do meteoro trazia na correnteza. Cresceu cem vezes o tamanho normal — e aprendeu a defender o recife.',
+    intro: 'Você tirou comida demais do recife! Desvie das pedras e agarre cada ponto brilhante 2 vezes.',
   },
   {
     id: 'colossalEel', name: 'Moreia Colossal', x: 14800, shape: 'eel', w: 170, h: 24, hover: 46,
     palette: { main: '#5ad06a', dark: '#1a4a2a', light: '#c8ff9a', accent: '#1a4a2a', eye: '#ffe14a' },
     weakPoints: [{ dx: -0.36, dy: -0.3 }, { dx: -0.12, dy: -0.36 }, { dx: 0.12, dy: -0.4 }, { dx: 0.34, dy: -0.44 }],
     crown: { dx: 0.5, dy: -0.75 },
-    strength: 3.8, hits: 2, coins: 4000, stars: 5,
+    strength: 3.8, hits: 2, coins: 4000, stars: 5, rage: 90,
+    shot: { color: '#7a8a6a', dark: '#2a3a2a', count: 4, speed: 135 },
+    lore: 'A Moreia Colossal seguiu o brilho do meteoro rumo às fendas. Nas suas escamas foram achados cristais que não existem em nenhuma tabela periódica.',
     intro: 'Uma moreia do tamanho de um navio. Precisa de força para segurá-la.',
   },
   {
@@ -50,7 +60,9 @@ export const BOSSES: BossDef[] = [
     palette: { main: '#8a3ad0', dark: '#3a0f6a', light: '#d8a0ff', accent: '#ffe86a', eye: '#14081a' },
     weakPoints: [{ dx: -0.22, dy: -0.3 }, { dx: 0.22, dy: -0.3 }, { dx: 0, dy: -0.44 }, { dx: 0, dy: -0.12 }],
     crown: { dx: 0, dy: -0.54 },
-    strength: 4.6, hits: 2, coins: 10000, stars: 6,
+    strength: 4.6, hits: 2, coins: 10000, stars: 6, rage: 120,
+    shot: { color: '#5a4a3a', dark: '#2a1a10', count: 4, speed: 140 },
+    lore: 'Os navios afundados não foram tempestades: algo no fundo puxava o metal. O Polvo do Naufrágio guarda os destroços como um tesouro... ou como um aviso.',
     intro: 'Mora entre os destroços. Esconde os pontos fracos com frequência.',
   },
   {
@@ -58,7 +70,9 @@ export const BOSSES: BossDef[] = [
     palette: { main: '#4dfff0', dark: '#1a7ec2', light: '#e6fffb', accent: '#ff6fe8', eye: '#ffffff' },
     weakPoints: [{ dx: -0.3, dy: -0.2 }, { dx: 0.3, dy: -0.2 }, { dx: -0.12, dy: -0.38 }, { dx: 0.12, dy: -0.38 }, { dx: 0, dy: -0.1 }],
     crown: { dx: 0, dy: -0.52 },
-    strength: 5.4, hits: 2, coins: 22000, stars: 8, shocking: true,
+    strength: 5.4, hits: 2, coins: 22000, stars: 8, shocking: true, rage: 150,
+    shot: { color: '#7affff', dark: '#1a7ec2', count: 5, speed: 150 },
+    lore: 'A Água-Viva Catedral pulsa no mesmo ritmo do meteoro. Os cientistas da Cooperativa acham que ela é uma antena viva.',
     intro: 'Tocar no corpo dá choque. Só garras isoladas escapam ilesas.',
   },
   {
@@ -69,10 +83,20 @@ export const BOSSES: BossDef[] = [
       { dx: 0.32, dy: -0.18 }, { dx: 0.36, dy: 0.06 }, { dx: -0.16, dy: 0.14 },
     ],
     crown: { dx: 0.12, dy: -0.44 },
-    strength: 6.8, hits: 2, coins: 60000, stars: 12,
+    strength: 6.8, hits: 2, coins: 60000, stars: 12, rage: 200,
+    shot: { color: '#b6ff3a', dark: '#3a1a6a', count: 6, speed: 160 },
+    lore: 'O Leviatã Primordial dormia enrolado no meteoro. Agora que foi capturado, o caminho até a pedra alienígena está livre. O que ela quer com o nosso oceano?',
     intro: 'O guardião final do abismo. Capture-o e o oceano é seu.',
   },
 ];
+
+export const LORE_INTRO =
+  'Há décadas, um meteoro alienígena caiu no ponto mais fundo do oceano. Sua radiação reescreveu o DNA da vida marinha: peixes que brilham, mutantes, criaturas que não deveriam existir — e guardiões gigantes que defendem seus territórios. A Cooperativa Abissal contratou você e sua garra para coletar espécimes, bater as cotas… e chegar até o meteoro.';
+
+/** Rage needed and current progress toward waking a guardian. */
+export function bossAwake(b: BossDef, rage: Record<string, number>): boolean {
+  return (rage[b.id] ?? 0) >= b.rage;
+}
 
 export const BOSSES_BY_ID: Record<string, BossDef> = Object.fromEntries(BOSSES.map((b) => [b.id, b]));
 

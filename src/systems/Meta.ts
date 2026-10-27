@@ -147,6 +147,7 @@ export function doPrestige(save: SaveData): number {
   if (!keepRoutes) {
     save.bosses = [];
     save.bossDamage = {};
+    save.bossRage = {};
     save.checkpoint = 0;
   }
   return gain;

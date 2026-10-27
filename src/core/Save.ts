@@ -47,6 +47,9 @@ export interface SaveData {
   bosses: string[];
   /** weak points already destroyed per boss (persists between runs) */
   bossDamage: Record<string, number>;
+  /** creatures taken from each guardian's biome (wakes it up) */
+  bossRage: Record<string, number>;
+  loreSeen: boolean;
   /** selected starting checkpoint (0 = beach) */
   checkpoint: number;
   orders: OrderState[];
@@ -79,6 +82,8 @@ export function defaultSave(): SaveData {
     earnedThisLife: 0,
     bosses: [],
     bossDamage: {},
+    bossRage: {},
+    loreSeen: false,
     checkpoint: 0,
     orders: [],
     orderSerial: 0,
@@ -121,6 +126,10 @@ export function sanitizeSave(raw: unknown): SaveData {
   if (r.bossDamage && typeof r.bossDamage === 'object') {
     for (const [k, v] of Object.entries(r.bossDamage as Record<string, unknown>)) if (num(v) > 0) d.bossDamage[k] = Math.floor(num(v));
   }
+  if (r.bossRage && typeof r.bossRage === 'object') {
+    for (const [k, v] of Object.entries(r.bossRage as Record<string, unknown>)) if (num(v) > 0) d.bossRage[k] = Math.floor(num(v));
+  }
+  d.loreSeen = r.loreSeen === true;
   if (Array.isArray(r.orders)) {
     const kinds: OrderKind[] = ['catchSpecies', 'catchRarity', 'catchVariant', 'reachDepth', 'runCaptures', 'runCoins', 'combo'];
     for (const o of r.orders) {

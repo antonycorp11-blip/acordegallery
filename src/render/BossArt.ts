@@ -152,3 +152,48 @@ export function kingCrabFrame(w: number, h: number, pal: SpeciesPalette, frame: 
   cache.set(key, c);
   return { canvas: c, pad: PAD };
 }
+
+/** The alien meteor resting at the bottom of the abyss (the reason for all of this). */
+export function meteorSprite(): HTMLCanvasElement {
+  const key = 'meteor';
+  let c = cache.get(key);
+  if (c) return c;
+  const W = 150, H = 90;
+  c = makeCanvas(W, H);
+  const P = new Painter(c);
+  const cx = W / 2, cy = H * 0.62, rx = W * 0.4, ry = H * 0.38;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const dx = (x + 0.5 - cx) / rx;
+      const dy = (y + 0.5 - cy) / ry;
+      const bump = Math.sin(x * 0.31) * 0.06 + Math.sin(y * 0.47 + x * 0.1) * 0.05;
+      const d = dx * dx + dy * dy + bump;
+      if (d > 1) continue;
+      let col = d > 0.86 ? '#140a1e' : dy < -0.4 ? '#4a3a5a' : dy < 0.1 ? '#2e2240' : '#1e1630';
+      // craters
+      for (const [kx, ky, kr] of [[-0.4, -0.2, 0.18], [0.3, 0.1, 0.22], [0.05, -0.45, 0.12]]) {
+        const ex = dx - kx, ey = dy - ky;
+        if (ex * ex + ey * ey < kr * kr) col = ex + ey < 0 ? '#120a1a' : '#5a4a6a';
+      }
+      P.p(x, y, col);
+    }
+  }
+  // glowing alien cracks
+  const crack = (pts: [number, number][]) => {
+    for (let i = 1; i < pts.length; i++) P.line(cx + pts[i - 1][0] * rx, cy + pts[i - 1][1] * ry, cx + pts[i][0] * rx, cy + pts[i][1] * ry, '#b6ff3a');
+  };
+  crack([[-0.7, 0.1], [-0.35, -0.05], [-0.1, 0.25], [0.2, 0.05], [0.55, 0.3]]);
+  crack([[-0.1, 0.25], [0, 0.6]]);
+  crack([[0.2, 0.05], [0.25, -0.5], [0.45, -0.7]]);
+  // alien crystals growing out of it
+  for (const [kx, kh, col] of [[-0.55, 26, '#7a3aff'], [-0.2, 38, '#b6ff3a'], [0.15, 30, '#7a3aff'], [0.45, 22, '#3fffe8']] as [number, number, string][]) {
+    const x0 = cx + kx * rx;
+    const base = cy - Math.sqrt(Math.max(0, 1 - kx * kx)) * ry + 4;
+    for (let y = 0; y < kh; y++) {
+      const ww = Math.max(1, Math.round(4 * (1 - y / kh) + 1));
+      P.rect(Math.round(x0 - ww / 2 + y * 0.15), Math.round(base - y), ww, 1, y % 5 === 0 ? '#ffffff' : col);
+    }
+  }
+  cache.set(key, c);
+  return c;
+}
