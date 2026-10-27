@@ -16,7 +16,7 @@ export function setViewAspect(aspect: number): number {
 export const CONFIG = {
   run: {
     baseSeconds: 30,
-    secondsPerTimeLevel: 5,
+    secondsPerTimeLevel: 3,
     warnSeconds: 5,
   },
   camera: {
@@ -39,7 +39,7 @@ export const CONFIG = {
   },
   claw: {
     restTipY: 38, // screen y of the claw mouth while idle (head fully visible)
-    anticipationMs: 40,
+    anticipationMs: 25,
     closeMs: 50,
     inputBufferMs: 140,
     minStrikeMs: 55,

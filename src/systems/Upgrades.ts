@@ -25,7 +25,8 @@ export const BRANCH_COLOR: Record<Branch, string> = {
 export type StatKey =
   | 'runTime' | 'strikeSpeed' | 'recovery' | 'opening' | 'strength' | 'precision' | 'multi'
   | 'lateral' | 'timeBonus' | 'density' | 'luck' | 'schools' | 'variants' | 'combo' | 'perfect' | 'sonar'
-  | 'value' | 'frenzy' | 'aquarium' | 'clawDiscount' | 'keepRoutes' | 'turbo';
+  | 'value' | 'frenzy' | 'aquarium' | 'clawDiscount' | 'keepRoutes' | 'turbo'
+  | 'stealth' | 'hull' | 'kg' | 'baitTime';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
@@ -53,6 +54,10 @@ export const STAT_TEXT: Record<StatKey, (n: number) => string> = {
   clawDiscount: (n) => `garras ${n * 15}% mais baratas`,
   keepRoutes: (n) => (n > 0 ? 'mantém pontos de partida e guardiões ao renascer' : 'perde as rotas ao renascer'),
   turbo: (n) => `+${n}s de turbo`,
+  stealth: (n) => `bichos reagem ${n * 10}% mais devagar`,
+  hull: (n) => `+${n} ♥ contra guardiões`,
+  kg: (n) => `+${n * 10}% de kg para a cota`,
+  baitTime: (n) => `iscas duram +${n * 25}% e chamam +${n} bicho(s)`,
 };
 
 export interface UpgradeDef {
@@ -66,6 +71,8 @@ export interface UpgradeDef {
   baseCost: number;
   /** Must own at least one level of this node first (null = tree root). */
   parent: string | null;
+  /** Sealed until this guardian is captured (the tree grows with the game). */
+  requiresBoss?: string;
   /** Grid position in the tree (root at 0,0; y grows downward). */
   x: number;
   y: number;
@@ -90,17 +97,17 @@ const NODES: NodeSpec[] = [
     description: 'Menos espera entre um golpe e outro.' },
   { id: 'precision', branch: 'capture', name: 'Precisão', stat: 'precision', maxLevel: 3, baseCost: 110, parent: 'opening', x: -2, y: -2,
     description: 'Pequena tolerância nas bordas dos alvos (sem autoaim).' },
-  { id: 'strength2', branch: 'capture', name: 'Pinça de Aço', stat: 'strength', maxLevel: 3, baseCost: 240, parent: 'strength', x: 1, y: -3,
+  { id: 'strength2', branch: 'capture', name: 'Pinça de Aço', stat: 'strength', maxLevel: 3, baseCost: 384, parent: 'strength', x: 1, y: -3,
     description: 'Ainda mais força para gigantes e mutantes.' },
-  { id: 'strikeSpeed2', branch: 'capture', name: 'Estalo Relâmpago', stat: 'strikeSpeed', maxLevel: 4, baseCost: 280, parent: 'recovery', x: -1, y: -4,
+  { id: 'strikeSpeed2', branch: 'capture', name: 'Estalo Relâmpago', stat: 'strikeSpeed', maxLevel: 4, baseCost: 448, parent: 'recovery', x: -1, y: -4,
     description: 'O golpe vira um estalo. Peixes ariscos quase não reagem.' },
-  { id: 'multi', branch: 'capture', name: 'Captura Múltipla', stat: 'multi', maxLevel: 1, baseCost: 900, parent: 'strength2', x: 1, y: -4,
+  { id: 'multi', branch: 'capture', name: 'Captura Múltipla', stat: 'multi', maxLevel: 1, baseCost: 1440, parent: 'strength2', x: 1, y: -4,
     description: 'Pega mais um bicho se ele estiver dentro da área da garra.' },
-  { id: 'recovery2', branch: 'capture', name: 'Molas Abissais', stat: 'recovery', maxLevel: 4, baseCost: 520, parent: 'strikeSpeed2', x: -1, y: -5,
+  { id: 'recovery2', branch: 'capture', name: 'Molas Abissais', stat: 'recovery', maxLevel: 4, baseCost: 832, parent: 'strikeSpeed2', x: -1, y: -5,
     description: 'Recarga ainda menor.' },
-  { id: 'multi2', branch: 'capture', name: 'Rede de Garras', stat: 'multi', maxLevel: 1, baseCost: 2600, parent: 'multi', x: 1, y: -5,
+  { id: 'multi2', branch: 'capture', name: 'Rede de Garras', stat: 'multi', maxLevel: 1, baseCost: 4160, parent: 'multi', x: 1, y: -5,
     description: 'Mais um alvo por golpe.' },
-  { id: 'opening2', branch: 'capture', name: 'Mandíbula Larga', stat: 'opening', maxLevel: 3, baseCost: 320, parent: 'precision', x: -3, y: -3,
+  { id: 'opening2', branch: 'capture', name: 'Mandíbula Larga', stat: 'opening', maxLevel: 3, baseCost: 512, parent: 'precision', x: -3, y: -3,
     description: 'Abertura ainda maior.' },
 
   // ── Expedição (para a direita)
@@ -108,19 +115,19 @@ const NODES: NodeSpec[] = [
     description: 'Cada nível adiciona 5 segundos ao mergulho.' },
   { id: 'lateral', branch: 'expedition', name: 'Propulsores', stat: 'lateral', maxLevel: 4, baseCost: 55, parent: 'runTime', x: 2, y: 0,
     description: 'Navega mais rápido para a direita (e para águas fundas).' },
-  { id: 'runTime2', branch: 'expedition', name: 'Mergulho Longo', stat: 'runTime', maxLevel: 3, baseCost: 190, parent: 'lateral', x: 3, y: -1,
+  { id: 'runTime2', branch: 'expedition', name: 'Mergulho Longo', stat: 'runTime', maxLevel: 3, baseCost: 304, parent: 'lateral', x: 3, y: -1,
     description: 'Ainda mais segundos por mergulho.' },
-  { id: 'lateral2', branch: 'expedition', name: 'Turbina', stat: 'lateral', maxLevel: 3, baseCost: 210, parent: 'lateral', x: 3, y: 0,
+  { id: 'lateral2', branch: 'expedition', name: 'Turbina', stat: 'lateral', maxLevel: 3, baseCost: 336, parent: 'lateral', x: 3, y: 0,
     description: 'Deslocamento lateral ainda mais rápido.' },
-  { id: 'timeBonus', branch: 'expedition', name: 'Relógio Dourado', stat: 'timeBonus', maxLevel: 3, baseCost: 260, parent: 'runTime2', x: 4, y: -1,
+  { id: 'timeBonus', branch: 'expedition', name: 'Relógio Dourado', stat: 'timeBonus', maxLevel: 3, baseCost: 416, parent: 'runTime2', x: 4, y: -1,
     description: 'Bônus de tempo maiores, e raros passam a dar segundos.' },
-  { id: 'runTime3', branch: 'expedition', name: 'Fôlego Abissal', stat: 'runTime', maxLevel: 4, baseCost: 650, parent: 'runTime2', x: 3, y: -2,
+  { id: 'runTime3', branch: 'expedition', name: 'Fôlego Abissal', stat: 'runTime', maxLevel: 4, baseCost: 1040, parent: 'runTime2', x: 3, y: -2,
     description: 'Mergulhos muito mais longos.' },
-  { id: 'lateral3', branch: 'expedition', name: 'Hélice Abissal', stat: 'lateral', maxLevel: 3, baseCost: 750, parent: 'lateral2', x: 4, y: 0,
+  { id: 'lateral3', branch: 'expedition', name: 'Hélice Abissal', stat: 'lateral', maxLevel: 3, baseCost: 1200, parent: 'lateral2', x: 4, y: 0,
     description: 'Velocidade para alcançar o abismo.' },
-  { id: 'turbo', branch: 'expedition', name: 'Turbo', stat: 'turbo', maxLevel: 3, baseCost: 240, parent: 'lateral2', x: 3, y: 1,
+  { id: 'turbo', branch: 'expedition', name: 'Turbo', stat: 'turbo', maxLevel: 3, baseCost: 384, parent: 'lateral2', x: 3, y: 1,
     description: 'Mais segundos de turbo por mergulho.' },
-  { id: 'timeBonus2', branch: 'expedition', name: 'Ampulheta Viva', stat: 'timeBonus', maxLevel: 3, baseCost: 1500, parent: 'timeBonus', x: 5, y: -1,
+  { id: 'timeBonus2', branch: 'expedition', name: 'Ampulheta Viva', stat: 'timeBonus', maxLevel: 3, baseCost: 2400, parent: 'timeBonus', x: 5, y: -1,
     description: 'Bônus de tempo ainda maiores.' },
 
   // ── Ecologia (para baixo)
@@ -130,30 +137,77 @@ const NODES: NodeSpec[] = [
     description: 'Aumenta a chance real de espécies raras (retorno decrescente).' },
   { id: 'schools', branch: 'ecology', name: 'Cardumes', stat: 'schools', maxLevel: 3, baseCost: 100, parent: 'density', x: 2, y: 2,
     description: 'Cardumes com mais peixes.' },
-  { id: 'luck2', branch: 'ecology', name: 'Faro de Raros', stat: 'luck', maxLevel: 4, baseCost: 320, parent: 'luck', x: 0, y: 3,
+  { id: 'luck2', branch: 'ecology', name: 'Faro de Raros', stat: 'luck', maxLevel: 4, baseCost: 512, parent: 'luck', x: 0, y: 3,
     description: 'Ainda mais sorte para raros e épicos.' },
-  { id: 'variants', branch: 'ecology', name: 'Variantes', stat: 'variants', maxLevel: 3, baseCost: 170, parent: 'luck', x: 1, y: 3,
+  { id: 'variants', branch: 'ecology', name: 'Variantes', stat: 'variants', maxLevel: 3, baseCost: 272, parent: 'luck', x: 1, y: 3,
     description: 'Mais dourados, gigantes, bioluminescentes e mutantes.' },
-  { id: 'density2', branch: 'ecology', name: 'Superpopulação', stat: 'density', maxLevel: 3, baseCost: 360, parent: 'schools', x: 2, y: 3,
+  { id: 'density2', branch: 'ecology', name: 'Superpopulação', stat: 'density', maxLevel: 3, baseCost: 576, parent: 'schools', x: 2, y: 3,
     description: 'O oceano fica lotado de vida.' },
-  { id: 'luck3', branch: 'ecology', name: 'Sorte Lendária', stat: 'luck', maxLevel: 4, baseCost: 1200, parent: 'luck2', x: 0, y: 4,
+  { id: 'luck3', branch: 'ecology', name: 'Sorte Lendária', stat: 'luck', maxLevel: 4, baseCost: 1920, parent: 'luck2', x: 0, y: 4,
     description: 'Lendários e anômalos deixam de ser lenda.' },
-  { id: 'variants2', branch: 'ecology', name: 'Mutagênese', stat: 'variants', maxLevel: 3, baseCost: 720, parent: 'variants', x: 1, y: 4,
+  { id: 'variants2', branch: 'ecology', name: 'Mutagênese', stat: 'variants', maxLevel: 3, baseCost: 1152, parent: 'variants', x: 1, y: 4,
     description: 'Variantes especiais muito mais frequentes.' },
 
   // ── Tecnologia (para a esquerda)
   { id: 'combo', branch: 'tech', name: 'Sincronia de Combo', stat: 'combo', maxLevel: 3, baseCost: 140, parent: 'precision', x: -2, y: -1,
     description: 'Capturas seguidas valem mais e o combo dura mais.' },
-  { id: 'perfect', branch: 'tech', name: 'Captura Perfeita', stat: 'perfect', maxLevel: 3, baseCost: 160, parent: 'combo', x: -2, y: 0,
+  { id: 'perfect', branch: 'tech', name: 'Captura Perfeita', stat: 'perfect', maxLevel: 3, baseCost: 256, parent: 'combo', x: -2, y: 0,
     description: 'Acertar no centro do bicho rende bônus.' },
-  { id: 'sonar', branch: 'tech', name: 'Sonar de Raros', stat: 'sonar', maxLevel: 2, baseCost: 400, parent: 'combo', x: -3, y: -1,
+  { id: 'sonar', branch: 'tech', name: 'Sonar de Raros', stat: 'sonar', maxLevel: 2, baseCost: 640, parent: 'combo', x: -3, y: -1,
     description: 'Seta na borda indica o raro mais próximo fora da tela.' },
-  { id: 'combo2', branch: 'tech', name: 'Frenesi', stat: 'combo', maxLevel: 3, baseCost: 600, parent: 'perfect', x: -3, y: 0,
+  { id: 'combo2', branch: 'tech', name: 'Frenesi', stat: 'combo', maxLevel: 3, baseCost: 960, parent: 'perfect', x: -3, y: 0,
     description: 'Combos ainda mais lucrativos.' },
-  { id: 'perfect2', branch: 'tech', name: 'Olho Cirúrgico', stat: 'perfect', maxLevel: 3, baseCost: 700, parent: 'perfect', x: -2, y: 1,
+  { id: 'perfect2', branch: 'tech', name: 'Olho Cirúrgico', stat: 'perfect', maxLevel: 3, baseCost: 1120, parent: 'perfect', x: -2, y: 1,
     description: 'Bônus de captura perfeita maior.' },
-  { id: 'sonar2', branch: 'tech', name: 'Sonar Profundo', stat: 'sonar', maxLevel: 2, baseCost: 1800, parent: 'sonar', x: -4, y: -1,
+  { id: 'sonar2', branch: 'tech', name: 'Sonar Profundo', stat: 'sonar', maxLevel: 2, baseCost: 2880, parent: 'sonar', x: -4, y: -1,
     description: 'Detecta raros muito mais longe.' },
+  // ── sealed by guardians: the tree grows as you progress
+  { id: 'precision2', branch: 'capture', name: 'Mira Laser', stat: 'precision', maxLevel: 4, baseCost: 1400, parent: 'precision', x: -2, y: -3, requiresBoss: 'kingCrab',
+    description: 'Tolerância maior nas bordas dos bichos.' },
+  { id: 'stealth', branch: 'capture', name: 'Garra Silenciosa', stat: 'stealth', maxLevel: 5, baseCost: 900, parent: 'recovery', x: -2, y: -4, requiresBoss: 'kingCrab',
+    description: 'Motores abafados: os bichos percebem a garra mais tarde.' },
+  { id: 'strikeSpeed3', branch: 'capture', name: 'Pistão Turbo', stat: 'strikeSpeed', maxLevel: 5, baseCost: 1600, parent: 'strikeSpeed2', x: -2, y: -5, requiresBoss: 'kingCrab',
+    description: 'Golpe ainda mais rápido para os bichos ariscos das costas rochosas.' },
+  { id: 'strength3', branch: 'capture', name: 'Hidráulica Pesada', stat: 'strength', maxLevel: 5, baseCost: 2400, parent: 'strength2', x: 2, y: -4, requiresBoss: 'kingCrab',
+    description: 'Força para cascos e guardiões maiores.' },
+  { id: 'stealth2', branch: 'capture', name: 'Camuflagem Ótica', stat: 'stealth', maxLevel: 5, baseCost: 7000, parent: 'stealth', x: -3, y: -5, requiresBoss: 'colossalEel',
+    description: 'A garra quase some na água.' },
+  { id: 'strength4', branch: 'capture', name: 'Pinça Titânica', stat: 'strength', maxLevel: 5, baseCost: 9000, parent: 'strength3', x: 2, y: -5, requiresBoss: 'colossalEel',
+    description: 'Força de guardião.' },
+  { id: 'opening3', branch: 'capture', name: 'Garras Expansíveis', stat: 'opening', maxLevel: 4, baseCost: 4500, parent: 'opening2', x: -4, y: -3, requiresBoss: 'colossalEel',
+    description: 'Abertura máxima.' },
+  { id: 'strikeSpeed4', branch: 'capture', name: 'Hiperestalo', stat: 'strikeSpeed', maxLevel: 4, baseCost: 14000, parent: 'strikeSpeed3', x: -2, y: -6, requiresBoss: 'wreckOctopus',
+    description: 'O golpe mais rápido possível.' },
+  { id: 'hull', branch: 'expedition', name: 'Casco Reforçado', stat: 'hull', maxLevel: 3, baseCost: 1500, parent: 'lateral3', x: 4, y: 1, requiresBoss: 'kingCrab',
+    description: 'A garra aguenta mais pancadas dos guardiões.' },
+  { id: 'baitTime', branch: 'expedition', name: 'Iscas Concentradas', stat: 'baitTime', maxLevel: 4, baseCost: 900, parent: 'timeBonus', x: 4, y: -2, requiresBoss: 'kingCrab',
+    description: 'Iscas duram mais e atraem mais bichos.' },
+  { id: 'lateral4', branch: 'expedition', name: 'Motor Abissal', stat: 'lateral', maxLevel: 5, baseCost: 5000, parent: 'lateral3', x: 5, y: 0, requiresBoss: 'colossalEel',
+    description: 'Para atravessar biomas enormes.' },
+  { id: 'runTime4', branch: 'expedition', name: 'Tanques Extras', stat: 'runTime', maxLevel: 3, baseCost: 8000, parent: 'runTime3', x: 3, y: -3, requiresBoss: 'colossalEel',
+    description: 'Mais alguns segundos preciosos.' },
+  { id: 'turbo2', branch: 'expedition', name: 'Turbo Nitro', stat: 'turbo', maxLevel: 3, baseCost: 3200, parent: 'turbo', x: 3, y: 2, requiresBoss: 'colossalEel',
+    description: 'Muito mais turbo por mergulho.' },
+  { id: 'hull2', branch: 'expedition', name: 'Blindagem', stat: 'hull', maxLevel: 2, baseCost: 12000, parent: 'hull', x: 5, y: 1, requiresBoss: 'wreckOctopus',
+    description: 'Mais resistência contra os guardiões finais.' },
+  { id: 'kg', branch: 'ecology', name: 'Rede Densa', stat: 'kg', maxLevel: 5, baseCost: 700, parent: 'density2', x: 3, y: 3, requiresBoss: 'kingCrab',
+    description: 'Cada captura conta mais kg para a cota.' },
+  { id: 'density3', branch: 'ecology', name: 'Explosão de Vida', stat: 'density', maxLevel: 4, baseCost: 6000, parent: 'density2', x: 2, y: 4, requiresBoss: 'colossalEel',
+    description: 'Biomas fundos lotados.' },
+  { id: 'variants3', branch: 'ecology', name: 'DNA Alienígena', stat: 'variants', maxLevel: 4, baseCost: 10000, parent: 'variants2', x: 1, y: 5, requiresBoss: 'colossalEel',
+    description: 'A radiação do meteoro gera mais mutantes e dourados.' },
+  { id: 'kg2', branch: 'ecology', name: 'Balança Viciada', stat: 'kg', maxLevel: 5, baseCost: 8000, parent: 'kg', x: 3, y: 4, requiresBoss: 'wreckOctopus',
+    description: 'Ainda mais kg por captura.' },
+  { id: 'luck4', branch: 'ecology', name: 'Sorte Meteórica', stat: 'luck', maxLevel: 5, baseCost: 16000, parent: 'luck3', x: 0, y: 5, requiresBoss: 'wreckOctopus',
+    description: 'Raros e épicos em toda parte.' },
+  { id: 'value', branch: 'tech', name: 'Mercado Negro', stat: 'value', maxLevel: 4, baseCost: 2200, parent: 'perfect2', x: -3, y: 1, requiresBoss: 'kingCrab',
+    description: 'Compradores pagam mais por cada bicho.' },
+  { id: 'combo3', branch: 'tech', name: 'Frenesi Eterno', stat: 'frenzy', maxLevel: 3, baseCost: 5000, parent: 'combo2', x: -4, y: 0, requiresBoss: 'colossalEel',
+    description: 'O frenesi dura mais.' },
+  { id: 'value2', branch: 'tech', name: 'Leilão Abissal', stat: 'value', maxLevel: 4, baseCost: 13000, parent: 'value', x: -4, y: 1, requiresBoss: 'wreckOctopus',
+    description: 'Colecionadores do mundo inteiro disputam suas capturas.' },
+  { id: 'sonar3', branch: 'tech', name: 'Radar Alienígena', stat: 'sonar', maxLevel: 2, baseCost: 20000, parent: 'sonar2', x: -5, y: -1, requiresBoss: 'cathedralJelly',
+    description: 'Tecnologia do meteoro: detecta raros a qualquer distância.' },
 ];
 
 /** Prestige tree, bought with Essência Abissal. Never reset. */
@@ -222,6 +276,7 @@ export function upgradeCost(def: UpgradeDef, currentLevel: number): number {
 }
 
 export function requirementsMet(save: SaveData, def: UpgradeDef): boolean {
+  if (def.requiresBoss && !save.bosses.includes(def.requiresBoss)) return false;
   return def.parent === null || level(save, def.parent) >= 1;
 }
 
@@ -237,6 +292,7 @@ export function nodeVisibility(save: SaveData, id: string): NodeVisibility {
   if (level(save, id) >= 1) return 'owned';
   if (requirementsMet(save, def)) return 'available';
   const parent = UPGRADES_BY_ID[def.parent!];
+  if (def.requiresBoss && parent && level(save, parent.id) >= 1) return 'teaser';
   return parent && requirementsMet(save, parent) ? 'teaser' : 'hidden';
 }
 
@@ -321,6 +377,11 @@ export interface RunStats {
   turboSeconds: number;
   /** 0..3: the claw looks better the more you invest in it */
   clawTier: number;
+  /** creature reaction time multiplier from stealth upgrades */
+  stealth: number;
+  hearts: number;
+  kgMult: number;
+  baitMult: number;
 }
 
 export function computeStats(save: SaveData): RunStats {
@@ -342,6 +403,10 @@ export function computeStats(save: SaveData): RunStats {
     valueMult: 1 + 0.15 * L('value'),
     frenzySeconds: CONFIG.frenzy.seconds + L('frenzy'),
     turboSeconds: CONFIG.turbo.seconds + L('turbo'),
+    stealth: 1 + 0.1 * L('stealth'),
+    hearts: 3 + L('hull'),
+    kgMult: 1 + 0.1 * L('kg'),
+    baitMult: 1 + 0.25 * L('baitTime'),
     clawTier: clawTier(L('strikeSpeed') + L('strength') + L('opening') + L('recovery') + L('precision') + L('multi') * 3),
     density: densityMult(L('density')),
     luck: luckValue(L('luck')),

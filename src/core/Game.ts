@@ -73,7 +73,7 @@ export interface RunHud {
   frenzy: number;
   /** 0..1 turbo gauge */
   turbo: number;
-  boss: { name: string; hp: number; max: number; open: boolean; hearts: number } | null;
+  boss: { name: string; hp: number; max: number; open: boolean; hearts: number; maxHearts: number } | null;
   quota: { kg: number; target: number; divesLeft: number };
   bait: { name: string; count: number; color: string };
 }
@@ -253,7 +253,7 @@ export class Game {
     this.current = { t: 0, dir: 1 };
     this.runKg = 0;
     this.baits = [];
-    this.hearts = 3;
+    this.hearts = this.stats.hearts;
     this.shots = [];
     this.clawBroken = false;
     this.bossesDefeated = [];
@@ -482,7 +482,7 @@ export class Game {
       combo: this.combo.count,
       frenzy: this.frenzy > 0 ? this.frenzy / stats.frenzySeconds : 0,
       turbo: this.turbo / stats.turboSeconds,
-      boss: b ? { name: b.def.name, hp: b.hp, max: b.total, open: b.open, hearts: this.hearts } : null,
+      boss: b ? { name: b.def.name, hp: b.hp, max: b.total, open: b.open, hearts: this.hearts, maxHearts: this.stats.hearts } : null,
       quota: { kg: this.save.quota.deliveredKg + this.runKg, target: quotaTarget(this.save.quota.tier), divesLeft: this.save.quota.divesLeft },
       bait: this.baitHud(),
     });
@@ -807,7 +807,7 @@ export class Game {
     const x = this.cam.x + this.aimScreenX();
     const floor = this.terrain.seabedY(x);
     const targetY = this.pathMode ? floor - 34 : Math.min(floor - 4, this.cam.y + Math.max(60, this.input.aimY));
-    this.baits.push({ def, x, y: this.cam.y + CONFIG.claw.restTipY + 6, targetY, t: def.seconds, sinking: true, callTimer: 0.6, called: 0 });
+    this.baits.push({ def, x, y: this.cam.y + CONFIG.claw.restTipY + 6, targetY, t: def.seconds * this.stats.baitMult, sinking: true, callTimer: 0.6, called: 0 });
     this.effects.text(x, this.cam.y + 50, `${def.name.toUpperCase()}!`, def.color);
     this.audio.play('strike');
   }
@@ -841,7 +841,7 @@ export class Game {
       }
       // call more of the right creatures in from the edges
       b.callTimer -= dt;
-      if (b.callTimer <= 0 && b.called < b.def.calls) {
+      if (b.callTimer <= 0 && b.called < b.def.calls + Math.round((this.stats.baitMult - 1) * 4)) {
         b.callTimer = CONFIG.bait.callEvery;
         b.called++;
         this.callForBait(b, depth);
@@ -893,12 +893,14 @@ export class Game {
     this.audio.play('strike');
     this.perceivers = [];
     const magnet = stats.claw.tags.includes('magnet');
+    // a column dive is harder to read than a point strike, and Furtividade slows every reaction
+    const react = stats.claw.reactionMult * stats.stealth * (this.pathMode ? 1.2 : 1);
     for (const c of this.spawn.creatures) {
       if (c.frozen || c.removed) continue;
       c.fled = false;
       // in path mode the threat is the whole column, felt at the creature's own height
       const ty = this.pathMode ? Math.max(restY, Math.min(wy, c.y)) : wy;
-      if (c.notifyStrike(wx, ty, stats.claw.reactionMult)) this.perceivers.push(c);
+      if (c.notifyStrike(wx, ty, react)) this.perceivers.push(c);
       if (magnet && c.hittable && Math.abs(c.x - wx) < 46 && Math.abs(c.x - wx) > 2) {
         c.pullX = wx;
         c.pullT = 0.35;
@@ -1016,7 +1018,7 @@ export class Game {
     const frenzyMult = this.frenzy > 0 ? CONFIG.frenzy.valueMult : 1;
     const value = captureValue(c.def, c.variant, depth, comboBonus, perfect, this.valueMult * frenzyMult);
     this.runCoins += value;
-    const kg = catchKg(c.def, c.variant);
+    const kg = catchKg(c.def, c.variant) * stats.kgMult;
     this.runKg = Math.round((this.runKg + kg) * 10) / 10;
     this.captures.push({ speciesId: c.def.id, variant: c.variant, value, rarity: c.def.rarity });
     const tier = RARITIES.indexOf(c.def.rarity);

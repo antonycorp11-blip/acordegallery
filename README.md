@@ -41,9 +41,9 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
 
 - **Mundo longo**: cada bioma tem milhares de metros de distância (o primeiro guardião está a 5.800). Atravessar um bioma leva vários mergulhos e melhorias; no meio de cada bioma há uma **boia** que vira ponto de partida quando você a alcança.
 - **Guardiões dormem até serem provocados**: cada bicho capturado no bioma de um guardião enche a **fúria** dele (você está tirando a comida dele). Quando enche, ele **acorda** e espera no fim do bioma; até lá, a correnteza dele bloqueia o caminho.
-- **Guardiões atacam**: arremessam pedras (ou orbes elétricos) na direção da garra. Desvie com ◀ ▶. A garra tem 3 ♥ na luta, e cada acerto custa um coração e 3 s. Sem corações, a garra quebra e o mergulho acaba.
+- **Guardiões atacam**: arremessam pedras (ou orbes elétricos) na direção da garra. Desvie com ◀ ▶. A garra tem 3 ♥ na luta (mais com o upgrade Casco), e cada acerto custa um coração e 3 s. A vida do guardião fica embaixo da tela para não esconder os tiros. Sem corações, a garra quebra e o mergulho acaba.
 - **Guardiões de bioma**: cinco chefes gigantes bloqueiam o caminho com uma parede de correnteza: Caranguejo-Rei, Moreia Colossal, Polvo do Naufrágio, Água-Viva Catedral e Leviatã Primordial.
-  - Para capturá-los, agarre um a um os **pontos fracos brilhantes** quando abrirem (cada um 2 vezes), e só com força suficiente; o primeiro já exige Força na árvore. O dano persiste entre mergulhos. O Caranguejo-Rei tem arte e animação próprias: anda, abre e fecha as pinças, ergue-as para atacar e reage ao dano.
+  - Para capturá-los, agarre um a um os **pontos fracos brilhantes** quando abrirem (3 vezes cada; o Leviatã, 4), e só com força suficiente; o primeiro já exige Força na árvore. O dano persiste entre mergulhos. O Caranguejo-Rei e a Moreia Colossal têm arte e animação próprias: o caranguejo anda, abre e fecha as pinças e ergue-as para atacar; a moreia ondula o corpo pintado, abre a bocarra cheia de dentes no ataque e reage ao dano.
   - Eles avisam antes de atacar (brilho vermelho). O ataque atordoa a garra que estiver perto.
   - Cada vitória paga moedas, estrelas e +10 s, e libera um **ponto de partida** no bioma seguinte.
 - **Encomendas**: três pedidos ativos por vez (capturar espécies, raridades ou variantes, chegar a uma profundidade, fazer combos, ganhar moedas num só mergulho). Pagam moedas e ★, e são resgatadas na base.
@@ -82,6 +82,8 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
 
   As três últimas também custam ★. Todas são desenhadas por código, simétricas, e o **acabamento evolui** (Básica → Reforçada → Dourada → Lendária) conforme você compra melhorias de captura na árvore.
 - **Árvore de habilidades em tela cheia** (estilo incremental): tocar num nó abre um balão com a descrição; tocar de novo (ou em Comprar) compra. Comprar revela os filhos, o anel seguinte aparece como `?` e o resto fica escondido. Dá para arrastar e dar zoom.
+  - 58 nós na árvore principal (antes eram 35). Os mais fortes são **selados** (🔒) e só abrem depois de capturar um guardião: Força pesada, Furtividade (bichos reagem mais devagar), Casco (+♥), Rede de Carga (+kg), Iscas Concentradas, Valor de Mercado e outros.
+  - Cada nível de tempo dá +3 s.
 
 ## Visual
 
@@ -111,9 +113,9 @@ scripts/smoke.cjs      smoke test com Playwright
 
 ## Testes
 
-- `npm test`: 63 testes unitários, cobrindo:
+- `npm test`: 65 testes unitários, cobrindo:
   - profundidade, biomas e determinismo do terreno;
-  - custos e efeitos dos upgrades, estrutura das duas árvores e revelação de nós, garras com estrelas;
+  - custos e efeitos dos upgrades, estrutura das duas árvores, revelação de nós e nós selados por guardião, garras com estrelas;
   - save/load e recuperação de save corrompido;
   - colisão e golpe em coluna;
   - tempos da garra;
@@ -127,7 +129,7 @@ scripts/smoke.cjs      smoke test com Playwright
   2. confere que a profundidade aumenta indo para a direita;
   3. termina o cronômetro e confere que as moedas são creditadas uma vez e salvas;
   4. compra o nó raiz da árvore e confere que 2 nós novos aparecem;
-  5. confere que a próxima run começa com 00:35 e que o progresso persiste após recarregar.
+  5. confere que a próxima run começa com 00:33 e que o progresso persiste após recarregar.
 
 ## Próximos passos
 

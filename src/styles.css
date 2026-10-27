@@ -145,21 +145,25 @@ button {
   color: #cfefff;
 }
 #hud-boss {
+  /* bottom center: the top of the screen is where the guardian's shots come from */
   position: absolute;
-  top: calc(var(--u) * 2 + var(--st));
+  bottom: calc(var(--u) * 2 + var(--sb));
   left: 50%;
   transform: translateX(-50%);
+  max-width: 46%;
+  pointer-events: none;
   text-align: center;
-  background: rgba(30, 6, 12, 0.7);
+  background: rgba(30, 6, 12, 0.55);
   border: 1px solid #ff6a5a;
   border-radius: calc(var(--u) * 1.2);
   padding: calc(var(--u) * 0.6) calc(var(--u) * 2);
-  font-size: calc(var(--u) * 2.6);
+  font-size: calc(var(--u) * 2.4);
   color: #ffd0c8;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
-  gap: 2px;
+  gap: 2px calc(var(--u) * 1.4);
 }
 #hud-boss b { color: #ff8a7a; letter-spacing: 0.08em; }
 #hud-boss span { font-size: 0.85em; color: #a88; }

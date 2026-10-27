@@ -1,4 +1,5 @@
 import type { Game } from '../core/Game';
+import { BOSSES_BY_ID } from '../entities/Boss';
 import { formatCoins } from '../systems/Economy';
 import {
   BRANCH_COLOR, BRANCH_LABEL, UPGRADES_BY_ID, buyUpgrade, canBuy, level, nodeVisibility, treeNodes, upgradeCost,
@@ -29,6 +30,10 @@ const ICONS: Record<StatKey | 'core', string[]> = {
   aquarium: ['########', '#......#', '#.##...#', '#####..#', '#.##..+#', '#.....+#', '#~~~~~~#', '########'],
   clawDiscount: ['#.....#.', '#.....#.', '.#...#..', '.#####..', '...#....', '..###...', '.#+#+#..', '..###...'],
   keepRoutes: ['....##..', '...#..#.', '...#..#.', '....##..', '...#....', '..#.....', '.#......', '#.......'],
+  stealth: ['........', '..####..', '.#....#.', '#..++..#', '#..++..#', '.#....#.', '..####..', '#.#.#.#.'],
+  hull: ['.######.', '#++++++#', '#+####+#', '#+#..#+#', '#+#..#+#', '.#+##+#.', '..#++#..', '...##...'],
+  kg: ['...##...', '..#..#..', '.######.', '#......#', '#.#..#.#', '#..##..#', '#......#', '########'],
+  baitTime: ['...#....', '...#....', '...#....', '..###...', '.#.#.#..', '.#...#..', '..#.#+..', '...#....'],
   turbo: ['#...#...', '##..##..', '###.###.', '########', '###.###.', '##..##..', '#...#...', '........'],
 };
 
@@ -299,8 +304,9 @@ export class SkillTree {
         this.justRevealed.has(u.id) ? 'reveal' : '',
         boughtId === u.id ? 'pop' : '',
       ].join(' ');
+      const sealed = v === 'teaser' && !!u.requiresBoss && !save.bosses.includes(u.requiresBoss);
       const inner = v === 'teaser'
-        ? '<span class="q">?</span>'
+        ? `<span class="q">${sealed ? '🔒' : '?'}</span>`
         : `<img src="${iconUrl(u.id === 'core' ? 'core' : u.stat, color)}" alt="" draggable="false">
            <span class="nl">${l}/${u.maxLevel}</span>`;
       nodes += `<div class="${cls}" data-id="${u.id}" style="left:${u.x * G - N / 2}px;top:${u.y * G - N / 2}px;width:${N}px;height:${N}px;--c:${color}">${inner}</div>`;
@@ -320,8 +326,12 @@ export class SkillTree {
     this.info.classList.remove('hidden');
     const v = nodeVisibility(save, u.id);
     if (v === 'teaser' || v === 'hidden') {
-      this.info.innerHTML = `<div class="ti-head"><b>???</b></div>
-        <p class="desc">Compre <b>${esc(UPGRADES_BY_ID[u.parent!].name)}</b> para revelar esta habilidade.</p>`;
+      const boss = u.requiresBoss && !save.bosses.includes(u.requiresBoss) ? BOSSES_BY_ID[u.requiresBoss] : null;
+      const parentOwned = level(save, u.parent!) >= 1;
+      this.info.innerHTML = `<div class="ti-head"><b>${boss && parentOwned ? esc(u.name) : '???'}</b></div>
+        <p class="desc">${boss && parentOwned
+          ? `🔒 Selada. Liberada ao capturar o guardião <b>${esc(boss.name)}</b>.`
+          : `Compre <b>${esc(UPGRADES_BY_ID[u.parent!].name)}</b> para revelar esta habilidade.`}</p>`;
       this.positionPop();
       return;
     }

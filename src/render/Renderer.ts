@@ -9,7 +9,7 @@ import type { Terrain } from '../world/Terrain';
 import type { Effects } from './Effects';
 import { creatureSprite, drawEel, glowSprite, makeCanvas, variantPalette } from './PixelArt';
 import { Scenery } from './Scenery';
-import { kingCrabFrame, meteorSprite } from './BossArt';
+import { kingCrabFrame, meteorSprite, morayFrame } from './BossArt';
 
 export interface RenderView {
   cam: Camera;
@@ -176,6 +176,24 @@ export class Renderer {
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
       }
+    } else if (d.id === 'colossalEel') {
+      const pose = boss.flinch > 0 ? 'hurt' : boss.telegraph > 0 ? 'raise' : 'walk';
+      const { canvas, pad } = morayFrame(w, h, d.palette, Math.floor(t * 8) % 8, pose);
+      const dx = Math.round(sx - w / 2 - pad);
+      const dy = Math.round(sy - h / 2 - pad + Math.sin(t * 1.6) * 1.5);
+      ctx.save();
+      if (boss.facing < 0) {
+        ctx.translate(dx * 2 + canvas.width, 0);
+        ctx.scale(-1, 1);
+      }
+      ctx.drawImage(canvas, dx, dy);
+      if (boss.flinch > 0.3) {
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha = 0.35;
+        ctx.drawImage(canvas, dx, dy);
+      }
+      ctx.restore();
+      ctx.globalAlpha = fade;
     } else if (d.shape === 'eel') {
       drawEel(ctx, Math.round(sx), Math.round(sy), w, h, boss.facing, t * 3, d.palette);
     } else {

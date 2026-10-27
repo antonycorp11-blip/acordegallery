@@ -90,7 +90,7 @@ function assert(cond, msg) {
     await page.click('.tree-bar [data-act="start"]');
     await page.waitForTimeout(300);
     t = await page.evaluate(() => window.__abyss.timeLeft);
-    assert(t > 34 && t <= 35, `próxima run começa com ~35s (${t.toFixed(2)})`);
+    assert(t > 32 && t <= 33, `próxima run começa com ~33s (${t.toFixed(2)})`);
 
     // reload: progress persists
     await page.reload();

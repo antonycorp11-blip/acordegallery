@@ -190,8 +190,10 @@ describe('guardians', () => {
   it('each weak point needs several grabs', () => {
     const b = new Boss(BOSSES[0], 0);
     expect(b.activeWeak).toBe(0);
-    b.hitWeak();
-    expect(b.activeWeak).toBe(0);
+    for (let i = 1; i < BOSSES[0].hits; i++) {
+      b.hitWeak();
+      expect(b.activeWeak).toBe(0);
+    }
     b.hitWeak();
     expect(b.activeWeak).toBe(1);
   });
@@ -199,7 +201,9 @@ describe('guardians', () => {
   it('the first guardian needs some Força upgrades', () => {
     const s = defaultSave();
     expect(computeStats(s).strength).toBeLessThan(BOSSES[0].strength);
-    s.upgrades = { core: 1, strikeSpeed: 1, strength: 2 };
+    s.upgrades = { core: 1, strikeSpeed: 1, strength: 3 };
+    expect(computeStats(s).strength).toBeLessThan(BOSSES[0].strength);
+    s.upgrades.strength2 = 1;
     expect(computeStats(s).strength).toBeGreaterThanOrEqual(BOSSES[0].strength);
   });
 });

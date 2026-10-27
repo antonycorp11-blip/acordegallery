@@ -174,7 +174,7 @@ export class HUD {
       this.bossBox.classList.toggle('hidden', !h.boss);
       if (h.boss) {
         const pips = Array.from({ length: h.boss.max }, (_, i) => `<i class="${i < h.boss!.max - h.boss!.hp ? 'done' : ''}"></i>`).join('');
-        const hearts = Array.from({ length: 3 }, (_, i) => `<em class="${i < h.boss!.hearts ? '' : 'lost'}">♥</em>`).join('');
+        const hearts = Array.from({ length: h.boss.maxHearts }, (_, i) => `<em class="${i < h.boss!.hearts ? '' : 'lost'}">♥</em>`).join('');
         this.bossBox.innerHTML = `<b>${h.boss.name.toUpperCase()}</b><div class="pips">${pips}</div><div class="hearts">GARRA ${hearts}</div><span class="${h.boss.open ? 'open' : ''}">${h.boss.open ? 'PONTO FRACO ABERTO!' : 'protegido…'}</span>`;
       }
     }

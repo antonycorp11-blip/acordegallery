@@ -97,15 +97,38 @@ describe('buying', () => {
 });
 
 describe('computeStats applies real effects', () => {
-  it('run time +5s per level, summed across every time node', () => {
+  it('run time +3s per level, summed across every time node', () => {
     const s = defaultSave();
     expect(computeStats(s).runSeconds).toBe(30);
     s.upgrades.core = 1;
-    expect(computeStats(s).runSeconds).toBe(35);
+    expect(computeStats(s).runSeconds).toBe(33);
     s.upgrades.runTime = 3;
-    expect(computeStats(s).runSeconds).toBe(50);
+    expect(computeStats(s).runSeconds).toBe(42);
     s.upgrades.runTime2 = 1;
-    expect(computeStats(s).runSeconds).toBe(55);
+    expect(computeStats(s).runSeconds).toBe(45);
+  });
+
+  it('sealed nodes show as a teaser and only open after their guardian falls', () => {
+    const s = defaultSave();
+    Object.assign(s.upgrades, { core: 1, strikeSpeed: 1, strength: 1, strength2: 1 });
+    expect(nodeVisibility(s, 'strength3')).toBe('teaser');
+    expect(canBuy(s, 'strength3')).toBe('locked');
+    s.bosses.push('kingCrab');
+    s.coins = 1e9;
+    expect(nodeVisibility(s, 'strength3')).toBe('available');
+    expect(canBuy(s, 'strength3')).toBe('ok');
+  });
+
+  it('new stats: stealth, hull, kg and bait time', () => {
+    const s = defaultSave();
+    const base = computeStats(s);
+    expect(base.hearts).toBe(3);
+    Object.assign(s.upgrades, { stealth: 2, hull: 1, kg: 2, baitTime: 2 });
+    const st = computeStats(s);
+    expect(st.stealth).toBeCloseTo(1.2);
+    expect(st.hearts).toBe(4);
+    expect(st.kgMult).toBeCloseTo(1.2);
+    expect(st.baitMult).toBeCloseTo(1.5);
   });
 
   it('speed, recovery, opening, strength, density, luck, lateral all change numbers', () => {

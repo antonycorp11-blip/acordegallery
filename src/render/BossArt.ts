@@ -153,6 +153,149 @@ export function kingCrabFrame(w: number, h: number, pal: SpeciesPalette, frame: 
   return { canvas: c, pad: PAD };
 }
 
+/**
+ * Moreia Colossal: a long leopard-spotted body that ripples tail to head, a
+ * dorsal fin running its length, and a heavy head whose jaws open (wide on
+ * the attack) to show the teeth. Drawn head-right; mirror for facing left.
+ */
+export function morayFrame(w: number, h: number, pal: SpeciesPalette, frame: number, pose: BossPose): { canvas: HTMLCanvasElement; pad: number } {
+  const key = `moray|${w}|${h}|${frame}|${pose}`;
+  const pad = Math.round(h * 0.8) + 4;
+  let c = cache.get(key);
+  if (c) return { canvas: c, pad };
+  const W = w + pad * 2;
+  const H = h + pad * 2;
+  c = makeCanvas(W, H);
+  const P = new Painter(c);
+  const grid: (string | null)[] = new Array(W * H).fill(null);
+  const put = (x: number, y: number, col: string) => {
+    const gx = Math.round(x) + pad;
+    const gy = Math.round(y) + pad;
+    if (gx >= 0 && gy >= 0 && gx < W && gy < H) grid[gy * W + gx] = col;
+  };
+  const ph = (frame / 8) * Math.PI * 2;
+  const cy = h / 2 + (pose === 'raise' ? -2 : 0);
+  const hx0 = Math.round(w * 0.74);
+  const R = h * 0.74;
+  const belly = shade(pal.light, -0.1);
+  const finCol = shade(pal.main, -0.25);
+  const spot = shade(pal.dark, -0.2);
+
+  // ── body: spine wave grows toward the tail, the head stays steady
+  const spine = (x: number) => {
+    const s = x / hx0;
+    return cy + Math.sin(s * Math.PI * 3 - ph) * (5 * (1 - s) + 0.5) * (pose === 'hurt' ? 1.6 : 1);
+  };
+  for (let x = 0; x <= hx0 + 3; x++) {
+    const s = x / hx0;
+    const yc = spine(x);
+    const r = h * 0.4 * (s < 0.45 ? 0.3 + (s / 0.45) * 0.7 : 1 + Math.max(0, s - 0.75) * 1.6);
+    // dorsal fin along the back, ventral fin on the rear half, both rippling
+    const fh = s > 0.06 && s < 0.97 ? 2 + Math.round(1 + Math.sin(x * 0.45 - ph * 2)) : 0;
+    for (let k = 1; k <= fh; k++) put(x, yc - r - k, k === fh ? pal.dark : finCol);
+    const vh = s < 0.5 ? Math.round(2 + Math.sin(x * 0.5 - ph * 2)) : 0;
+    for (let k = 1; k <= vh; k++) put(x, yc + r + k, finCol);
+    for (let y = Math.floor(yc - r); y <= Math.ceil(yc + r); y++) {
+      const v = (y - (yc - r)) / (2 * r);
+      let col = v < 0.18 ? pal.dark : v < 0.66 ? pal.main : v < 0.8 ? shade(pal.main, 0.1) : belly;
+      // leopard blotches: one irregular spot per 6×5 cell
+      const cx6 = Math.floor(x / 6);
+      const cyy = Math.floor((y - yc + 40) / 5);
+      const hsh = (cx6 * 73 + cyy * 151) % 17;
+      const sx = cx6 * 6 + 1 + (hsh % 4);
+      const sy = cyy * 5 + (hsh % 3);
+      if (v >= 0.16 && v < 0.72 && hsh < 11 && Math.abs(x - sx) + Math.abs(y - yc + 40 - sy) <= (hsh % 2) + 1) col = spot;
+      if (v > 0.25 && v < 0.3 && x % 7 === 0) col = pal.light; // lateral line
+      put(x, y, col);
+    }
+  }
+  // tail fin
+  for (let k = 0; k < 6; k++) {
+    const yc = spine(0);
+    put(-k, yc - 1 - k * 0.6, finCol);
+    put(-k, yc + 1 + k * 0.6, finCol);
+    put(-k, yc, pal.dark);
+  }
+
+  // ── head with articulated jaws
+  const gape = pose === 'raise' ? 1 : pose === 'hurt' ? 0.6 : 0.12 + 0.12 * Math.sin(ph);
+  const hl = w - hx0;
+  for (let x = hx0; x <= w; x++) {
+    const t = (x - hx0) / hl;
+    // the neck swells from the body into the skull, then narrows to the snout
+    const rNeck = h * 0.4 * 1.0;
+    const grow = Math.min(1, t / 0.28);
+    const ease = grow * grow * (3 - 2 * grow);
+    const top = cy - (rNeck + (R - rNeck) * ease) * (1 - 0.72 * t * t);
+    const hinge = 0.32;
+    if (t < hinge) {
+      const bot = cy + rNeck + (R * 0.8 - rNeck) * ease;
+      for (let y = Math.floor(top); y <= Math.ceil(bot); y++) {
+        const v = (y - top) / (bot - top);
+        put(x, y, v < 0.2 ? pal.dark : v < 0.65 ? pal.main : belly);
+      }
+      continue;
+    }
+    const open = (t - hinge) * R * 1.05 * gape;
+    const ub = cy - open; // upper jaw lower edge
+    const lb = cy + 1 + open * 0.8; // lower jaw upper edge
+    const lbot = lb + R * 0.55 * (1 - 0.55 * t);
+    for (let y = Math.floor(top); y <= Math.ceil(ub); y++) {
+      const v = (y - top) / Math.max(1, ub - top);
+      put(x, y, v < 0.3 ? pal.dark : v < 0.8 ? pal.main : shade(pal.main, 0.12));
+    }
+    for (let y = Math.ceil(ub) + 1; y < Math.floor(lb); y++) put(x, y, t > 0.96 ? pal.dark : '#3a0a14');
+    for (let y = Math.floor(lb); y <= Math.ceil(lbot); y++) put(x, y, y < lb + 1.5 ? pal.main : belly);
+    // teeth: fangs on both jaws, longer toward the snout
+    if (t < 0.97 && x % 2 === 0) {
+      const len = t > 0.7 ? 2 : 1;
+      for (let k = 1; k <= len && open > k; k++) {
+        put(x, ub + k, '#f4f0e0');
+        put(x, lb - k, '#f4f0e0');
+      }
+    }
+  }
+  // gill slits
+  for (let k = 0; k < 3; k++) {
+    const gx = hx0 + 1 + k * 2;
+    for (let y = -2; y <= 3; y++) put(gx, cy + y, spot);
+  }
+  // eye
+  const ex = hx0 + Math.round(hl * 0.48);
+  const ey = Math.round(cy - R * 0.5);
+  if (pose === 'hurt') {
+    for (const [dx, dy] of [[-1, -1], [1, 1], [-1, 1], [1, -1], [0, 0]]) put(ex + dx, ey + dy, '#ff3a3a');
+  } else {
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (Math.abs(dx) + Math.abs(dy) < 4) put(ex + dx, ey + dy, pal.eye);
+    const pc = pose === 'raise' ? '#ff2a2a' : '#000000';
+    put(ex + 1, ey, pc);
+    put(ex + 1, ey + 1, pc);
+    put(ex, ey, pc);
+    put(ex - 1, ey - 1, '#ffffff');
+    if (pose === 'raise') for (let k = -3; k <= 3; k++) put(ex + k, ey - 3 + Math.round(k * 0.4), spot); // angry brow
+  }
+  // nostril tube on the snout
+  put(w - 2, cy - R * 0.32 - 1, pal.dark);
+  put(w - 1, cy - R * 0.32 - 2, pal.light);
+
+  // ── outline pass + blit
+  const o = shade(pal.dark, -0.55);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const col = grid[y * W + x];
+      if (col) {
+        P.p(x, y, col);
+        continue;
+      }
+      const n = (xx: number, yy: number) => xx >= 0 && yy >= 0 && xx < W && yy < H && grid[yy * W + xx] !== null;
+      if (n(x - 1, y) || n(x + 1, y) || n(x, y - 1) || n(x, y + 1)) P.p(x, y, o);
+    }
+  }
+  if (cache.size > 64) cache.clear();
+  cache.set(key, c);
+  return { canvas: c, pad };
+}
+
 /** The alien meteor resting at the bottom of the abyss (the reason for all of this). */
 export function meteorSprite(): HTMLCanvasElement {
   const key = 'meteor';
