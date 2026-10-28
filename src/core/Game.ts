@@ -975,12 +975,14 @@ export class Game {
 
     let captured = 0;
     let resisted = 0;
+    let requiredStrength = 0;
     let textY = y - 12;
     for (const h of hits) {
       const c = h.target;
       const req = c.state === 'STUNNED' ? c.strengthReq * 0.75 : c.strengthReq;
       if (req > stats.strength) {
         resisted++;
+        requiredStrength = Math.max(requiredStrength, req);
         c.shove(Math.sign(c.x - x) || 1);
         fx.burst('spark', c.x, c.y, 5, 60, 0.3, ['#ff6a5a', '#ffd0a0']);
         if (c.def.special.includes('bite') && !stats.claw.tags.includes('biteproof')) {
@@ -996,7 +998,7 @@ export class Game {
       textY -= 9;
     }
     if (resisted) {
-      fx.text(x, y - (captured ? 30 : 12), 'RESISTIU!', '#ff6a5a');
+      fx.text(x, y - (captured ? 30 : 12), `RESISTIU! Força ${stats.strength.toFixed(2)} / ${requiredStrength.toFixed(2)}`, '#ff6a5a');
       if (!captured) {
         this.audio.play('resist');
         this.combo.miss();

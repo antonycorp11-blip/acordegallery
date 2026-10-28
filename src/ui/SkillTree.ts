@@ -2,7 +2,7 @@ import type { Game } from '../core/Game';
 import { BOSSES_BY_ID } from '../entities/Boss';
 import { formatCoins } from '../systems/Economy';
 import {
-  BRANCH_COLOR, BRANCH_LABEL, UPGRADES_BY_ID, buyUpgrade, canBuy, level, nodeVisibility, treeNodes, upgradeCost,
+  BRANCH_COLOR, BRANCH_LABEL, UPGRADES_BY_ID, buyUpgrade, canBuy, computeStats, level, nodeVisibility, treeNodes, upgradeCost,
   type NodeVisibility, type StatKey, type TreeId, type UpgradeDef,
 } from '../systems/Upgrades';
 
@@ -345,13 +345,24 @@ export class SkillTree {
     else if (res === 'locked') action = `<span class="lock">🔒 Requer ${esc(UPGRADES_BY_ID[u.parent!].name)}</span>`;
     else action = `<button class="btn ${res === 'ok' ? 'buy-ok' : ''}" data-buy="${u.id}" ${res === 'ok' ? '' : 'disabled'}>Comprar ${this.money(cost)}</button>`;
     const kids = this.nodes.filter((k) => k.parent === u.id).length;
+    // Show the equipped claw's actual total, including all other nodes and essence.
+    const stats = computeStats(save);
+    const next = computeStats({ ...save, upgrades: { ...save.upgrades, [u.id]: l + 1 } });
+    const actualEffect = (st: typeof stats): string | null => {
+      if (u.stat === 'strength') return `Força total: ${st.strength.toFixed(2)}`;
+      if (u.stat === 'strikeSpeed') return `Golpe: ${st.strikeMs.toFixed(1)} ms · recolhimento: ${st.retractMs.toFixed(1)} ms`;
+      if (u.stat === 'recovery') return `Recarga: ${st.cooldownMs.toFixed(1)} ms`;
+      return null;
+    };
+    const currentEffect = actualEffect(stats) ?? (l ? u.effect(l) : '—');
+    const nextEffect = actualEffect(next) ?? u.effect(l + 1);
     this.info.innerHTML = `
       <div class="ti-head">
         <img src="${iconUrl(u.id === 'core' ? 'core' : u.stat, color)}" alt="">
         <div><b>${esc(u.name)}</b><span style="color:${color}">${BRANCH_LABEL[u.branch]} · nível ${l}/${u.maxLevel}</span></div>
       </div>
       <p class="desc">${esc(u.description)}</p>
-      <p class="eff">Atual: ${l ? esc(u.effect(l)) : '—'}${max ? '' : `<br><span class="next">Próximo: ${esc(u.effect(l + 1))}</span>`}</p>
+      <p class="eff">Atual: ${esc(currentEffect)}${max ? '' : `<br><span class="next">Próximo: ${esc(nextEffect)}</span>`}</p>
       ${l === 0 && kids ? `<p class="unlock">Desbloqueia ${kids} nova(s) habilidade(s)</p>` : ''}
       ${action}`;
     this.info.querySelector<HTMLElement>('[data-buy]')?.addEventListener('click', (e) => {

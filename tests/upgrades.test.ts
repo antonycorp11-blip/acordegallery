@@ -234,3 +234,23 @@ describe('capture progression across the full tree', () => {
     ));
   });
 });
+
+it('each strength purchase raises power and never removes an already capturable variant', () => {
+  for (const claw of Object.values(CLAWS_BY_ID)) {
+    const s = defaultSave();
+    s.equippedClaw = claw.id;
+    let previous = computeStats(s).strength;
+    for (const u of treeNodes('main').filter(u => u.stat === 'strength')) {
+      for (let l = 1; l <= u.maxLevel; l++) {
+        s.upgrades[u.id] = l;
+        const current = computeStats(s).strength;
+        expect(current).toBeGreaterThan(previous);
+        const requirements = SPECIES.flatMap(sp => Object.keys(VARIANTS).map(v =>
+          strengthRequired(sp, v as VariantId)));
+        expect(requirements.filter(req => req <= current).length)
+          .toBeGreaterThanOrEqual(requirements.filter(req => req <= previous).length);
+        previous = current;
+      }
+    }
+  }
+});
