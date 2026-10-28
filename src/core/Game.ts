@@ -1,11 +1,11 @@
 import { Struggle } from '../systems/Struggle';
 import { CONFIG, VIEW_H, VIEW_W } from '../config';
 import { BAITS, BAITS_BY_ID, baitAttracts, type BaitDef } from '../entities/Baits';
-import { Boss, CHECKPOINTS, bossAwake, checkpointUnlocked, nextBoss, type BossDef } from '../entities/Boss';
+import { Boss, CHECKPOINTS, bossAwake, bossBiome, checkpointUnlocked, nextBoss, type BossDef } from '../entities/Boss';
 import { Claw, type ClawState } from '../entities/Claw';
 import { updateSchool, type Creature, type CreatureEvent } from '../entities/Creature';
 import { findPathHit, resolveStrike } from '../entities/Hit';
-import { RARITIES, RARITY_COLOR, SPECIES_BY_ID, VARIANTS, isCreature, type Rarity, type VariantId } from '../entities/Species';
+import { RARITIES, RARITY_COLOR, SPECIES, SPECIES_BY_ID, VARIANTS, isCreature, type Rarity, type VariantId } from '../entities/Species';
 import { Effects } from '../render/Effects';
 import { Renderer } from '../render/Renderer';
 import { ComboTracker, captureValue, recordCapture } from '../systems/Economy';
@@ -80,6 +80,8 @@ export interface RunHud {
   hunt: { marker: number; window: number; tension: number; progress: number; target: number; name: string } | null;
   tools: { net: number; harpoon: number; prestige: number };
   rage: string;
+  flash: { name: string; got: number; need: number; t: number } | null;
+  tide: boolean;
 }
 
 export interface ActiveBait {
@@ -93,7 +95,35 @@ export interface ActiveBait {
   called: number;
 }
 
-export type EventKind = 'goldenSchool' | 'current' | 'shark';
+export type EventKind = 'goldenSchool' | 'current' | 'shark' | 'bigSchool' | 'chestRain' | 'meteorShower' | 'flashOrder';
+
+/** Timed in-dive challenge: catch N of one species before the clock runs out. */
+export interface FlashOrder {
+  speciesId: string;
+  name: string;
+  need: number;
+  got: number;
+  t: number;
+  reward: number;
+}
+
+/** A claw on the platform that strikes on its own (Braço Auxiliar). */
+export interface AutoClaw {
+  /** x offset from the platform center */
+  offset: number;
+  cd: number;
+  state: 'idle' | 'down' | 'up';
+  t: number;
+  tipY: number;
+  targetY: number;
+  target: Creature | null;
+  held: Creature | null;
+}
+
+/** Offsets of the automatic claws around the main one, closest first. */
+export const AUTO_OFFSETS = [-44, 44, -88, 88, -132, 132, -176, 176];
+const AUTO_DOWN = 0.16;
+const AUTO_UP = 0.24;
 
 export class Game {
   fight: { target: Creature; game: Struggle; perfect: boolean } | null = null;
@@ -115,6 +145,12 @@ export class Game {
   claw: Claw;
   combo: ComboTracker;
   boss: Boss | null = null;
+  autoClaws: AutoClaw[] = [];
+  flash: FlashOrder | null = null;
+  private tideAnnounced = false;
+  /** variants first seen during this dive (species|variant) */
+  private seenVariants = new Set<string>();
+  private cableWarned = false;
 
   // run state
   timeLeft = 0;
@@ -194,6 +230,9 @@ export class Game {
     this.claw = new Claw(this.stats);
     this.claw.x = this.cam.x + VIEW_W / 2;
     this.claw.tipY = this.cam.y + CONFIG.claw.restTipY;
+    this.autoClaws = AUTO_OFFSETS.slice(0, this.stats.autoClaws).map((offset, i) => ({
+      offset, cd: 0.8 + i * 0.35, state: 'idle', t: 0, tipY: 0, targetY: 0, target: null, held: null,
+    }));
   }
 
   start(): void {
@@ -275,6 +314,10 @@ export class Game {
     this.eventTimer = CONFIG.events.firstAfter;
     this.valueMult = this.stats.valueMult * (1 + collectionBonus(this.save) + licenseBonus(this.save.quota.license));
     this.runCommitted = false;
+    this.cableWarned = false;
+    this.tideAnnounced = false;
+    this.seenVariants.clear();
+    this.flash = null;
     this.lastTick = -1;
     this.input.reset();
     this.setMode('playing');
@@ -458,6 +501,14 @@ export class Game {
     this.updateBoss(dt);
     this.updateShots(dt);
     this.updateEvents(dt);
+    this.updateFlash(dt);
+    if (!this.tideAnnounced && this.timeLeft <= CONFIG.run.finalTideSeconds) {
+      this.tideAnnounced = true;
+      this.onBanner('MARÉ FINAL!', `Tudo vale ×${CONFIG.run.finalTideMult} até o fim do mergulho`, '#ffd84a');
+      this.audio.play('bonus');
+      // the sea answers: a last big school rushes in
+      this.startEvent('bigSchool', true);
+    }
 
     // aim + strike (touch: the claw stays centered and dives down its column)
     const k = 1 - Math.pow(0.0001, dt);
@@ -503,6 +554,7 @@ export class Game {
     if (this.claw.contactPending && !this.fight) this.resolveContact();
     if (this.prevClawState === 'RETRACT' && this.claw.state === 'COOLDOWN') this.deliverHeld();
     this.prevClawState = this.claw.state;
+    this.updateAutoClaws(dt);
 
     this.spawn.update(dt, this.cam.x, this.cam.x + this.aimScreenX(), dir);
     this.updateCreatures(dt);
@@ -527,19 +579,47 @@ export class Game {
         tension: this.fight.game.tension, progress: this.fight.game.progress,
         target: 3 + Math.floor(this.fight.game.difficulty), name: this.fight.target.def.name } : null,
       tools: { net: this.netCooldown, harpoon: this.harpoonCooldown, prestige: this.save.prestiges },
+      flash: this.flash ? { name: this.flash.name, got: this.flash.got, need: this.flash.need, t: this.flash.t } : null,
+      tide: this.tide() > 0,
       rage: (() => { const nb = nextBoss(this.save.bosses); return nb ? `${nb.name}: ${Math.min(nb.rage, this.save.bossRage[nb.id] ?? 0)}/${nb.rage}` : 'Guardiões dominados'; })(),
     });
   }
 
   // ───────────────────────── guardians
 
-  /** Exploration is free; guardians are provoked rather than used as walls. */
-  private applyBarrier(): void { this.cam.clampFocus(); }
+  /**
+   * Lateral travel is free; the barrier is depth. Past the point where the
+   * seabed is deeper than the cable, the claw stops in open water: the reach
+   * line climbs and the creatures below stay out of reach.
+   */
+  private applyBarrier(): void {
+    this.cam.clampFocus();
+    const x = this.cam.x + this.cam.focusScreenX;
+    if (!this.cableWarned && this.reachGap(x) > 40) {
+      this.cableWarned = true;
+      this.onBanner('FUNDO FORA DO ALCANCE', `O cabo só chega a ${this.stats.cable.toLocaleString('pt-BR')} m. Compre Guincho na árvore para descer mais.`, '#9fd8e8');
+    }
+  }
+
+  /** How far above the seabed the cable stops at world x (0 = reaches the sand). */
+  reachGap(x: number): number {
+    const depth = depthAt(x);
+    const cable = this.stats.cable;
+    if (depth <= cable) return 0;
+    const c = CONFIG.cable;
+    return Math.min(c.maxGapPx, (depth / cable - 1) * c.gapPx);
+  }
+
+  /** Deepest world y the claw can reach at x. */
+  reachY(x: number): number {
+    return this.terrain.seabedY(x) - 1 - this.reachGap(x);
+  }
 
   private updateBoss(dt: number): void {
     const nb = nextBoss(this.save.bosses);
     const centerX = this.cam.x + VIEW_W / 2;
-    if (!this.boss && nb && bossAwake(nb, this.save.bossRage) ) {
+    if (!this.boss && nb && bossAwake(nb, this.save.bossRage) && biomeIndexAt(centerX) >= bossBiome(nb)) {
+      // provoked guardians come to you, right where you are hunting
       this.boss = new Boss({ ...nb, x: centerX + 130 }, this.save.bossDamage[nb.id] ?? 0);
       this.bossEscape = 0;
       if (!this.bossIntroShown.has(nb.id)) {
@@ -691,6 +771,7 @@ export class Game {
     this.runCoins += coins;
     this.runStars += def.stars;
     this.bossesDefeated.push(def.name);
+    this.addTime(CONFIG.run.bossBonusSeconds);
 
     const boss = this.boss!;
     this.effects.burst('star', boss.x, boss.y, 40, 160, 1.2, ['#ffffff', '#ffe14a', '#ff7ff5', '#7affea']);
@@ -703,23 +784,46 @@ export class Game {
     const cp = CHECKPOINTS.findIndex((c) => c.requires === def.id);
     this.onBanner(
       last ? 'VOCÊ CONQUISTOU O ABISMO!' : 'GUARDIÃO CAPTURADO!',
-      `${def.name} · +$${coins.toLocaleString('pt-BR')} · +${def.stars}★${cp > 0 ? ` · novo ponto de partida: ${CHECKPOINTS[cp].name}` : ''}`,
+      `${def.name} · +$${coins.toLocaleString('pt-BR')} · +${def.stars}★ · +${CONFIG.run.bossBonusSeconds}s${cp > 0 ? ` · novo ponto de partida: ${CHECKPOINTS[cp].name}` : ''}`,
       '#ffe14a',
     );
   }
 
+  /** 0..1 while the Maré Final (last seconds of the dive) is on. */
+  tide(): number {
+    const f = CONFIG.run.finalTideSeconds;
+    return this.mode === 'playing' && this.timeLeft <= f ? Math.min(1, (f - this.timeLeft) * 2 + 0.3) : 0;
+  }
+
+  /** One of the very few ways to win time inside a dive. */
+  private addTime(seconds: number): void {
+    this.timeLeft += seconds;
+    this.bonusSeconds += seconds;
+    this.audio.play('bonus');
+  }
+
   // ───────────────────────── random events
 
+  /** Something happens every 9–14 s, so no stretch of a dive is dull. */
   private updateEvents(dt: number): void {
     this.eventTimer -= dt;
     if (this.eventTimer > 0) return;
     const e = CONFIG.events;
     this.eventTimer = e.minGap + this.rng() * (e.maxGap - e.minGap);
     if (this.boss && !this.boss.defeated) return; // keep guardian fights readable
+    if (this.timeLeft <= CONFIG.run.finalTideSeconds) return; // the Maré Final has its own show
     const depth = depthAt(this.cam.x + VIEW_W / 2);
-    const options: [EventKind, number][] = [['goldenSchool', 3], ['current', 3], ['shark', depth > 30 ? 3 : 1]];
+    const options: [EventKind, number][] = [
+      ['bigSchool', 4],
+      ['goldenSchool', 3],
+      ['flashOrder', this.flash ? 0 : 3],
+      ['chestRain', 2],
+      ['meteorShower', depth > 150 ? 2.5 : 1],
+      ['shark', depth > 30 ? 2 : 0.5],
+      ['current', 1.5],
+    ];
     let roll = this.rng() * options.reduce((a, o) => a + o[1], 0);
-    let kind: EventKind = 'goldenSchool';
+    let kind: EventKind = 'bigSchool';
     for (const [k, w] of options) {
       if (roll < w) { kind = k; break; }
       roll -= w;
@@ -727,15 +831,88 @@ export class Game {
     this.startEvent(kind);
   }
 
-  startEvent(kind: EventKind): void {
+  /** A school species that lives around here (for school events). */
+  private localSchoolSpecies(x: number) {
+    const depth = depthAt(x);
+    const pool = SPECIES.filter((d) => d.special.includes('school') && depth >= d.minDepth * 0.8 && depth <= d.maxDepth * 1.1);
+    return pool.length ? pool[Math.floor(this.rng() * pool.length)] : SPECIES_BY_ID[depth > 900 ? 'lanternFish' : 'orangeFish'];
+  }
+
+  /** Visible x with the sand inside the cable's reach (for treasure drops). */
+  private reachableX(): number {
+    let best = this.cam.x + VIEW_W / 2;
+    for (let i = 0; i < 12; i++) {
+      const x = this.cam.x + 30 + this.rng() * (VIEW_W - 60);
+      if (this.reachGap(x) < 4) return x;
+      if (this.reachGap(x) < this.reachGap(best)) best = x;
+    }
+    return best;
+  }
+
+  startEvent(kind: EventKind, quiet = false): void {
     const floorX = this.cam.x + VIEW_W / 2;
     const depth = depthAt(floorX);
     switch (kind) {
       case 'goldenSchool': {
-        const def = SPECIES_BY_ID[depth > 900 ? 'lanternFish' : 'orangeFish'];
-        this.spawn.spawnSchool(def, 'golden', this.cam.x + VIEW_W + 50, 7, -1);
-        this.onBanner('CARDUME DOURADO!', 'Peixes dourados valem 4× — capture antes de acabar o tempo', '#ffd84a');
+        const def = this.localSchoolSpecies(floorX);
+        this.spawn.spawnSchool(def, 'golden', this.cam.x + VIEW_W + 50, 7 + Math.round(this.stats.schoolBonus / 2), -1);
+        this.onBanner('CARDUME DOURADO!', 'Peixes dourados valem 4×', '#ffd84a');
         this.audio.play('bonus');
+        break;
+      }
+      case 'bigSchool': {
+        const def = this.localSchoolSpecies(floorX);
+        const fromRight = this.rng() < 0.6;
+        const n = 14 + this.stats.schoolBonus * 2;
+        this.spawn.spawnSchool(def, 'normal', fromRight ? this.cam.x + VIEW_W + 60 : this.cam.x - 60, n, fromRight ? -1 : 1);
+        if (!quiet) this.onBanner('CARDUME GIGANTE!', `${n} ${def.name} cruzando a tela`, '#7ad8ff');
+        this.audio.play('newSpecies');
+        break;
+      }
+      case 'chestRain': {
+        const n = 4 + Math.floor(this.rng() * 3);
+        for (let i = 0; i < n; i++) {
+          const x = this.reachableX();
+          const mimic = depth >= 300 && this.rng() < 0.2;
+          this.spawn.spawnSpecial(SPECIES_BY_ID[mimic ? 'mimic' : 'chest'], 'normal', x, null, this.rng() < 0.5 ? 1 : -1);
+          this.effects.burst('dust', x, this.terrain.seabedY(x) - 2, 10, 50, 0.8, [paletteAt(x).sand, '#ffd84a'], 2);
+        }
+        this.effects.shake = 4;
+        this.onBanner('CHUVA DE BAÚS!', 'Um navio despejou a carga. Pegue antes que afundem na areia!', '#ffd84a');
+        this.audio.play('bonus');
+        break;
+      }
+      case 'meteorShower': {
+        // fragments of the meteor fall and mutate whatever they hit
+        const targets = this.spawn.creatures
+          .filter((c) => !c.frozen && c.hittable && isCreature(c.def) && c.variant === 'normal' && c.x > this.cam.x && c.x < this.cam.x + VIEW_W)
+          .sort(() => this.rng() - 0.5)
+          .slice(0, 4 + Math.floor(this.rng() * 4));
+        for (const c of targets) {
+          for (let k = 0; k < 8; k++) this.effects.spawn('spark', c.x + k * 3, c.y - 20 - k * 10, -40, 200, 0.25 + k * 0.03, '#b6ff3a', 2);
+          c.mutate('mutant');
+          this.effects.burst('ring', c.x, c.y, 1, 0, 0.6, ['#b6ff3a'], c.w);
+        }
+        this.effects.flash = 0.5;
+        this.onBanner('CHUVA DE METEOROS!', `${targets.length} bichos viraram mutantes (valem 3×)`, '#b6ff3a');
+        this.audio.play('shock');
+        break;
+      }
+      case 'flashOrder': {
+        const counts = new Map<string, number>();
+        for (const c of this.spawn.creatures) {
+          if (c.frozen || !c.hittable || !isCreature(c.def) || c.def.behavior === 'predator') continue;
+          if (c.x < this.cam.x - 100 || c.x > this.cam.x + VIEW_W + 100) continue;
+          counts.set(c.def.id, (counts.get(c.def.id) ?? 0) + 1);
+        }
+        const best = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
+        if (!best) return;
+        const def = SPECIES_BY_ID[best[0]];
+        const need = Math.min(6, Math.max(3, Math.round(best[1] * 0.6)));
+        const reward = Math.round(def.baseValue * need * 4 * this.valueMult);
+        this.flash = { speciesId: def.id, name: def.name, need, got: 0, t: 12, reward };
+        this.onBanner('PEDIDO RELÂMPAGO!', `Capture ${need} ${def.name} em 12s · paga $${reward.toLocaleString('pt-BR')}`, '#6cf27a');
+        this.audio.play('click');
         break;
       }
       case 'current':
@@ -746,12 +923,33 @@ export class Game {
       case 'shark': {
         const fromLeft = this.rng() < 0.5;
         const x = fromLeft ? this.cam.x - 60 : this.cam.x + VIEW_W + 60;
-        this.spawn.spawnSpecial(SPECIES_BY_ID[depth > 1500 ? 'tigerShark' : this.rng() < 0.5 ? 'reefShark' : 'hammerShark'], 'normal', x, this.terrain.seabedY(x) - 70, fromLeft ? 1 : -1);
-        this.onBanner('TUBARÃO!', 'Ele devora os bichos pequenos — pegue-os antes!', '#ff6a5a');
+        this.spawn.spawnSpecial(SPECIES_BY_ID[depth > 1500 ? 'tigerShark' : this.rng() < 0.5 ? 'reefShark' : 'hammerShark'], 'normal', x, this.reachY(x) - 20, fromLeft ? 1 : -1);
+        this.onBanner('TUBARÃO!', 'Ele devora os bichos pequenos e cresce — pegue-os antes!', '#ff6a5a');
         this.audio.play('resist');
         break;
       }
     }
+  }
+
+  private updateFlash(dt: number): void {
+    const f = this.flash;
+    if (!f) return;
+    f.t -= dt;
+    if (f.t <= 0) {
+      this.flash = null;
+      this.onBanner('PEDIDO PERDIDO', `Faltaram ${f.need - f.got} ${f.name}`, '#c8d8e0');
+    }
+  }
+
+  private flashProgress(): void {
+    const f = this.flash!;
+    f.got++;
+    if (f.got < f.need) return;
+    this.flash = null;
+    this.runCoins += f.reward;
+    this.effects.coinFly(VIEW_W / 2, 60, 10);
+    this.onBanner('PEDIDO ENTREGUE!', `+$${f.reward.toLocaleString('pt-BR')}`, '#6cf27a');
+    this.audio.play('bonus');
   }
 
   private updateCreatures(dt: number): void {
@@ -899,7 +1097,8 @@ export class Game {
     this.persist();
     const x = this.cam.x + this.aimScreenX();
     const floor = this.terrain.seabedY(x);
-    const targetY = this.pathMode ? floor - 34 : Math.min(floor - 4, this.cam.y + Math.max(60, this.input.aimY));
+    // a bait can't sink past the cable: deep creatures have to come up to it
+    const targetY = Math.min(this.pathMode ? floor - 34 : Math.min(floor - 4, this.cam.y + Math.max(60, this.input.aimY)), this.reachY(x) - 4);
     this.baits.push({ def, x, y: this.cam.y + CONFIG.claw.restTipY + 6, targetY, t: def.seconds * this.stats.baitMult, sinking: true, callTimer: 0.6, called: 0 });
     this.effects.text(x, this.cam.y + 50, `${def.name.toUpperCase()}!`, def.color);
     this.audio.play('strike');
@@ -949,12 +1148,12 @@ export class Game {
   private callForBait(b: ActiveBait, depth: number): void {
     if (b.def.chum && b.called === 1) {
       const fish = SPECIES_BY_ID[depth >= 900 ? 'lanternFish' : 'orangeFish'];
-      for (let i = 0; i < 8 && this.spawn.alive < CONFIG.spawn.maxAlive + 6; i++) {
+      for (let i = 0; i < 8 && this.spawn.alive < this.spawn.cap + 6; i++) {
         const c = this.spawn.spawnSpecial(fish, 'normal', b.x + 65 + i * 7, b.y - 15 + (i % 3) * 7, -1);
         c.lureX = b.x; c.lureY = b.y; c.lureT = 2;
       }
       const shark = SPECIES_BY_ID[depth >= 1500 ? 'tigerShark' : depth >= 300 ? 'hammerShark' : 'reefShark'];
-      if (this.spawn.alive < CONFIG.spawn.maxAlive + 10) {
+      if (this.spawn.alive < this.spawn.cap + 10) {
         const c = this.spawn.spawnSpecial(shark, 'normal', b.x - 80, b.y, 1);
         c.lureX = b.x; c.lureY = b.y; c.lureT = 2;
       }
@@ -971,7 +1170,7 @@ export class Game {
       if (b.def.species.includes('hammerShark') && this.rng() < 0.18) pool.push(SPECIES_BY_ID.hammerShark);
       if (pool.length) def = pool[Math.floor(this.rng() * pool.length)];
     }
-    if (!def || this.spawn.alive >= CONFIG.spawn.maxAlive + 6) return;
+    if (!def || this.spawn.alive >= this.spawn.cap + 6) return;
     const variant = b.def.variant && this.rng() < (b.def.variantChance ?? 0) ? b.def.variant : pickVariant(def, depth, this.stats.variantMult, this.rng);
     const fromLeft = b.x - this.cam.x > VIEW_W / 2 ? false : true;
     const x = fromLeft ? this.cam.x - 30 : this.cam.x + VIEW_W + 30;
@@ -997,9 +1196,9 @@ export class Game {
   private tryStrike(restY: number): void {
     const stats = this.stats;
     const wx = this.cam.x + this.aimScreenX();
-    const floor = this.terrain.seabedY(wx) - 1;
-    // the mouth can't go through the seabed; in path mode it dives all the way down
-    const wy = this.pathMode ? floor : Math.min(this.cam.y + Math.min(this.input.aimY, stats.reach), floor);
+    // the mouth stops at the sand or at the end of the cable, whichever comes first
+    const limit = this.reachY(wx);
+    const wy = this.pathMode ? limit : Math.min(this.cam.y + this.input.aimY, limit);
     if (!this.claw.trigger(wx, wy, restY)) return;
     this.audio.play('strike');
     this.perceivers = [];
@@ -1129,19 +1328,29 @@ export class Game {
     }
   }
 
-  private captureCreature(c: Creature, perfectHit: boolean, nowMs: number, textY: number): void {
+  private captureCreature(c: Creature, perfectHit: boolean, nowMs: number, textY: number, auto = false): void {
     const stats = this.stats;
     const fx = this.effects;
     const creature = isCreature(c.def);
     c.capture();
-    this.claw.held.push(c);
-    this.hitStop = 0.045;
-    const comboBonus = this.combo.hit(nowMs);
+    // automatic claws carry their own prey and don't touch the player's combo
+    if (!auto) {
+      this.claw.held.push(c);
+      this.hitStop = 0.045;
+    }
+    const comboBonus = auto ? 0 : this.combo.hit(nowMs);
     this.bestCombo = Math.max(this.bestCombo, this.combo.count);
     const perfect = perfectHit ? stats.perfectBonus : 0;
     const depth = depthAt(c.x);
     const frenzyMult = this.frenzy > 0 ? CONFIG.frenzy.valueMult : 1;
-    const value = captureValue(c.def, c.variant, depth, comboBonus, perfect, this.valueMult * frenzyMult * c.trophyMult);
+    const tideMult = this.tide() > 0 ? CONFIG.run.finalTideMult : 1;
+    // collectors are paid: every variant of a species you own makes it worth +5%
+    const rec = this.save.species[c.def.id];
+    const collected = new Set([...(rec?.variants ?? []), ...[...this.seenVariants].filter((k) => k.startsWith(c.def.id + '|')).map((k) => k.split('|')[1])]);
+    const newVariant = creature && c.variant !== 'normal' && !collected.has(c.variant);
+    if (creature) this.seenVariants.add(`${c.def.id}|${c.variant}`);
+    const collectMult = 1 + 0.05 * Math.max(0, collected.size - 1);
+    const value = captureValue(c.def, c.variant, depth, comboBonus, perfect, this.valueMult * frenzyMult * tideMult * collectMult * c.trophyMult);
     this.runCoins += value;
     const kg = catchKg(c.def, c.variant) * stats.kgMult * c.trophyMult;
     this.runKg = Math.round((this.runKg + kg) * 10) / 10;
@@ -1150,6 +1359,10 @@ export class Game {
 
     if (!creature) {
       fx.text(c.x, textY, 'TESOURO!', '#ffd84a', true);
+      if (this.rng() < CONFIG.chest.hourglassChance) {
+        this.addTime(CONFIG.run.hourglassSeconds);
+        fx.text(c.x, textY - 20, `AMPULHETA! +${CONFIG.run.hourglassSeconds}s`, '#7aff8a', true, 1.2);
+      }
       if (this.rng() < CONFIG.chest.starChance) {
         this.runStars++;
         fx.text(c.x, textY - 10, '+1★', '#ffe14a', true);
@@ -1157,15 +1370,26 @@ export class Game {
       this.audio.play('bonus');
     } else {
       const known = (this.save.species[c.def.id]?.caught ?? 0) > 0 || this.newSpecies.includes(c.def.id);
+      if (newVariant && known) {
+        this.runStars++;
+        fx.text(c.x, textY - 10, `VARIANTE NOVA! +1★`, '#ffe14a', true, 1.2);
+        this.onBanner(`VARIANTE NOVA: ${c.def.name.toUpperCase()} ${VARIANTS[c.variant].label.toUpperCase()}`, '+1★ · registrada no catálogo', '#ffe14a');
+      }
       if (!known) {
         this.newSpecies.push(c.def.id);
         fx.text(c.x, textY, 'ESPÉCIE NOVA!', '#ffe14a', true, 1.3);
         this.audio.play('newSpecies');
-      } else {
+      } else if (!auto) {
         fx.text(c.x, textY, perfectHit && perfect > 0 ? 'PERFEITO!' : 'CAPTURADO!', perfectHit ? '#7affea' : '#ffffff');
         this.audio.play('capture');
       }
+      // legendary and anomalous prey are the rare in-dive way to earn time
+      if (tier >= 4) {
+        this.addTime(CONFIG.run.legendaryBonusSeconds);
+        fx.text(c.x, textY - 20, `+${CONFIG.run.legendaryBonusSeconds}s`, '#7aff8a', true, 1.2);
+      }
       this.orderEvent({ type: 'capture', speciesId: c.def.id, rarity: c.def.rarity, variant: c.variant, meals: c.meals });
+      if (this.flash && this.flash.speciesId === c.def.id) this.flashProgress();
       this.feedRage(c.x);
     }
     const variantLabel = VARIANTS[c.variant].label;
@@ -1174,8 +1398,8 @@ export class Game {
       .join(' · ');
     fx.text(c.x, textY + 18, `+$${value}${kg ? ` · ${kg.toLocaleString('pt-BR')}kg` : ''}${extra ? '  ' + extra : ''}`, tier >= 2 || c.variant !== 'normal' ? RARITY_COLOR[c.def.rarity] : '#ffe680');
     this.audio.play('coin');
-    this.effects.coinFly(c.x - this.cam.x, c.y - this.cam.y, Math.min(6, 1 + Math.floor(value / 40)));
-    this.vibrate(15);
+    this.effects.coinFly(c.x - this.cam.x, c.y - this.cam.y, Math.min(auto ? 2 : 6, 1 + Math.floor(value / 40)));
+    if (!auto) this.vibrate(15);
     this.orderEvent({ type: 'combo', count: this.combo.count });
     this.orderEvent({ type: 'run', captures: this.captures.length, coins: this.runCoins });
 
@@ -1199,15 +1423,85 @@ export class Game {
   }
 
   /** Taking creatures from a guardian's biome slowly wakes it up. */
-  private feedRage(_x: number, amount = 1): void {
+  private feedRage(x: number, amount = 1): void {
     const nb = nextBoss(this.save.bosses);
-    if (!nb || bossAwake(nb, this.save.bossRage)) return;
+    if (!nb || bossAwake(nb, this.save.bossRage) || biomeIndexAt(x) < bossBiome(nb)) return;
     this.save.bossRage[nb.id] = (this.save.bossRage[nb.id] ?? 0) + amount;
     if (bossAwake(nb, this.save.bossRage)) {
-      this.onBanner(`${nb.name.toUpperCase()} ACORDOU!`, 'Ele sentiu a caça e está vindo até você. Enfrente-o ou nade para fugir!', '#ff6a5a');
+      this.onBanner(`${nb.name.toUpperCase()} ACORDOU!`, 'Você tirou comida demais do território dele. Ele está vindo até você!', '#ff6a5a');
       this.audio.play('resist');
       this.effects.shake = 8;
       this.vibrate([60, 60, 120]);
+    }
+  }
+
+  /** Platform x the automatic claws hang from (the rail, not the aim). */
+  platformX(): number {
+    return this.cam.x + this.cam.focusScreenX;
+  }
+
+  /** Automatic claws: each one watches its own column and snaps at whatever passes. */
+  private updateAutoClaws(dt: number): void {
+    if (!this.autoClaws.length) return;
+    const stats = this.stats;
+    const rest = this.cam.y + CONFIG.claw.restTipY - 4;
+    const px = this.platformX();
+    const r = Math.max(5, stats.opening * 0.8);
+    for (const a of this.autoClaws) {
+      const x = px + a.offset;
+      if (a.state === 'idle') {
+        a.tipY = rest;
+        a.cd -= dt;
+        if (a.cd > 0) continue;
+        const limit = this.reachY(x);
+        let best: Creature | null = null;
+        for (const c of this.spawn.creatures) {
+          if (c.frozen || !c.hittable || c === this.fight?.target) continue;
+          if (Math.abs(c.x - x) > r + c.w * 0.4 || c.y < rest + 6 || c.y > limit + c.h * 0.4) continue;
+          if (!best || c.y < best.y) best = c;
+        }
+        if (!best) {
+          a.cd = 0.15;
+          continue;
+        }
+        a.target = best;
+        a.targetY = Math.min(best.y, limit);
+        a.state = 'down';
+        a.t = 0;
+        continue;
+      }
+      a.t += dt;
+      if (a.state === 'down') {
+        const k = Math.min(1, a.t / AUTO_DOWN);
+        a.tipY = rest + (a.targetY - rest) * k * k;
+        if (k < 1) continue;
+        const c = a.target;
+        a.target = null;
+        if (c && c.hittable && Math.abs(c.x - x) <= r + c.w * 0.45 && Math.abs(c.y - a.tipY) <= r + c.h * 0.45) {
+          if (c.captureRequirement <= stats.strength) {
+            this.captureCreature(c, false, this.time * 1000, c.y - 10, true);
+            a.held = c;
+          } else {
+            c.shove(Math.sign(c.x - x) || 1);
+            this.effects.burst('spark', c.x, c.y, 3, 40, 0.25, ['#ff6a5a']);
+          }
+        }
+        this.effects.burst('spark', x, a.tipY, 3, 40, 0.2, ['#ffffff', '#7affea']);
+        a.state = 'up';
+        a.t = 0;
+      } else {
+        const k = Math.min(1, a.t / AUTO_UP);
+        a.tipY = a.targetY + (rest - a.targetY) * k;
+        if (a.held) {
+          a.held.x = x;
+          a.held.y = a.tipY + a.held.h * 0.25;
+        }
+        if (k < 1) continue;
+        if (a.held) a.held.removed = true;
+        a.held = null;
+        a.state = 'idle';
+        a.cd = stats.autoCooldown * (0.85 + this.rng() * 0.3);
+      }
     }
   }
 
@@ -1266,13 +1560,16 @@ export class Game {
       baits: playing ? this.baits : [],
       shots: playing ? this.shots : [],
       struggleTarget: playing ? this.fight?.target ?? null : null,
+      reachAt: (x) => (playing ? this.reachY(x) : this.terrain.seabedY(x) - 1),
+      platform: playing ? { x: this.platformX(), autos: this.autoClaws } : null,
+      tide: playing ? this.tide() : 0,
     });
   }
 
   /** What the claw would grab right now if it dove down its column. */
   private pathPreview(): { x: number; floorY: number; target: { x: number; y: number; w: number; h: number } | null } {
     const x = this.claw.x;
-    const floorY = this.terrain.seabedY(x) - 1;
+    const floorY = this.reachY(x);
     if (this.claw.busy) return { x: x - this.cam.x, floorY: floorY - this.cam.y, target: null };
     const y0 = this.cam.y + CONFIG.claw.restTipY;
     const r = this.stats.opening + this.stats.precision;

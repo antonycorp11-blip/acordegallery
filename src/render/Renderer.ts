@@ -9,7 +9,10 @@ import type { Terrain } from '../world/Terrain';
 import type { Effects } from './Effects';
 import { creatureSprite, drawEel, glowSprite, makeCanvas, variantPalette } from './PixelArt';
 import { Scenery } from './Scenery';
-import { kingCrabFrame, meteorSprite, morayFrame } from './BossArt';
+import { kingCrabFrame, matriarchFrame, meteorSprite, morayFrame, stormRayFrame } from './BossArt';
+
+/** Guardians with hand-drawn animated art (head-right frames, mirrored when facing left). */
+const BOSS_FRAMES = { colossalEel: morayFrame, ironMatriarch: matriarchFrame, stormRay: stormRayFrame } as const;
 
 export interface RenderView {
   cam: Camera;
@@ -30,6 +33,12 @@ export interface RenderView {
   /** world x of the current wall that blocks the way (null when free) */
   barrierX: number | null;
   struggleTarget: Creature | null;
+  /** deepest world y the claw can reach at world x (end of the cable) */
+  reachAt: (x: number) => number;
+  /** platform (rail) world x and its automatic claws; null outside a dive */
+  platform: { x: number; autos: readonly { offset: number; tipY: number; state: string; held: Creature | null }[] } | null;
+  /** 0..1 strength of the Maré Final glow */
+  tide: number;
   /** -1..1 strength/direction of an active current event */
   current: number;
   /** 0..1 frenzy time left */
@@ -116,8 +125,11 @@ export class Renderer {
     }
     if (v.current !== 0) this.drawCurrent(ctx, v.current, v.time);
     this.scenery.drawFront(v.terrain, camX, camY, v.time);
+    this.drawReachShade(ctx, v, camX, camY);
 
+    if (v.platform) this.drawAutoClaws(ctx, v, camX, camY);
     this.drawClaw(ctx, v, camX, camY);
+    if (v.platform) this.drawPlatform(ctx, v, camX);
     if (v.path) this.drawPath(ctx, v);
     else if (v.showReticle) this.drawReticle(ctx, v);
     if (v.sonar) this.drawSonar(ctx, v.sonar, v.time);
@@ -131,6 +143,15 @@ export class Renderer {
       ctx.fillRect(0, VIEW_H - th, VIEW_W, th);
       ctx.fillRect(0, 0, th, VIEW_H);
       ctx.fillRect(VIEW_W - th, 0, th, VIEW_H);
+    }
+    if (v.tide > 0) {
+      // Maré Final: golden pulsing frame
+      const a = (0.3 + 0.2 * Math.sin(v.time * 18)) * v.tide;
+      ctx.fillStyle = `rgba(255,210,60,${a})`;
+      ctx.fillRect(0, 0, VIEW_W, 4);
+      ctx.fillRect(0, VIEW_H - 4, VIEW_W, 4);
+      ctx.fillRect(0, 0, 4, VIEW_H);
+      ctx.fillRect(VIEW_W - 4, 0, 4, VIEW_H);
     }
     if (v.warn > 0) {
       ctx.fillStyle = `rgba(255,40,60,${0.18 * v.warn})`;
@@ -190,9 +211,9 @@ export class Renderer {
         ctx.globalAlpha = 1;
         ctx.globalCompositeOperation = 'source-over';
       }
-    } else if (d.id === 'colossalEel') {
+    } else if (d.id in BOSS_FRAMES) {
       const pose = boss.flinch > 0 ? 'hurt' : boss.telegraph > 0 ? 'raise' : 'walk';
-      const { canvas, pad } = morayFrame(w, h, d.palette, Math.floor(t * 8) % 8, pose);
+      const { canvas, pad } = BOSS_FRAMES[d.id as keyof typeof BOSS_FRAMES](w, h, d.palette, Math.floor(t * 8) % 8, pose);
       const dx = Math.round(sx - w / 2 - pad);
       const dy = Math.round(sy - h / 2 - pad + Math.sin(t * 1.6) * 1.5);
       ctx.save();
@@ -385,7 +406,7 @@ export class Renderer {
 
   drawCreature(ctx: CanvasRenderingContext2D, c: Creature, sx: number, sy: number, t: number): void {
     const def = c.def;
-    const glowy = def.special.includes('glow') || c.variant === 'biolum' || c.variant === 'golden';
+    const glowy = def.special.includes('glow') || c.variant === 'biolum' || c.variant === 'golden' || c.variant === 'crystal';
     if (glowy) {
       const pal = variantPalette(def, c.variant);
       const r = Math.max(c.w, c.h) * 0.8 + 3;
@@ -430,6 +451,14 @@ export class Renderer {
       }
     }
     ctx.globalAlpha = 1;
+    // shiny variants glint so collectors can spot them in a crowded sea
+    if ((c.variant === 'silver' || c.variant === 'crystal' || c.variant === 'golden') && Math.sin(t * 5 + c.seed) > 0.75) {
+      const gx = Math.round(sx + Math.sin(c.seed) * c.w * 0.3);
+      const gy = Math.round(sy - c.h * 0.2);
+      ctx.fillStyle = c.variant === 'crystal' ? '#ff9af8' : '#ffffff';
+      ctx.fillRect(gx - 1, gy, 3, 1);
+      ctx.fillRect(gx, gy - 1, 1, 3);
+    }
     if (c.weakened > 0 || c.meals > 0) {
       ctx.strokeStyle = c.weakened > 0 ? '#c798ff' : '#ffb36a'; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.ellipse(sx,sy,c.w*0.6+2,c.h*0.65+2,0,0,Math.PI*2); ctx.stroke();
@@ -533,6 +562,98 @@ export class Renderer {
     d.globalAlpha = 1;
   }
 
+  // ───────────────────────── cable reach, platform, automatic claws
+
+  /** Water beyond the cable's reach is shaded, with a dashed line where the cable ends. */
+  private drawReachShade(ctx: CanvasRenderingContext2D, v: RenderView, camX: number, camY: number): void {
+    const step = 4;
+    let any = false;
+    for (let sx = 0; sx < VIEW_W; sx += step) {
+      const wx = camX + sx + step / 2;
+      const floor = v.terrain.seabedY(wx) - 1;
+      const reach = v.reachAt(wx);
+      if (floor - reach < 2) continue;
+      any = true;
+      const y = Math.max(0, Math.round(reach - camY));
+      ctx.fillStyle = 'rgba(2,8,20,0.55)';
+      ctx.fillRect(sx, y, step, VIEW_H - y);
+      if ((Math.floor((sx + v.time * 30) / step) & 1) === 0) {
+        ctx.fillStyle = 'rgba(122,216,255,0.55)';
+        ctx.fillRect(sx, y, step - 1, 1);
+      }
+    }
+    if (any && Math.sin(v.time * 3) > -0.4) {
+      // label near the right edge
+      const wx = camX + VIEW_W - 60;
+      const y = Math.round(v.reachAt(wx) - camY);
+      if (y > 20 && y < VIEW_H - 8) {
+        ctx.fillStyle = '#7ad8ff';
+        ctx.font = '7px monospace';
+        ctx.fillText('LIMITE DO CABO', VIEW_W - 64, y - 3);
+      }
+    }
+  }
+
+  /** The surface rig every claw hangs from: a gantry with one winch per claw. */
+  private drawPlatform(ctx: CanvasRenderingContext2D, v: RenderView, camX: number): void {
+    const p = v.platform!;
+    const cx = Math.round(p.x - camX);
+    const offs = p.autos.map((a) => a.offset);
+    const left = Math.min(-26, ...offs.map((o) => o - 16));
+    const right = Math.max(26, ...offs.map((o) => o + 16));
+    const x0 = cx + left;
+    const w = right - left;
+    // beam with truss
+    ctx.fillStyle = '#0a1620';
+    ctx.fillRect(x0 - 1, 0, w + 2, 9);
+    ctx.fillStyle = '#4a5a68';
+    ctx.fillRect(x0, 0, w, 3);
+    ctx.fillStyle = '#7a8a98';
+    ctx.fillRect(x0, 0, w, 1);
+    ctx.fillStyle = '#2a3a48';
+    ctx.fillRect(x0, 6, w, 2);
+    ctx.fillStyle = '#4a5a68';
+    for (let x = x0; x < x0 + w - 2; x += 6) {
+      ctx.fillRect(x, 3, 1, 3);
+      ctx.fillRect(x + 1, 4, 1, 1);
+      ctx.fillRect(x + 2, 5, 1, 1);
+    }
+    // hazard stripes at the ends
+    for (const ex of [x0, x0 + w - 4]) {
+      ctx.fillStyle = '#ffd84a';
+      ctx.fillRect(ex, 0, 4, 3);
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(ex + 1, 0, 1, 3);
+      ctx.fillRect(ex + 3, 0, 1, 3);
+    }
+    // winches: main one bigger, automatic ones with a blinking light
+    const winch = (x: number, big: boolean, busy: boolean) => {
+      const ww = big ? 12 : 8;
+      ctx.fillStyle = '#0a1620';
+      ctx.fillRect(x - ww / 2 - 1, 2, ww + 2, big ? 9 : 8);
+      ctx.fillStyle = big ? '#d8a040' : '#8a9aa8';
+      ctx.fillRect(x - ww / 2, 3, ww, big ? 7 : 6);
+      ctx.fillStyle = big ? '#ffe680' : '#c8d8e0';
+      ctx.fillRect(x - ww / 2, 3, ww, 1);
+      ctx.fillStyle = busy ? '#ff5a5a' : Math.sin(v.time * 4 + x) > 0 ? '#7aff8a' : '#2a6a3a';
+      ctx.fillRect(x - 1, big ? 6 : 5, 2, 2);
+    };
+    for (const a of p.autos) winch(cx + a.offset, false, a.state !== 'idle');
+    winch(Math.round(v.claw.x - camX), true, v.claw.busy);
+  }
+
+  private drawAutoClaws(ctx: CanvasRenderingContext2D, v: RenderView, camX: number, camY: number): void {
+    const p = v.platform!;
+    const def = v.stats.claw;
+    for (const a of p.autos) {
+      const ax = Math.round(p.x + a.offset - camX);
+      const tip = Math.round(a.tipY - camY);
+      const open = a.state === 'up' ? 0.15 : 1;
+      paintClaw(ctx, ax, tip, def, v.stats.opening * 0.8 * open, v.time, 0, 6);
+      if (a.held) this.drawCreature(ctx, a.held, ax, tip + Math.round(a.held.h * 0.25), v.time);
+    }
+  }
+
   // ───────────────────────── claw & reticle
 
   private drawClaw(ctx: CanvasRenderingContext2D, v: RenderView, camX: number, camY: number): void {
@@ -567,7 +688,8 @@ export class Renderer {
   private drawReticle(ctx: CanvasRenderingContext2D, v: RenderView): void {
     const x = Math.round(v.aimX);
     const y = Math.round(v.aimY);
-    const out = y > v.stats.reach;
+    const reachY = Math.round(v.reachAt(v.cam.x + x) - v.cam.y);
+    const out = y > reachY;
     const ready = !v.claw.busy;
     const col = out ? '#ff5a6a' : ready ? '#ffffff' : '#9fd8e8';
     const r = Math.max(5, Math.round(v.stats.opening * 0.7));
@@ -586,7 +708,7 @@ export class Renderer {
     if (out) {
       // reach limit marker
       ctx.fillStyle = '#ff5a6a';
-      const ry = Math.round(v.stats.reach);
+      const ry = reachY;
       for (let dx = -6; dx <= 6; dx += 3) ctx.fillRect(x + dx, ry, 2, 1);
     }
     if (!ready) {

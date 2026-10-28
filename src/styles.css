@@ -114,6 +114,10 @@ button {
   text-shadow: 0 1px 0 #000, 0 0 4px #000;
   min-height: 1em;
 }
+#hud-flash { font-size: calc(var(--u) * 2.6); background: rgba(10, 40, 20, 0.75); border: 1px solid #6cf27a; color: #d8ffd8; border-radius: calc(var(--u) * 1); padding: calc(var(--u) * 0.5) calc(var(--u) * 1.2); margin-top: calc(var(--u) * 0.8); }
+#hud-flash b { color: #6cf27a; }
+#hud-flash span { color: #ffe14a; }
+#hud-timer.tide { color: #ffd84a; border-color: #ffd84a; box-shadow: 0 0 calc(var(--u) * 2) rgba(255, 216, 74, 0.7); animation: pulse 0.4s steps(2) infinite; }
 #hud-combo .frenzy { color: #ff9a1f; font-size: 1.3em; animation: pulse 0.3s steps(2) infinite; display: inline-block; }
 #hud-combo i { display: block; height: calc(var(--u) * 0.8); background: #ff9a1f; margin-top: 2px; border-radius: 2px; }
 #hud-stats {
@@ -915,7 +919,8 @@ body.touch #hud-bait { display: none; }
 .hunt-tools { position:absolute;left:12px;top:92px;display:flex;gap:6px;align-items:center;max-width:95%; }
 .hunt-tools button,.tree-jumps button { border:1px solid #447480;background:#092735e8;color:#7affea;border-radius:7px;padding:7px 10px;font:bold 11px monospace;pointer-events:auto;touch-action:none; }
 .hunt-tools button:disabled { color:#8ba6b5;opacity:.7; }
-.hunt-rage { color:#ffa77c;font:10px monospace;max-width:180px;text-shadow:0 1px 3px #000; }
+.hunt-rage { position:fixed;top:calc(var(--u) * 16 + var(--st));right:calc(var(--u) * 2 + var(--sr));color:#ffa77c;font:10px monospace;max-width:220px;text-align:right;text-shadow:0 1px 3px #000; }
+.hunt-tools button[hidden] { display:none; }
 .hunt-fight { position:absolute;left:50%;bottom:100px;transform:translateX(-50%);width:min(390px,75%);padding:12px 18px;background:#081a2bef;border:2px solid #ffd964;border-radius:12px;display:grid;gap:7px;color:#fff;box-shadow:0 0 32px #ffce4738;pointer-events:auto;text-align:center; }
 .hunt-name { color:#ffe14a;font-size:13px; }.hunt-progress { font:12px monospace; }
 .hunt-track { position:relative;height:24px;background:#402937;border-radius:4px;overflow:hidden; }

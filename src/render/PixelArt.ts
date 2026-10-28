@@ -63,6 +63,15 @@ export function variantPalette(def: SpeciesDefinition, variant: VariantId): Spec
     case 'mutant':
       p = { main: hueShift(b.main, 140), dark: hueShift(b.dark, 140), light: hueShift(b.light, 140), accent: '#b6ff3a', eye: '#ff2a5a' };
       break;
+    case 'silver':
+      p = { main: '#c8d4dc', dark: '#6a7a88', light: '#ffffff', accent: '#e8f4ff', eye: b.eye };
+      break;
+    case 'albino':
+      p = { main: '#f4ece8', dark: '#c8b0b0', light: '#ffffff', accent: '#ffc8d0', eye: '#ff3a5a' };
+      break;
+    case 'crystal':
+      p = { main: '#8ae8ff', dark: '#5a3ad0', light: '#f0ffff', accent: '#ff7ff5', eye: '#ffffff' };
+      break;
     case 'biolum':
       p = { main: shade(hueShift(b.main, 180), 0.2), dark: hueShift(b.dark, 180), light: '#e8fffb', accent: '#7affea', eye: b.eye };
       break;

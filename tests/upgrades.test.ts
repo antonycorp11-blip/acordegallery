@@ -9,7 +9,7 @@ import { UPGRADES_BY_ID, buyClaw, buyUpgrade, canBuy, childrenOf, computeStats, 
 
 describe('upgrade costs', () => {
   it('grows by the configured factor', () => {
-    const u = UPGRADES_BY_ID.runTime;
+    const u = UPGRADES_BY_ID.x_time1;
     expect(upgradeCost(u, 0)).toBe(u.baseCost);
     expect(upgradeCost(u, 1)).toBe(Math.round(u.baseCost * CONFIG.upgradeGrowth));
     expect(upgradeCost(u, 3)).toBeGreaterThan(upgradeCost(u, 2));
@@ -17,7 +17,7 @@ describe('upgrade costs', () => {
 
   it('root and its first children are affordable after a decent first run', () => {
     const first = [UPGRADES_BY_ID.core, ...childrenOf('core')];
-    expect(first.reduce((n, u) => n + upgradeCost(u, 0), 0)).toBeLessThanOrEqual(150);
+    expect(first.reduce((n, u) => n + upgradeCost(u, 0), 0)).toBeLessThanOrEqual(500);
   });
 });
 
@@ -34,7 +34,7 @@ describe('tree structure', () => {
         if (u.parent) expect(UPGRADES_BY_ID[u.parent].tree).toBe(tree);
       }
     }
-    expect(childrenOf('core').map(u => u.id).sort()).toEqual(['lateral','runTime','strikeSpeed']);
+    expect(childrenOf('core').map(u => u.id).sort()).toEqual(['c_speed', 'g_density', 't_value', 'x_cable1']);
   });
 
   it('essence nodes are paid with essence, not coins', () => {
@@ -45,24 +45,24 @@ describe('tree structure', () => {
     expect(buyUpgrade(s, 'e_core')).toBe('ok');
     expect(s.essence).toBe(0);
     expect(s.coins).toBe(99999);
-    expect(computeStats(s).valueMult).toBeCloseTo(1.15);
+    expect(computeStats(s).valueMult).toBeCloseTo(1.25);
   });
 
   it('buying a node reveals its children and teases the next ring', () => {
     const s = defaultSave();
     s.coins = 10000;
     expect(nodeVisibility(s, 'core')).toBe('available');
-    expect(nodeVisibility(s, 'strikeSpeed')).toBe('teaser');
-    expect(nodeVisibility(s, 'opening')).toBe('hidden');
-    expect(canBuy(s, 'strikeSpeed')).toBe('locked');
+    expect(nodeVisibility(s, 'c_speed')).toBe('teaser');
+    expect(nodeVisibility(s, 'c_open')).toBe('hidden');
+    expect(canBuy(s, 'c_speed')).toBe('locked');
     buyUpgrade(s, 'core');
     expect(nodeVisibility(s, 'core')).toBe('owned');
-    expect(nodeVisibility(s, 'strikeSpeed')).toBe('available');
-    expect(nodeVisibility(s, 'runTime')).toBe('available');
-    expect(nodeVisibility(s, 'opening')).toBe('teaser');
-    buyUpgrade(s, 'strikeSpeed');
-    expect(nodeVisibility(s, 'opening')).toBe('available');
-    expect(nodeVisibility(s, 'strength')).toBe('available');
+    expect(nodeVisibility(s, 'c_speed')).toBe('available');
+    expect(nodeVisibility(s, 'x_cable1')).toBe('available');
+    expect(nodeVisibility(s, 'c_open')).toBe('teaser');
+    buyUpgrade(s, 'c_speed');
+    expect(nodeVisibility(s, 'c_open')).toBe('available');
+    expect(nodeVisibility(s, 'c_str')).toBe('available');
   });
 });
 
@@ -70,16 +70,17 @@ describe('buying', () => {
   it('deducts coins, raises level and respects max/prereqs', () => {
     const s = defaultSave();
     s.upgrades.core = 1;
-    expect(canBuy(s, 'runTime')).toBe('funds');
+    expect(canBuy(s, 'x_cable1')).toBe('funds');
     s.coins = 10000;
-    expect(buyUpgrade(s, 'runTime')).toBe('ok');
-    expect(s.upgrades.runTime).toBe(1);
-    expect(s.coins).toBe(10000 - UPGRADES_BY_ID.runTime.baseCost);
-    expect(canBuy(s, 'multi')).toBe('locked');
-    s.upgrades.strength2 = 1;
-    expect(canBuy(s, 'multi')).toBe('ok');
-    s.upgrades.precision = UPGRADES_BY_ID.precision.maxLevel;
-    expect(canBuy(s, 'precision')).toBe('max');
+    expect(buyUpgrade(s, 'x_cable1')).toBe('ok');
+    expect(s.upgrades.x_cable1).toBe(1);
+    expect(s.coins).toBe(10000 - UPGRADES_BY_ID.x_cable1.baseCost);
+    expect(canBuy(s, 'c_multi')).toBe('locked');
+    s.upgrades.c_speed = 1;
+    s.upgrades.c_open = 1;
+    expect(canBuy(s, 'c_multi')).toBe('ok');
+    s.upgrades.c_open = UPGRADES_BY_ID.c_open.maxLevel;
+    expect(canBuy(s, 'c_open')).toBe('max');
   });
 
   it('claws need depth record and coins, then auto-equip', () => {
@@ -100,33 +101,59 @@ describe('buying', () => {
 });
 
 describe('computeStats applies real effects', () => {
-  it('run time +3s per level, summed across every time node', () => {
+  it('run time +5s per level, summed across every time node, capped at 90s by the full tree', () => {
     const s = defaultSave();
     expect(computeStats(s).runSeconds).toBe(30);
     s.upgrades.core = 1;
-    expect(computeStats(s).runSeconds).toBe(33);
-    s.upgrades.runTime = 3;
-    expect(computeStats(s).runSeconds).toBe(42);
-    s.upgrades.runTime2 = 1;
-    expect(computeStats(s).runSeconds).toBe(45);
+    expect(computeStats(s).runSeconds).toBe(35);
+    s.upgrades.x_time1 = 3;
+    expect(computeStats(s).runSeconds).toBe(50);
+    for (const u of treeNodes('main')) if (u.stat === 'runTime') s.upgrades[u.id] = u.maxLevel;
+    expect(computeStats(s).runSeconds).toBe(90);
+    s.upgrades.e_time = 3;
+    expect(computeStats(s).runSeconds).toBe(90);
+  });
+
+  it('the cable is the depth barrier: each biome needs its guardian to dive deeper', () => {
+    const s = defaultSave();
+    expect(computeStats(s).cable).toBe(CONFIG.cable.baseMeters);
+    s.upgrades.x_cable1 = 5;
+    expect(computeStats(s).cable).toBeGreaterThanOrEqual(150);
+    expect(computeStats(s).cable).toBeLessThan(200);
+    expect(canBuy(s, 'x_cable2')).toBe('locked');
+    s.bosses.push('kingCrab');
+    s.coins = 1e9;
+    expect(canBuy(s, 'x_cable2')).toBe('ok');
+    s.upgrades.x_cable2 = 5;
+    expect(computeStats(s).cable).toBeGreaterThanOrEqual(600);
+  });
+
+  it('automatic claws come from the tree and get faster', () => {
+    const s = defaultSave();
+    expect(computeStats(s).autoClaws).toBe(0);
+    s.upgrades.t_auto = 2;
+    s.upgrades.t_autoSpeed = 3;
+    const st = computeStats(s);
+    expect(st.autoClaws).toBe(2);
+    expect(st.autoCooldown).toBeLessThan(2.6);
   });
 
   it('sealed nodes show as a teaser and only open after their guardian falls', () => {
     const s = defaultSave();
-    Object.assign(s.upgrades, { core: 1, strikeSpeed: 1, strength: 1, strength2: 1 });
-    expect(nodeVisibility(s, 'strength3')).toBe('teaser');
-    expect(canBuy(s, 'strength3')).toBe('locked');
+    Object.assign(s.upgrades, { core: 1, c_speed: 1, c_str: 1 });
+    expect(nodeVisibility(s, 'c_str2')).toBe('teaser');
+    expect(canBuy(s, 'c_str2')).toBe('locked');
     s.bosses.push('kingCrab');
     s.coins = 1e9;
-    expect(nodeVisibility(s, 'strength3')).toBe('available');
-    expect(canBuy(s, 'strength3')).toBe('ok');
+    expect(nodeVisibility(s, 'c_str2')).toBe('available');
+    expect(canBuy(s, 'c_str2')).toBe('ok');
   });
 
   it('new stats: stealth, hull, kg and bait time', () => {
     const s = defaultSave();
     const base = computeStats(s);
     expect(base.hearts).toBe(3);
-    Object.assign(s.upgrades, { stealth: 2, hull: 1, kg: 2, baitTime: 2 });
+    Object.assign(s.upgrades, { c_stealth: 2, x_hull: 1, g_kg: 2, x_bait: 2 });
     const st = computeStats(s);
     expect(st.stealth).toBeCloseTo(1.2);
     expect(st.hearts).toBe(4);
@@ -137,7 +164,7 @@ describe('computeStats applies real effects', () => {
   it('speed, recovery, opening, strength, density, luck, lateral all change numbers', () => {
     const base = computeStats(defaultSave());
     const s = defaultSave();
-    Object.assign(s.upgrades, { strikeSpeed: 3, recovery: 3, opening: 2, strength: 2, density: 2, luck: 3, lateral: 2, multi: 1 });
+    Object.assign(s.upgrades, { c_speed: 3, c_recov: 3, c_open: 2, c_str: 2, g_density: 2, g_luck: 3, x_move: 2, c_multi: 1 });
     const up = computeStats(s);
     expect(up.strikeMs).toBeLessThan(base.strikeMs);
     expect(up.retractMs).toBeLessThan(base.retractMs);
@@ -152,10 +179,10 @@ describe('computeStats applies real effects', () => {
 
   it('strike speed has a readable floor and luck has diminishing returns', () => {
     const s = defaultSave();
-    s.upgrades.strikeSpeed = 99;
-    s.upgrades.strikeSpeed2 = 99;
+    s.upgrades.c_speed = 99;
+    s.upgrades.c_speed2 = 99;
     expect(computeStats(s).strikeMs).toBeGreaterThanOrEqual(CONFIG.claw.minStrikeMs);
-    const l = (n: number) => { const t = defaultSave(); t.upgrades.luck2 = n; return computeStats(t).luck; };
+    const l = (n: number) => { const t = defaultSave(); t.upgrades.g_luck2 = n; return computeStats(t).luck; };
     expect(l(2) - l(1)).toBeLessThan(l(1) - l(0));
     expect(l(4)).toBeLessThan(1);
   });
@@ -224,7 +251,7 @@ describe('capture progression across the full tree', () => {
 
   it('recalculates existing saves without losing progress or requiring a reset', () => {
     const s = defaultSave();
-    Object.assign(s.upgrades, { strength: 3, strength2: 3, strength3: 5, strength4: 5 });
+    Object.assign(s.upgrades, { c_str: 5, c_str2: 5, c_str3: 6 });
     s.coins = 12345;
     const loaded = sanitizeSave(JSON.parse(JSON.stringify(s)));
     expect(loaded).toEqual(s);

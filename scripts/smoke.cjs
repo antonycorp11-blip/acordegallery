@@ -84,13 +84,13 @@ function assert(cond, msg) {
     const lvl = await page.evaluate(() => window.__abyss.save.upgrades.core);
     assert(lvl === 1, 'comprou o nó raiz da árvore');
     const shown = await page.locator(".node.available, .node.owned").count();
-    assert(shown === before + 3, `comprar o nó revelou 3 novos nós (${before} → ${shown})`);
+    assert(shown === before + 4, `comprar o nó revelou 4 novos nós (${before} → ${shown})`);
     if (shots) await page.screenshot({ path: `${shots}/smoke-skills.png` });
 
     await page.click('.tree-bar [data-act="start"]');
     await page.waitForTimeout(300);
     t = await page.evaluate(() => window.__abyss.timeLeft);
-    assert(t > 32 && t <= 33, `próxima run começa com ~33s (${t.toFixed(2)})`);
+    assert(t > 34 && t <= 35, `próxima run começa com ~35s (${t.toFixed(2)})`);
 
     // reload: progress persists
     await page.reload();

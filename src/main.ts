@@ -27,7 +27,7 @@ const screens = new Screens(screenEl, game);
 const hunt = new HuntPanel(game, stage);
 const versionEl = document.createElement('div');
 versionEl.className = 'game-version';
-versionEl.textContent = `v${version} · Maré de Caça`;
+versionEl.textContent = `v${version} · Guincho Abissal`;
 stage.append(versionEl);
 
 game.input.bindHoldButton(touch.left, 'left');

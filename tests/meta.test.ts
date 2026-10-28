@@ -153,10 +153,11 @@ describe('guardians', () => {
     // mid-biome buoy: unlocked by reaching it
     expect(checkpointUnlocked([], 1, 0)).toBe(false);
     expect(checkpointUnlocked([], 1, 3000)).toBe(true);
-    // Exploration or defeating a guardian unlocks the next biome.
-    expect(checkpointUnlocked([], 2, 6199)).toBe(false);
-    expect(checkpointUnlocked([], 2, 6200)).toBe(true);
+    // the next biome's starting point needs its guardian defeated: distance alone never opens it
+    expect(checkpointUnlocked([], 2, 99999)).toBe(false);
     expect(checkpointUnlocked(['kingCrab'], 2)).toBe(true);
+    expect(checkpointUnlocked(['kingCrab'], 3, 0)).toBe(false);
+    expect(checkpointUnlocked(['kingCrab'], 3, 10500)).toBe(true);
     for (const c of CHECKPOINTS) if (c.requires) expect(c.x).toBeGreaterThan(BOSSES.find((b) => b.id === c.requires)!.x);
     // biomes are long: the first guardian is far from the start
     expect(BOSSES[0].x).toBeGreaterThan(5000);
@@ -202,9 +203,9 @@ describe('guardians', () => {
   it('the first guardian needs some Força upgrades', () => {
     const s = defaultSave();
     expect(computeStats(s).strength).toBeLessThan(BOSSES[0].strength);
-    s.upgrades = { core: 1, strikeSpeed: 1, strength: 3 };
+    s.upgrades = { core: 1, c_speed: 1, c_str: 3 };
     expect(computeStats(s).strength).toBeLessThan(BOSSES[0].strength);
-    s.upgrades.strength2 = 1;
+    s.upgrades.c_str = 4;
     expect(computeStats(s).strength).toBeGreaterThanOrEqual(BOSSES[0].strength);
   });
 });

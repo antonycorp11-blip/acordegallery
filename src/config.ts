@@ -16,8 +16,15 @@ export function setViewAspect(aspect: number): number {
 export const CONFIG = {
   run: {
     baseSeconds: 30,
-    maxSeconds: 75,
-    secondsPerTimeLevel: 3,
+    maxSeconds: 90,
+    secondsPerTimeLevel: 5,
+    /** the only ways to win time during a dive */
+    bossBonusSeconds: 15,
+    legendaryBonusSeconds: 5,
+    hourglassSeconds: 5,
+    /** the last seconds of every dive: everything is worth double */
+    finalTideSeconds: 10,
+    finalTideMult: 2,
     warnSeconds: 5,
   },
   camera: {
@@ -27,16 +34,23 @@ export const CONFIG = {
     minWorldX: 0,
   },
   movement: {
-    baseSpeed: 120, // world px / s
-    speedPerLevel: 32,
-    accel: 2400,
-    friction: 3200,
+    baseSpeed: 80, // world px / s
+    speedPerLevel: 16,
+    accel: 700,
+    friction: 900,
   },
   terrain: {
     baseY: 0,
     /** Visual seabed descent per world px (pure framing; depth uses depthAt). */
     slope: 0.035,
     chunkWidth: 240,
+  },
+  cable: {
+    /** meters the claw reaches with no Guincho upgrades */
+    baseMeters: 40,
+    /** px the reach line rises per 100% of depth beyond the cable */
+    gapPx: 260,
+    maxGapPx: 210,
   },
   claw: {
     restTipY: 38, // screen y of the claw mouth while idle (head fully visible)
@@ -57,15 +71,17 @@ export const CONFIG = {
     perfectRadiusFrac: 0.35,
   },
   spawn: {
-    maxAlive: 70,
+    maxAlive: 60,
+    /** absolute ceiling, whatever the upgrades (performance) */
+    hardCap: 220,
     /** Base creatures per chunk per biome index. */
-    perChunk: [5.2, 4.4, 3.8, 3.8, 3.4],
+    perChunk: [7.5, 6.6, 6, 5.8, 5.2],
     trickleSeconds: 1.4,
     activeMargin: 260,
     freezeDistance: 760,
     despawnDistance: 3200,
-    schoolMin: 3,
-    schoolMax: 5,
+    schoolMin: 4,
+    schoolMax: 7,
   },
   rarityWeights: {
     common: 100,
@@ -80,21 +96,24 @@ export const CONFIG = {
   variants: {
     mini: 0.08,
     giant: 0.05,
+    silver: 0.035,
+    albino: 0.009,
     golden: 0.018,
     biolum: 0.07, // needs depth >= 400
     mutant: 0.035, // needs depth >= 1500
+    crystal: 0.012, // needs depth >= 1800 (meteor dust)
   },
   timeBonus: {
     golden: 3,
     goldenCrab: 5,
     legendary: 10,
   },
-  upgradeGrowth: 1.55,
+  upgradeGrowth: 1.7,
   frenzy: { combo: 5, seconds: 4, haste: 0.55, valueMult: 2 },
   turbo: { seconds: 2.5, rechargePerSecond: 0.12, speedMult: 2 },
-  events: { firstAfter: 9, minGap: 12, maxGap: 20, currentPush: 55, currentSeconds: 5 },
+  events: { firstAfter: 6, minGap: 9, maxGap: 14, currentPush: 55, currentSeconds: 5 },
   aquarium: { perMinute: 0.05, capHours: 8, levelMult: 0.5 },
-  chest: { chunkChance: 0.16, mimicChance: 0.3, starChance: 0.25 },
+  chest: { chunkChance: 0.16, mimicChance: 0.3, starChance: 0.25, hourglassChance: 0.08 },
   quota: { baseKg: 24, growth: 1.3, coinsPerKg: 7, licenseValue: 0.04, fine: 0.15 },
   bait: { maxActive: 2, sinkSpeed: 170, callEvery: 1.3 },
 };

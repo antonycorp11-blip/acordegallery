@@ -123,7 +123,7 @@ export const SPECIES: SpeciesDefinition[] = [
     size: { w: 13, h: 10 }, swimSpeed: 32, perceptionRange: 40, reactionTime: 135,
     fleeAcceleration: 950, fleeSpeed: 130, mass: 0.7, armor: 0, behavior: 'swimmer',
     palette: { main: '#2f6bff', dark: '#14308a', light: '#7fb0ff', accent: '#ffd23a', eye: '#0a0a14' },
-    shapeParts: 'fish', special: [],
+    shapeParts: 'fish', special: ['school'],
   },
   {
     id: 'parrotFish', name: 'Peixe-Papagaio', rarity: 'common', baseValue: 24,
@@ -295,7 +295,7 @@ export const isCreature = (def: SpeciesDefinition) => !def.special.includes('obj
 
 export const SPECIES_BY_ID: Record<string, SpeciesDefinition> = Object.fromEntries(SPECIES.map((s) => [s.id, s]));
 
-export type VariantId = 'normal' | 'mini' | 'giant' | 'golden' | 'biolum' | 'mutant';
+export type VariantId = 'normal' | 'mini' | 'giant' | 'silver' | 'albino' | 'golden' | 'biolum' | 'mutant' | 'crystal';
 
 export interface VariantDef {
   id: VariantId;
@@ -310,10 +310,26 @@ export const VARIANTS: Record<VariantId, VariantDef> = {
   normal: { id: 'normal', label: '', scale: 1, valueMult: 1, strengthMult: 1, speedMult: 1 },
   mini: { id: 'mini', label: 'Mini', scale: 0.7, valueMult: 0.7, strengthMult: 0.6, speedMult: 1.15 },
   giant: { id: 'giant', label: 'Gigante', scale: 1.5, valueMult: 2.6, strengthMult: 1.7, speedMult: 0.85 },
+  silver: { id: 'silver', label: 'Prateado', scale: 1, valueMult: 2, strengthMult: 1, speedMult: 1.05 },
+  albino: { id: 'albino', label: 'Albino', scale: 1, valueMult: 2.5, strengthMult: 1, speedMult: 1 },
   golden: { id: 'golden', label: 'Dourado', scale: 1, valueMult: 4, strengthMult: 1, speedMult: 1.1 },
   biolum: { id: 'biolum', label: 'Bioluminescente', scale: 1, valueMult: 1.8, strengthMult: 1, speedMult: 1 },
   mutant: { id: 'mutant', label: 'Mutante', scale: 1.15, valueMult: 3, strengthMult: 1.3, speedMult: 1.05 },
+  crystal: { id: 'crystal', label: 'Cristalino', scale: 1.05, valueMult: 6, strengthMult: 1.2, speedMult: 1.1 },
 };
+
+/** Catalog order of the collectible variants. */
+export const VARIANT_ORDER: VariantId[] = ['normal', 'mini', 'giant', 'silver', 'albino', 'golden', 'biolum', 'mutant', 'crystal'];
+
+/** Variants a species can ever show up as (catalog slots). */
+export function variantsFor(def: SpeciesDefinition): VariantId[] {
+  return VARIANT_ORDER.filter((v) => {
+    if (v === 'golden') return !def.special.includes('shiny');
+    if (v === 'biolum') return !def.special.includes('glow') && def.maxDepth >= 400;
+    if (v === 'crystal') return def.maxDepth >= 1800;
+    return true;
+  });
+}
 
 export function strengthRequired(def: SpeciesDefinition, variant: VariantId): number {
   return (def.mass + def.armor) * VARIANTS[variant].strengthMult;

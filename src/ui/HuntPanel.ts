@@ -37,6 +37,8 @@ export class HuntPanel {
       const button = this.root.querySelector<HTMLButtonElement>(`[data-tool="${id}"]`)!;
       const name = id === 'net' ? 'REDE' : 'ARPÃO';
       button.disabled = h.tools.prestige < required || cd > 0 || !!h.hunt;
+      // locked tools stay out of the way until a rebirth unlocks them
+      button.hidden = h.tools.prestige < required;
       button.textContent = h.tools.prestige < required ? `🔒 ${name} · renasça ${required}×` : cd > 0 ? `${name} · ${cd.toFixed(1)}s` : `${name} [${key}]`;
     }
     this.root.querySelector('.hunt-rage')!.textContent = 'Fúria · ' + h.rage;

@@ -3,7 +3,8 @@ import { CLAWS_BY_ID } from '../entities/ClawsCatalog';
 import { SPECIES_BY_ID, VARIANTS, type VariantId } from '../entities/Species';
 
 export const SAVE_KEY = 'abyssclaw.save';
-export const SAVE_VERSION = 1;
+/** v2: new skill tree, cable and variants. Older saves start over. */
+export const SAVE_VERSION = 2;
 
 export interface SpeciesRecord {
   caught: number;
@@ -113,6 +114,7 @@ export function sanitizeSave(raw: unknown): SaveData {
   const d = defaultSave();
   if (!raw || typeof raw !== 'object') return d;
   const r = raw as Record<string, unknown>;
+  if (typeof r.version === 'number' && r.version < SAVE_VERSION) return d;
   d.coins = Math.floor(num(r.coins));
   d.totalEarned = Math.floor(num(r.totalEarned));
   d.stars = Math.floor(num(r.stars));

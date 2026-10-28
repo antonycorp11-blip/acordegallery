@@ -50,21 +50,22 @@ describe('short expeditions and meaningful growth', () => {
       expect(timeBonusFor(sp,variant.id,stats,0)).toBe(0);
     }
   });
-  it('max swimming exceeds five times starting speed and old saves keep levels', () => {
+  it('swimming grows with the tree but crossing a biome is never a sprint, and saves keep levels', () => {
     const s = defaultSave();
     const start = computeStats(s).lateralSpeed;
     for(const u of treeNodes('main')) s.upgrades[u.id]=u.maxLevel;
     for(const u of treeNodes('essence')) s.upgrades[u.id]=u.maxLevel;
-    expect(computeStats(s).lateralSpeed).toBeGreaterThan(start*5);
+    expect(computeStats(s).lateralSpeed).toBeGreaterThan(start*2);
+    expect(computeStats(s).lateralSpeed).toBeLessThan(start*4);
     const loaded = sanitizeSave(JSON.parse(JSON.stringify(s)));
     expect(loaded.upgrades).toEqual(s.upgrades);
     expect(computeStats(loaded).lateralSpeed).toBe(computeStats(s).lateralSpeed);
-    s.upgrades.dual=0;
-    expect(canBuy(s,'dual')).toBe('locked');
+    s.upgrades.c_dual=0;
+    expect(canBuy(s,'c_dual')).toBe('locked');
     s.prestiges=1;
-    s.upgrades.dual=0;
+    s.upgrades.c_dual=0;
     s.coins=1e9;
-    expect(canBuy(s,'dual')).toBe('ok');
+    expect(canBuy(s,'c_dual')).toBe('ok');
   });
 });
 
@@ -105,7 +106,7 @@ describe('populated ocean corridors', () => {
           expect(sd.creatures.some(c=>c.hittable && !c.def.special.includes('object') && c.x>=lane && c.x<Math.min(lane+120,x+VIEW_W)),
             `density=${density} seed=${seed} lane=${lane}`).toBe(true);
         }
-        expect(sd.alive).toBeLessThanOrEqual(CONFIG.spawn.maxAlive);
+        expect(sd.alive).toBeLessThanOrEqual(CONFIG.spawn.hardCap);
       }
     }
   });

@@ -20,9 +20,10 @@ export class HUD {
   private quotaBox: HTMLElement;
   private baitDot: HTMLElement;
   private baitTxt: HTMLElement;
+  private flashEl: HTMLElement;
   /** mirrors the bait counter on the touch button */
   onBait: (name: string, count: number, color: string) => void = () => {};
-  private last = { t: '', c: -1, n: -1, d: -1, r: -1, k: '', warn: false, turbo: -1, boss: '', q: '', b: '' };
+  private last = { t: '', c: -1, n: -1, d: -1, r: -1, k: '', warn: false, turbo: -1, boss: '', q: '', b: '', f: '', tide: false };
   private prevTime = 0;
   private bonusUntil = 0;
   private bannerQueue: { title: string; sub: string; color: string }[] = [];
@@ -38,6 +39,7 @@ export class HUD {
         <div id="hud-timer" class="hud-box">00:30</div>
         <div class="turbo-gauge" title="Turbo"><i></i></div>
         <div id="hud-combo"></div>
+        <div id="hud-flash" class="hidden"></div>
       </div>
       <button id="hud-pause" aria-label="Pausar">II</button>
       <div id="hud-boss" class="hidden"></div>
@@ -66,6 +68,7 @@ export class HUD {
     this.quotaTxt = q('#hud-quota .q-txt');
     this.baitDot = q('#hud-bait .dot');
     this.baitTxt = q('#hud-bait .b-txt');
+    this.flashEl = q('#hud-flash');
   }
 
   show(v: boolean): void {
@@ -167,6 +170,16 @@ export class HUD {
       this.baitDot.style.background = h.bait.color;
       this.baitTxt.textContent = `${h.bait.name} ×${h.bait.count}`;
       this.onBait(h.bait.name, h.bait.count, h.bait.color);
+    }
+    const fk = h.flash ? `${h.flash.name}|${h.flash.got}|${h.flash.need}|${Math.ceil(h.flash.t)}` : '';
+    if (fk !== this.last.f) {
+      this.last.f = fk;
+      this.flashEl.classList.toggle('hidden', !h.flash);
+      if (h.flash) this.flashEl.innerHTML = `<b>PEDIDO</b> ${h.flash.got}/${h.flash.need} ${h.flash.name} <span>${Math.ceil(h.flash.t)}s</span>`;
+    }
+    if (h.tide !== this.last.tide) {
+      this.last.tide = h.tide;
+      this.timer.classList.toggle('tide', h.tide);
     }
     const bk = h.boss ? `${h.boss.name}|${h.boss.hp}|${h.boss.open}|${h.boss.hearts}` : '';
     if (bk !== this.last.boss) {

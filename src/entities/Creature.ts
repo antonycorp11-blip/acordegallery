@@ -26,11 +26,11 @@ let nextId = 1;
 export class Creature implements Hittable {
   readonly id = nextId++;
   readonly def: SpeciesDefinition;
-  readonly variant: VariantId;
+  variant: VariantId;
   readonly seed: number;
   w: number;
   h: number;
-  readonly strengthReq: number;
+  strengthReq: number;
   meals = 0;
   weakened = 0;
   get captureRequirement(): number { return this.strengthReq * (1 + this.meals * 0.08) * (this.weakened > 0 ? 0.65 : 1); }
@@ -145,6 +145,15 @@ export class Creature implements Hittable {
     this.stunTimer = Math.max(this.stunTimer, seconds);
     this.reactTimer = -1;
     this.setState('STUNNED');
+  }
+
+  /** Turned into another variant on the spot (meteor shower). */
+  mutate(variant: VariantId): void {
+    this.variant = variant;
+    const scale = VARIANTS[variant].scale * (1 + this.meals * 0.12);
+    this.w = Math.max(4, Math.round(this.def.size.w * scale));
+    this.h = Math.max(3, Math.round(this.def.size.h * scale));
+    this.strengthReq = strengthRequired(this.def, variant);
   }
 
   capture(): void {

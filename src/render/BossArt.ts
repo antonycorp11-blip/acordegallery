@@ -340,3 +340,225 @@ export function meteorSprite(): HTMLCanvasElement {
   cache.set(key, c);
   return c;
 }
+
+/** Grid painter with an automatic 1px outline pass (for the big guardians). */
+function gridPainter(w: number, h: number, pad: number) {
+  const W = w + pad * 2;
+  const H = h + pad * 2;
+  const grid: (string | null)[] = new Array(W * H).fill(null);
+  const put = (x: number, y: number, col: string) => {
+    const gx = Math.round(x) + pad;
+    const gy = Math.round(y) + pad;
+    if (gx >= 0 && gy >= 0 && gx < W && gy < H) grid[gy * W + gx] = col;
+  };
+  const finish = (outline: string): HTMLCanvasElement => {
+    const c = makeCanvas(W, H);
+    const P = new Painter(c);
+    const n = (xx: number, yy: number) => xx >= 0 && yy >= 0 && xx < W && yy < H && grid[yy * W + xx] !== null;
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        const col = grid[y * W + x];
+        if (col) P.p(x, y, col);
+        else if (n(x - 1, y) || n(x + 1, y) || n(x, y - 1) || n(x, y + 1)) P.p(x, y, outline);
+      }
+    }
+    return c;
+  };
+  return { put, finish };
+}
+
+/**
+ * Matriarca de Ferro: an armored shark. Riveted metal plates, old harpoons
+ * stuck in her back, a sweeping tail and a jaw that drops open to attack.
+ * Drawn head-right; mirror for facing left.
+ */
+export function matriarchFrame(w: number, h: number, pal: SpeciesPalette, frame: number, pose: BossPose): { canvas: HTMLCanvasElement; pad: number } {
+  const key = `matriarch|${w}|${h}|${frame}|${pose}`;
+  const pad = Math.round(h * 0.7) + 6;
+  const hit = cache.get(key);
+  if (hit) return { canvas: hit, pad };
+  const { put, finish } = gridPainter(w, h, pad);
+  const ph = (frame / 8) * Math.PI * 2;
+  const cy = h * 0.55 + (pose === 'raise' ? -2 : 0);
+  const belly = shade(pal.light, -0.05);
+  const metal = '#9aa8b4';
+  const metalD = '#5a6874';
+  const rust = '#a8643a';
+  const tailX = w * 0.16;
+  const sway = (x: number) => Math.sin(ph - (x / w) * 3) * (1 - x / w) * 4 * (pose === 'hurt' ? 1.6 : 1);
+  // streamlined profile: high back, flatter belly, pointed snout, thin tail stalk
+  const topOf = (t: number) => cy - Math.max(2, h * 0.5 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.75)), 0.8));
+  const botOf = (t: number) => cy + Math.max(2, h * 0.34 * Math.pow(Math.sin(Math.PI * Math.pow(t, 0.62)), 0.9));
+  const bodyR = (t: number) => cy - topOf(t);
+  for (let x = Math.round(tailX); x <= w; x++) {
+    const t = (x - tailX) / (w - tailX);
+    const top = topOf(t) + sway(x);
+    const bot = botOf(t) + sway(x);
+    for (let y = Math.floor(top); y <= Math.ceil(bot); y++) {
+      const v = (y - top) / Math.max(1, bot - top);
+      let col = v < 0.18 ? pal.dark : v < 0.55 ? pal.main : v < 0.62 ? shade(pal.main, 0.15) : belly;
+      // four riveted armor plates on the back, skin showing between them
+      const px = (x - tailX) / (w - tailX);
+      const plate = Math.floor((px - 0.22) / 0.13);
+      const inPlate = px > 0.22 && plate < 4 && (px - 0.22) % 0.13 < 0.11;
+      if (inPlate && v < 0.46) {
+        const edge = (px - 0.22) % 0.13 < 0.012 || (px - 0.22) % 0.13 > 0.098 || v > 0.42;
+        col = edge ? metalD : v < 0.12 ? '#c8d4dc' : plate % 2 ? metal : shade(metal, -0.08);
+        if (!edge && v > 0.3 && v < 0.36 && Math.round(x) % 5 === 0) col = '#eef4f8';
+        if (!edge && (x * 7 + y * 13) % 41 === 0) col = rust;
+      }
+      put(x, y, col);
+    }
+  }
+  // tail fin: long upper lobe, short lower lobe, sweeping
+  const tsw = Math.sin(ph) * 5 * (pose === 'hurt' ? 1.5 : 1);
+  const ty0 = cy + sway(tailX);
+  const tri = (ax: number, ay: number, bx: number, by: number, qx: number, qy: number, col: string) => {
+    const x0 = Math.floor(Math.min(ax, bx, qx)), x1 = Math.ceil(Math.max(ax, bx, qx));
+    const y0 = Math.floor(Math.min(ay, by, qy)), y1 = Math.ceil(Math.max(ay, by, qy));
+    const area = (bx - ax) * (qy - ay) - (qx - ax) * (by - ay);
+    for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+      const w1 = ((bx - x) * (qy - y) - (qx - x) * (by - y)) / area;
+      const w2 = ((qx - x) * (ay - y) - (ax - x) * (qy - y)) / area;
+      if (w1 >= -0.02 && w2 >= -0.02 && 1 - w1 - w2 >= -0.02) put(x, y, col);
+    }
+  };
+  tri(tailX + 6, ty0 - 2, tailX - 2, ty0 + 1, tailX - 16 + tsw * 0.4, ty0 - 22 + tsw, pal.dark);
+  tri(tailX + 4, ty0, tailX - 2, ty0 + 1, tailX - 10 + tsw * 0.4, ty0 + 14 + tsw * 0.6, pal.main);
+  // dorsal fin (tall, notched) and pectoral fin
+  const dx0 = w * 0.48;
+  for (let k = 0; k < 20; k++) {
+    // swept-back triangle: the leading edge climbs, the trailing edge is concave
+    const x = dx0 + k;
+    const base = topOf((x - tailX) / (w - tailX)) + sway(x) + 1;
+    const peak = k < 6 ? (k / 6) * 16 : 16 - ((k - 6) / 14) * 16;
+    for (let y = Math.round(base - peak - (k < 6 ? 0 : (6 - k) * 0.6 + 2)); y <= base; y++) put(x - (base - y) * 0.45, y, y < base - peak + 3 ? pal.main : pal.dark);
+  }
+  const pf = pose === 'raise' ? -3 : Math.sin(ph) * 1.5;
+  for (let k = 0; k < 14; k++) for (let j = 0; j < 4 - k / 5; j++) put(w * 0.6 - k * 0.7, cy + bodyR(0.6) * 0.6 + k * 0.8 + j + pf * (k / 14), shade(pal.dark, 0.1));
+  // harpoons stuck in her back (trophies of failed hunters)
+  for (const [hx, ang, len] of [[0.36, -2.3, 16], [0.42, -2.0, 13], [0.62, -1.3, 12]] as [number, number, number][]) {
+    const bx = w * hx;
+    const by = cy - bodyR(0.4) + 1 + sway(bx);
+    for (let k = 0; k < len; k++) put(bx + Math.cos(ang) * k, by + Math.sin(ang) * k, k < 2 ? '#3a2a1a' : '#8a6a3a');
+    const ex = bx + Math.cos(ang) * len;
+    const ey = by + Math.sin(ang) * len;
+    put(ex, ey, '#e8e0d0');
+    put(ex + 1, ey, '#e8e0d0');
+    put(ex, ey - 1, '#ff6a5a');
+  }
+  // head: gills, scars, eye, jaw
+  const hx = w * 0.82;
+  for (let g = 0; g < 4; g++) for (let y = -4; y <= 4; y++) put(hx - 10 - g * 3, cy + y + sway(hx), shade(pal.dark, -0.2));
+  for (let k = 0; k < 9; k++) put(w * 0.7 + k, cy - bodyR(0.8) * 0.4 + k * 0.6, '#d8c8c0'); // scar
+  const ex = Math.round(w * 0.9);
+  const ey = Math.round(cy - h * 0.14);
+  put(ex, ey, pose === 'hurt' ? '#ffffff' : pal.eye);
+  put(ex + 1, ey, pal.eye);
+  put(ex, ey - 1, '#ffd0d0');
+  if (pose === 'raise') for (let k = -2; k <= 2; k++) put(ex + k, ey - 2 - Math.abs(k) * 0.3, '#1a1a1a');
+  const gape = pose === 'raise' ? 1 : pose === 'hurt' ? 0.5 : 0.1 + 0.08 * Math.sin(ph * 2);
+  const jaw0 = w * 0.8;
+  for (let x = Math.round(jaw0); x <= w - 1; x++) {
+    const t = (x - jaw0) / (w - jaw0);
+    const open = t * h * 0.32 * gape;
+    const mouthY = cy + h * 0.1;
+    for (let y = Math.round(mouthY); y < mouthY + open; y++) put(x, y, '#3a0a14');
+    if (open > 1 && x % 2 === 0) {
+      put(x, mouthY, '#f4f0e0');
+      put(x, mouthY + open - 1, '#f4f0e0');
+    }
+    for (let y = Math.round(mouthY + open); y < mouthY + open + 3; y++) put(x, y, y === Math.round(mouthY + open) ? pal.main : belly);
+  }
+  const c = finish(shade(pal.dark, -0.55));
+  if (cache.size > 64) cache.clear();
+  cache.set(key, c);
+  return { canvas: c, pad };
+}
+
+/**
+ * Raia da Tempestade: a huge electric ray. Wide wings that flap, glowing
+ * charge spots, and a long whip tail crackling with lightning.
+ * Drawn facing right (the tail points left); mirror for facing left.
+ */
+export function stormRayFrame(w: number, h: number, pal: SpeciesPalette, frame: number, pose: BossPose): { canvas: HTMLCanvasElement; pad: number } {
+  const key = `storm|${w}|${h}|${frame}|${pose}`;
+  const pad = Math.round(h * 0.9) + 6;
+  const hit = cache.get(key);
+  if (hit) return { canvas: hit, pad };
+  const { put, finish } = gridPainter(w, h, pad);
+  const ph = (frame / 8) * Math.PI * 2;
+  const cx = w * 0.62;
+  const cy = h * 0.5;
+  const span = w * 0.38;
+  const flap = pose === 'raise' ? -1 : Math.sin(ph);
+  const charge = pose === 'raise' ? 1 : 0.4 + 0.3 * Math.sin(ph * 2);
+  // wings: a broad diamond seen from above; flapping squashes one wing and stretches the other
+  const upH = h * 0.5 * (1 - 0.35 * flap);
+  const dnH = h * 0.5 * (1 + 0.35 * flap);
+  const spots: [number, number][] = [[-0.35, -0.45], [0.05, -0.55], [-0.15, -0.25], [-0.35, 0.45], [0.05, 0.55], [-0.15, 0.25], [0.3, -0.3], [0.3, 0.3]];
+  for (let x = Math.round(cx - span); x <= Math.round(cx + span * 0.8); x++) {
+    const rel = (x - cx) / span;
+    const reach = 1 - (rel < 0 ? -rel : rel / 0.8);
+    if (reach <= 0) continue;
+    // wing tips curl back a little (toward the tail)
+    const curl = Math.pow(1 - reach, 2) * 6;
+    for (let y = Math.round(cy - upH * reach - curl * 0.3); y <= Math.round(cy + dnH * reach + curl * 0.3); y++) {
+      const side = y < cy ? upH : dnH;
+      const dyn = Math.abs(y - cy) / Math.max(1, side * reach);
+      let col = dyn > 0.88 ? pal.light : dyn > 0.6 ? pal.main : dyn > 0.25 ? shade(pal.main, -0.12) : pal.dark;
+      for (const [sx, sy] of spots) {
+        const px = cx + sx * span;
+        const py = cy + sy * (sy < 0 ? upH : dnH);
+        const d = Math.hypot(x - px, y - py);
+        if (d < 2.6) col = d < 1.3 ? '#ffffff' : charge > 0.6 ? pal.accent : shade(pal.accent, -0.4);
+      }
+      put(x, y, col);
+    }
+  }
+  // body ridge, head lobes, eyes
+  for (let x = Math.round(cx - span * 0.6); x <= Math.round(cx + span * 0.8); x++) {
+    const t = (x - (cx - span * 0.6)) / (span * 1.4);
+    const r = Math.sin(t * Math.PI) * h * 0.14 + 1;
+    for (let y = Math.round(cy - r); y <= Math.round(cy + r); y++) put(x, y, y < cy - r * 0.4 ? shade(pal.main, 0.12) : pal.dark);
+  }
+  for (const side of [-1, 1]) {
+    const ex = Math.round(cx + span * 0.45);
+    const ey = Math.round(cy + side * h * 0.08);
+    put(ex, ey, pose === 'hurt' ? '#ff3a3a' : pal.eye);
+    put(ex + 1, ey, pose === 'hurt' ? '#ff3a3a' : pal.eye);
+    put(ex + 1, ey + side, '#000000');
+    // cephalic lobes
+    for (let k = 0; k < 6; k++) put(cx + span * 0.75 + k * 0.8, cy + side * (h * 0.06 + k * 0.6), pal.dark);
+  }
+  // whip tail with a stinger, swinging, crackling
+  let tx = cx - span * 0.6;
+  let ty = cy;
+  const tailLen = w * 0.42;
+  for (let k = 0; k < tailLen; k++) {
+    tx -= 1;
+    ty = cy + Math.sin(ph + k * 0.12) * (k / tailLen) * 6;
+    put(tx, ty, pal.dark);
+    if (k < tailLen * 0.4) put(tx, ty + 1, pal.main);
+    if (k % 7 === 0 && charge > 0.5) put(tx, ty - 2 - (frame % 2), '#ffffff');
+  }
+  put(tx - 1, ty - 1, pal.light);
+  put(tx - 2, ty - 2, pal.light);
+  put(tx - 1, ty + 1, pal.light);
+  // lightning arcs over the wings when charged
+  if (charge > 0.55) {
+    for (let a = 0; a < 3; a++) {
+      let x = cx - span * 0.6 + a * span * 0.5;
+      let y = cy - h * 0.25 - flap * 4;
+      for (let k = 0; k < 8; k++) {
+        x += ((frame + a * 3 + k) % 3) - 1;
+        y -= 1;
+        put(x, y, k % 2 ? pal.accent : '#ffffff');
+      }
+    }
+  }
+  const c = finish(shade(pal.dark, -0.6));
+  if (cache.size > 64) cache.clear();
+  cache.set(key, c);
+  return { canvas: c, pad };
+}

@@ -4,7 +4,12 @@ import { clearSave, defaultSave } from '../core/Save';
 import { BAITS, BAITS_BY_ID } from '../entities/Baits';
 import { BOSSES, CHECKPOINTS, LORE_INTRO, bossAwake, checkpointUnlocked, nextBoss } from '../entities/Boss';
 import { CLAWS, type ClawDefinition } from '../entities/ClawsCatalog';
-import { RARITIES, RARITY_COLOR, RARITY_LABEL, SPECIES, SPECIES_BY_ID, VARIANTS, isCreature, strengthRequired } from '../entities/Species';
+import { RARITIES, RARITY_COLOR, RARITY_LABEL, SPECIES, SPECIES_BY_ID, VARIANTS, isCreature, strengthRequired, variantsFor, type VariantId } from '../entities/Species';
+
+const VARIANT_COLOR: Record<VariantId, string> = {
+  normal: '#d8e6ee', mini: '#9fd8e8', giant: '#ffb36a', silver: '#e8f4ff', albino: '#ffc8d0',
+  golden: '#ffd84a', biolum: '#7affea', mutant: '#b6ff3a', crystal: '#ff9af8',
+};
 import { paintClaw } from '../render/ClawArt';
 import { creatureSprite, makeCanvas } from '../render/PixelArt';
 import { formatCoins } from '../systems/Economy';
@@ -226,7 +231,7 @@ export class Screens {
         <div class="tree-host"></div>
         <div class="tree-bar">
           <button class="btn small" data-act="home">◀ Base</button>
-          <h2>${essence ? 'Renascer · Essência' : 'Habilidades'}</h2><span class="tree-summary">Natação ${computeStats(s).lateralSpeed} · força ${computeStats(s).strength.toFixed(2)} · ${computeStats(s).runSeconds}s</span>
+          <h2>${essence ? 'Renascer · Essência' : 'Habilidades'}</h2><span class="tree-summary">Cabo ${computeStats(s).cable.toLocaleString('pt-BR')} m · força ${computeStats(s).strength.toFixed(1)} · ${computeStats(s).runSeconds}s</span>
           <button class="tab" data-act="tab" data-id="${essence ? 'skills' : 'essence'}">${essence ? 'Habilidades' : 'Renascer ✦'}</button>
           <span class="spacer"></span>
           <span class="coins">${$(s.coins)}</span><span class="stars">${s.stars}★</span>${s.essence || essence ? `<span class="ess">✦${s.essence}</span>` : ''}
@@ -237,7 +242,7 @@ export class Screens {
     const bar = this.root.querySelector('.tree-bar')!;
     new SkillTree(this.root.querySelector('.tree-host')!, this.game, () => {
       bar.querySelector('.coins')!.textContent = $(s.coins);
-      bar.querySelector('.tree-summary')!.textContent = `Natação ${computeStats(s).lateralSpeed} · força ${computeStats(s).strength.toFixed(2)} · ${computeStats(s).runSeconds}s`;
+      bar.querySelector('.tree-summary')!.textContent = `Cabo ${computeStats(s).cable.toLocaleString('pt-BR')} m · força ${computeStats(s).strength.toFixed(1)} · ${computeStats(s).runSeconds}s`;
       const e = bar.querySelector('.ess');
       if (e) e.textContent = `✦${s.essence}`;
     }, essence ? 'essence' : 'main');
@@ -553,19 +558,19 @@ export class Screens {
           ctx.fillRect(0, 0, 28, 21);
         }
       }
-      const variants = (rec?.variants ?? []).filter((v) => v !== 'normal').map((v) => VARIANTS[v].label);
+      const slots = variantsFor(sp);
       const hb = homeBiome(sp);
       const where = hb === null ? 'Aparece em eventos e tesouros' : sp.minDepth < 50 ? `Habitat: ${BIOMES[hb].name}` : `Habitat: ${BIOMES[hb].name} (a partir de ~${sp.minDepth.toLocaleString('pt-BR')} m)`;
       el.innerHTML = `<div></div><div>
         <div class="name">${known ? esc(sp.name) : '???'}</div>
         <div class="rar" style="color:${RARITY_COLOR[sp.rarity]}">${RARITY_LABEL[sp.rarity]}</div>
         <div class="meta">${known
-          ? `Capturas: ${rec!.caught} · Valor base ${$(sp.baseValue)} · Força ${strengthRequired(sp, 'normal').toFixed(1)}<br>${esc(sp.description)}${variants.length ? `<br>Variantes: ${esc(variants.join(', '))}` : ''}`
+          ? `Capturas: ${rec!.caught} · Valor base ${$(sp.baseValue)} · Força ${strengthRequired(sp, 'normal').toFixed(1)}<br>${esc(sp.description)}`
           : esc(where)}</div>
-        <div class="variant-slots">${Object.values(VARIANTS).map(v => {
-          const found = rec?.variants.includes(v.id);
-          return `<span class="${found ? 'found' : ''}" title="${v.label || 'Normal'}">${found ? '◆' : '◇'} ${v.label || 'Normal'}</span>`;
-        }).join('')}</div>
+        ${known ? `<div class="variant-slots"><em>Variantes ${slots.filter((v) => rec!.variants.includes(v)).length}/${slots.length} · +${Math.max(0, rec!.variants.length - 1) * 5}% de valor</em>${slots.map((v) => {
+          const found = rec!.variants.includes(v);
+          return `<span class="${found ? 'found' : ''}" style="${found ? `color:${VARIANT_COLOR[v]}` : ''}">${found ? '◆' : '◇'} ${found ? VARIANTS[v].label || 'Normal' : '???'}</span>`;
+        }).join('')}</div>` : ''}
       </div>`;
       el.firstElementChild!.replaceWith(cv);
       box.appendChild(el);

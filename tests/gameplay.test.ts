@@ -97,7 +97,7 @@ describe('claw state machine', () => {
   it('a faster strike upgrade reaches contact sooner', () => {
     const s = defaultSave();
     const slow = computeStats(s).strikeMs;
-    s.upgrades.strikeSpeed = 4;
+    s.upgrades.c_speed = 4;
     expect(computeStats(s).strikeMs).toBeLessThan(slow);
   });
 });
@@ -156,7 +156,7 @@ describe('spawn director', () => {
     expect(new Set(sd.creatures.map(c => c.id)).size).toBe(sd.creatures.length);
     const dense = new SpawnDirector(terrain, { density: 50, luck: 0, schoolBonus: 5, variantMult: 1 }, 11);
     for (let x = 0; x < 3000; x += 120) dense.update(0.1, x, -999, 1);
-    expect(dense.alive).toBeLessThanOrEqual(CONFIG.spawn.maxAlive);
+    expect(dense.alive).toBeLessThanOrEqual(CONFIG.spawn.hardCap);
   });
 });
 

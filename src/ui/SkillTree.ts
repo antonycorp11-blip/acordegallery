@@ -37,6 +37,9 @@ const ICONS: Record<StatKey | 'core', string[]> = {
   hull: ['.######.', '#++++++#', '#+####+#', '#+#..#+#', '#+#..#+#', '.#+##+#.', '..#++#..', '...##...'],
   kg: ['...##...', '..#..#..', '.######.', '#......#', '#.#..#.#', '#..##..#', '#......#', '########'],
   baitTime: ['...#....', '...#....', '...#....', '..###...', '.#.#.#..', '.#...#..', '..#.#+..', '...#....'],
+  cable: ['########', '...##...', '...#....', '...#....', '...#....', '..###...', '.#.#.#..', '.#...#..'],
+  autoClaw: ['#.#..#.#', '#.#..#.#', '#.#..#.#', '###..###', '.#....#.', '#+#..#+#', '#.#..#.#', '........'],
+  autoSpeed: ['..###...', '.#...#..', '#..#..#.', '#..##.#.', '#.....#.', '.#...#..', '..###...', '........'],
   turbo: ['#...#...', '##..##..', '###.###.', '########', '###.###.', '##..##..', '#...#...', '........'],
 };
 
@@ -90,7 +93,7 @@ export class SkillTree {
     root.innerHTML = `
       <div class="tree-world"></div>
       <div class="tree-pop hidden"></div>
-      <div class="tree-jumps"><button data-jump="lateral">NATAÇÃO</button><button data-jump="strength">FORÇA</button><button data-jump="grip">DISPUTA</button><button data-jump="tools">ARSENAL</button></div>
+      <div class="tree-jumps"><button data-jump="x_cable1">GUINCHO</button><button data-jump="c_str">FORÇA</button><button data-jump="g_density">VIDA</button><button data-jump="t_auto">AUTOMÁTICAS</button></div>
       <div class="tree-tools">
         <button class="tree-btn" data-z="1" aria-label="Aproximar">+</button>
         <button class="tree-btn" data-z="-1" aria-label="Afastar">−</button>
@@ -370,7 +373,13 @@ export class SkillTree {
     const next = computeStats({ ...save, upgrades: { ...save.upgrades, [u.id]: l + 1 } });
     const actualEffect = (st: typeof stats): string | null => {
       if (u.stat === 'lateral') return `Natação: ${st.lateralSpeed.toFixed(0)} px/s · turbo ${(st.lateralSpeed * 2).toFixed(0)} px/s`;
-      if (u.stat === 'runTime') return `Mergulho: ${st.runSeconds}s · limite de 75s, sem bônus de captura`;
+      if (u.stat === 'runTime') return `Mergulho: ${st.runSeconds}s (teto de 90s)`;
+      if (u.stat === 'cable') return `Cabo: ${st.cable.toLocaleString('pt-BR')} m de alcance`;
+      if (u.stat === 'autoClaw') return `${st.autoClaws} garra(s) automática(s)`;
+      if (u.stat === 'autoSpeed') return `Garras automáticas: 1 ataque a cada ${st.autoCooldown.toFixed(2)}s`;
+      if (u.stat === 'opening') return `Abertura: ${st.opening.toFixed(0)} px`;
+      if (u.stat === 'value') return `Valor: ×${st.valueMult.toFixed(2)}`;
+      if (u.stat === 'density') return `Bichos no mar: ×${st.density.toFixed(2)}`;
       if (u.stat === 'strength') return `Força total: ${st.strength.toFixed(2)}`;
       if (u.stat === 'strikeSpeed') return `Golpe: ${st.strikeMs.toFixed(1)} ms · recolhimento: ${st.retractMs.toFixed(1)} ms`;
       if (u.stat === 'recovery') return `Recarga: ${st.cooldownMs.toFixed(1)} ms`;
