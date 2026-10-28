@@ -45,7 +45,7 @@ describe('tree structure', () => {
     expect(buyUpgrade(s, 'e_core')).toBe('ok');
     expect(s.essence).toBe(0);
     expect(s.coins).toBe(99999);
-    expect(computeStats(s).valueMult).toBeCloseTo(1.25);
+    expect(computeStats(s).valueMult).toBeCloseTo(1.12);
   });
 
   it('buying a node reveals its children and teases the next ring', () => {

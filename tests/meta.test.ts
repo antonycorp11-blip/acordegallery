@@ -229,3 +229,23 @@ describe('guardian wake-up (rage)', () => {
     expect(s.bossRage).toEqual({});
   });
 });
+
+describe('biome progression', () => {
+  it('dives start in the current biome and the platform is lowered to it', async () => {
+    const { currentBiome, startXFor, biomeCableFloor } = await import('../src/entities/Boss');
+    const { BIOMES } = await import('../src/world/Biomes');
+    const { quotaTarget } = await import('../src/systems/Quota');
+    expect(currentBiome([])).toBe(0);
+    expect(startXFor([], 0)).toBe(0);
+    expect(biomeCableFloor([])).toBe(0);
+    const after = ['kingCrab'];
+    expect(currentBiome(after)).toBe(1);
+    expect(startXFor(after, 0)).toBeGreaterThanOrEqual(BIOMES[1].startX);
+    expect(startXFor(after, 99999)).toBeLessThan(BIOMES[2].startX);
+    const s = defaultSave();
+    s.bosses = after;
+    expect(computeStats(s).cable).toBeGreaterThan(150);
+    // the daily quota follows the biome
+    expect(quotaTarget(0, 1)).toBeGreaterThan(quotaTarget(0, 0) * 2);
+  });
+});

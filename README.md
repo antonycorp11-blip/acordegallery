@@ -6,6 +6,14 @@ Jogo incremental/arcade 2D de capturas submarinas. Uma garra pendurada numa **pl
 
 Toda a arte é **pixel art desenhada por código** em Canvas 2D (270 px de altura, ampliada com nearest-neighbor). Não há imagens externas.
 
+## v0.4.0 — Biomas
+
+- **Meta por bioma:** cada bioma tem uma meta de peixes (300 no recife, 900 na Costa Rochosa…). Completou, o guardião aparece onde você está; vencendo, os mergulhos seguintes **já começam no bioma seguinte**, e a plataforma desce até ele. Não dá para voltar a biomas anteriores.
+- **Perder para o guardião custa caro:** a garra destruída leva metade das moedas do mergulho, o guardião se cura por completo e a meta do bioma volta para 60%.
+- **Economia mais apertada:** capturas valem menos, garras automáticas rendem metade, cada nível de valor dá +12%, e os custos crescem 1,8× por nível.
+- **Cota mais dura:** começa em 180 kg por dia, cresce 35% a cada dia batido e 2,6× a cada bioma; a multa por falhar é de 25% do saldo.
+- **Tela inicial limpa:** logo, meta do bioma, MERGULHAR, a cota numa linha e quatro atalhos.
+
 ## v0.3.0 — Guincho Abissal
 
 A versão aparece no canto inferior direito.
@@ -53,15 +61,16 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
 - **Cota diária** (inspirada em Coal LLC): a Cooperativa Abissal exige uma quantidade de pescado em **kg** por dia, e cada dia tem 3 mergulhos.
   - Cada bicho capturado tem peso; os gigantes pesam bem mais.
   - Bater a cota paga moedas e ★ (o excedente rende bônus), sobe a **licença** (+4% no valor das capturas por nível) e aumenta a próxima cota.
-  - Falhar custa multa de 15% do saldo e um nível de licença, e a cota se repete.
+  - Falhar custa multa de 25% do saldo e um nível de licença, e a cota se repete.
+  - A cota começa em 180 kg, cresce 35% por dia batido e 2,6× a cada bioma novo.
 
-- **Mundo longo e fundo**: cada bioma tem milhares de metros de distância e desce cada vez mais. O cabo começa com 40 m; o recife vai até 150 m, a Costa Rochosa até 600 m, os Naufrágios até 1.800 m, a Floresta Abissal até 4.500 m e o Abismo até 10.000 m. No meio de cada bioma há uma **boia** que vira ponto de partida quando você a alcança.
-- **Guardiões dormem até serem provocados**: cada bicho capturado no bioma de um guardião (ou mais fundo) enche a **fúria** dele (você está tirando a comida dele). Quando enche, ele surge **ali mesmo, ao seu lado**. Se você fugir para longe, ele volta a dormir com metade da fúria e o dano já causado continua salvo.
-- **Guardiões atacam**: arremessam pedras (ou orbes elétricos) na direção da garra. Desvie com ◀ ▶. A garra tem 3 ♥ na luta (mais com o upgrade Casco), e cada acerto custa um coração e 3 s. A vida do guardião fica embaixo da tela para não esconder os tiros. Sem corações, a garra quebra e o mergulho acaba.
+- **Mundo longo e fundo**: cada bioma tem milhares de metros de distância e desce cada vez mais. O cabo começa com 40 m; o recife vai até 150 m, a Costa Rochosa até 600 m, os Naufrágios até 1.800 m, a Floresta Abissal até 4.500 m e o Abismo até 10.000 m. Os mergulhos sempre começam no bioma atual; no meio de cada bioma há uma **boia**, e depois de alcançá-la os mergulhos começam dali.
+- **Meta do bioma**: cada peixe capturado no bioma conta para a meta (você está tirando a comida do guardião). Quando a meta enche, o guardião surge **ali mesmo, ao seu lado**. Se você fugir para longe, ele volta a dormir com metade da meta e o dano já causado continua salvo.
+- **Guardiões atacam**: arremessam pedras (ou orbes elétricos) na direção da garra. Desvie com ◀ ▶. A garra tem 3 ♥ na luta (mais com o upgrade Casco), e cada acerto custa um coração e 3 s. A vida do guardião fica embaixo da tela para não esconder os tiros. Sem corações, a garra quebra, o mergulho acaba, você perde metade das moedas dele, o guardião se cura e a meta do bioma cai para 60%.
 - **Guardiões de bioma**: sete chefes surgem quando provocados: Caranguejo-Rei, Moreia Colossal, Polvo do Naufrágio, Água-Viva Catedral, Leviatã Primordial, Matriarca de Ferro e Raia da Tempestade.
   - Para capturá-los, agarre um a um os **pontos fracos brilhantes** quando abrirem (3 vezes cada; o Leviatã, 4), e só com força suficiente; o primeiro já exige Força na árvore. O dano persiste entre mergulhos. O Caranguejo-Rei e a Moreia Colossal têm arte e animação próprias: o caranguejo anda, abre e fecha as pinças e ergue-as para atacar; a moreia ondula o corpo pintado, abre a bocarra cheia de dentes no ataque e reage ao dano.
   - Eles avisam antes de atacar (brilho vermelho). O ataque atordoa a garra que estiver perto.
-  - Cada vitória paga moedas, estrelas e **+15 s** no mergulho atual, libera os nós selados da árvore (inclusive o próximo trecho de cabo) e um **ponto de partida** no bioma seguinte.
+  - Cada vitória paga moedas, estrelas e **+15 s** no mergulho atual, libera os nós selados da árvore (inclusive o próximo trecho de cabo) e o **bioma seguinte**: os próximos mergulhos já começam lá.
   - A Matriarca de Ferro (tubarão blindado com arpões cravados) e a Raia da Tempestade (raia elétrica com cauda faiscante) vêm depois do Leviatã, com arte e animação próprias.
 - **Encomendas**: três pedidos ativos por vez (capturar espécies, raridades ou variantes, chegar a uma profundidade, fazer combos, ganhar moedas num só mergulho). Pagam moedas e ★, e são resgatadas na base.
 - **Aquário**: as espécies capturadas nadam num tanque animado e rendem moedas mesmo com o jogo fechado (até 8 h, mais com ampliações pagas em ★). Completar a **coleção** de um bioma dá +10% no valor de toda captura.
@@ -153,7 +162,7 @@ scripts/balance.ts     simulação de ritmo (npx vite-node scripts/balance.ts)
   - spawn (habitat, sorte, densidade, variantes, teto de entidades);
   - economia e combo;
   - encomendas, aquário e coleções, presente diário e prestígio;
-  - guardiões (pontos fracos, ordem, pontos de partida, fúria para acordar);
+  - guardiões (pontos fracos, ordem, pontos de partida, meta para acordar), progressão por bioma e cota por bioma;
   - cota diária, iscas e trilho da garra até a borda esquerda.
 - `npm run smoke`: no Chromium, faz uma run completa:
   1. inicia a run (00:30) e captura um animal;

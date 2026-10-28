@@ -64,7 +64,7 @@ while (bossIdx < BOSSES.length && dives < 3000) {
   const autoCaps = st.autoClaws * (st.runSeconds / (st.autoCooldown + 0.4)) * AUTO_HIT * density;
   const caps = playerCaps + autoCaps;
   const value = avgValue(depth, biome, st.luck, st.valueMult * (1 + 1 / st.runSeconds * CONFIG.run.finalTideSeconds), st.strength);
-  save.coins += Math.round(caps * value);
+  save.coins += Math.round((playerCaps + autoCaps * CONFIG.economy.autoValue) * value);
   dives++;
   minutes += (st.runSeconds + MENU_SECONDS) / 60;
   const boss = BOSSES[bossIdx];

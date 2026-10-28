@@ -41,7 +41,7 @@ export class HuntPanel {
       button.hidden = h.tools.prestige < required;
       button.textContent = h.tools.prestige < required ? `🔒 ${name} · renasça ${required}×` : cd > 0 ? `${name} · ${cd.toFixed(1)}s` : `${name} [${key}]`;
     }
-    this.root.querySelector('.hunt-rage')!.textContent = 'Fúria · ' + h.rage;
+    this.root.querySelector('.hunt-rage')!.textContent = 'META DO BIOMA · ' + h.rage;
     this.fight.classList.toggle('hidden', !h.hunt);
     if(!h.hunt) return;
     const f = h.hunt;

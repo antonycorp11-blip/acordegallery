@@ -2,6 +2,8 @@
 // their glowing weak points one by one (progress persists between dives).
 
 import type { SpeciesDefinition, SpeciesPalette, ShapeKind } from './Species';
+import { BIOMES, biomeIndexAt } from '../world/Biomes';
+import { depthAt } from '../world/Depth';
 
 export interface BossDef {
   id: string;
@@ -147,6 +149,31 @@ export function checkpointUnlocked(bosses: string[], i: number, bestDistance = 0
 /** Biome a guardian lives in: it only wakes from (and appears in) that biome or deeper. */
 export function bossBiome(b: BossDef): number {
   return Math.min(4, BOSSES.indexOf(b));
+}
+
+/**
+ * The biome the player is working on: the one of the next guardian. Dives
+ * start there and never go back to earlier biomes.
+ */
+export function currentBiome(bosses: string[]): number {
+  const nb = nextBoss(bosses);
+  return nb ? bossBiome(nb) : BIOMES.length - 1;
+}
+
+/** Where dives start: the furthest unlocked buoy of the current biome. */
+export function startXFor(bosses: string[], bestDistance: number): number {
+  const b = currentBiome(bosses);
+  let x = BIOMES[b].startX + (b === 0 ? 0 : 200);
+  CHECKPOINTS.forEach((c, i) => {
+    if (biomeIndexAt(c.x) === b && checkpointUnlocked(bosses, i, bestDistance)) x = Math.max(x, c.x);
+  });
+  return x;
+}
+
+/** The platform is lowered to each new biome: the cable always reaches its first stretch. */
+export function biomeCableFloor(bosses: string[]): number {
+  const b = currentBiome(bosses);
+  return b === 0 ? 0 : Math.round(depthAt(BIOMES[b].startX) + 40);
 }
 
 /** First guardian not yet defeated (they are fought in order). */

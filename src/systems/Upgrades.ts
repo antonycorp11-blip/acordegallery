@@ -1,6 +1,7 @@
 import { CONFIG } from '../config';
 import { CLAWS_BY_ID, type ClawDefinition } from '../entities/ClawsCatalog';
 import type { SaveData } from '../core/Save';
+import { biomeCableFloor } from '../entities/Boss';
 
 export type Branch = 'core' | 'capture' | 'expedition' | 'ecology' | 'tech' | 'essence';
 export type TreeId = 'main' | 'essence';
@@ -48,7 +49,7 @@ export const STAT_TEXT: Record<StatKey, (n: number) => string> = {
   combo: (n) => `combo até +${pct(comboMax(n))}, janela ${(comboWindow(n) / 1000).toFixed(1)}s`,
   perfect: (n) => `+${Math.round(n * 10)}% no centro do bicho`,
   sonar: (n) => `sonar ${['desligado', 'curto', 'médio', 'longo', 'abissal'][Math.min(4, n)]}`,
-  value: (n) => `+${n * 25}% no valor de toda captura`,
+  value: (n) => `+${n * 12}% no valor de toda captura`,
   frenzy: (n) => `frenesi dura +${n}s`,
   aquarium: (n) => `+${n * 50}% de renda do aquário`,
   clawDiscount: (n) => `garras ${n * 15}% mais baratas`,
@@ -185,7 +186,7 @@ const NODES: NodeSpec[] = [
 
   // ── Tecnologia (para a esquerda): valor e automação
   { id: 't_value', branch: 'tech', name: 'Preço Justo', stat: 'value', maxLevel: 5, baseCost: 140, parent: 'core', x: -1, y: 0,
-    description: '+25% no valor de toda captura por nível.' },
+    description: '+12% no valor de toda captura por nível.' },
   { id: 't_auto', branch: 'tech', name: 'Braço Auxiliar', stat: 'autoClaw', maxLevel: 2, baseCost: 800, parent: 't_value', x: -2, y: 0,
     description: '+1 garra automática na plataforma por nível: ela ataca sozinha o que passar embaixo.' },
   { id: 't_autoSpeed', branch: 'tech', name: 'Motor Auxiliar', stat: 'autoSpeed', maxLevel: 5, baseCost: 1200, parent: 't_auto', x: -3, y: 0,
@@ -199,17 +200,17 @@ const NODES: NodeSpec[] = [
   { id: 't_auto2', branch: 'tech', name: 'Braços Extras', stat: 'autoClaw', maxLevel: 2, baseCost: 18000, parent: 't_autoSpeed', x: -3, y: 1, requiresBoss: 'kingCrab',
     description: '+1 garra automática por nível.' },
   { id: 't_value2', branch: 'tech', name: 'Mercado', stat: 'value', maxLevel: 5, baseCost: 13500, parent: 't_autoSpeed', x: -4, y: 0, requiresBoss: 'kingCrab',
-    description: '+25% no valor por nível.' },
+    description: '+12% no valor por nível.' },
   { id: 't_auto3', branch: 'tech', name: 'Linha de Montagem', stat: 'autoClaw', maxLevel: 2, baseCost: 125000, parent: 't_auto2', x: -4, y: 1, requiresBoss: 'colossalEel',
     description: '+1 garra automática por nível.' },
   { id: 't_autoSpeed2', branch: 'tech', name: 'Servomotores', stat: 'autoSpeed', maxLevel: 5, baseCost: 100000, parent: 't_auto3', x: -5, y: 1, requiresBoss: 'colossalEel',
     description: 'Garras auxiliares ainda mais rápidas.' },
   { id: 't_value3', branch: 'tech', name: 'Exportação', stat: 'value', maxLevel: 5, baseCost: 125000, parent: 't_value2', x: -5, y: 0, requiresBoss: 'colossalEel',
-    description: '+25% no valor por nível.' },
+    description: '+12% no valor por nível.' },
   { id: 't_auto4', branch: 'tech', name: 'Fábrica Flutuante', stat: 'autoClaw', maxLevel: 2, baseCost: 1200000, parent: 't_autoSpeed2', x: -6, y: 1, requiresBoss: 'wreckOctopus',
     description: '+1 garra automática por nível.' },
   { id: 't_value4', branch: 'tech', name: 'Monopólio', stat: 'value', maxLevel: 5, baseCost: 1600000, parent: 't_value3', x: -6, y: 0, requiresBoss: 'wreckOctopus',
-    description: '+25% no valor por nível.' },
+    description: '+12% no valor por nível.' },
 ];
 
 /** Prestige tree, bought with Essência Abissal. Never reset. */
@@ -410,7 +411,7 @@ export function computeStats(save: SaveData): RunStats {
   return {
     claw,
     runSeconds: Math.min(CONFIG.run.maxSeconds, CONFIG.run.baseSeconds + L('runTime') * CONFIG.run.secondsPerTimeLevel),
-    cable: CONFIG.cable.baseMeters + L('cable'),
+    cable: Math.max(CONFIG.cable.baseMeters + L('cable'), biomeCableFloor(save.bosses)),
     autoClaws: L('autoClaw'),
     autoCooldown: autoCooldown(L('autoSpeed')),
     grip: L('grip'),
@@ -425,7 +426,7 @@ export function computeStats(save: SaveData): RunStats {
     maxTargets: claw.maxTargets + L('multi'),
     reach: claw.reach,
     lateralSpeed: CONFIG.movement.baseSpeed + L('lateral') * CONFIG.movement.speedPerLevel,
-    valueMult: 1 + 0.25 * L('value'),
+    valueMult: 1 + 0.12 * L('value'),
     frenzySeconds: CONFIG.frenzy.seconds + L('frenzy'),
     turboSeconds: CONFIG.turbo.seconds + L('turbo'),
     stealth: 1 + 0.1 * L('stealth'),

@@ -61,9 +61,19 @@ export const CONFIG = {
     minRetractMs: 80,
     minCooldownMs: 60,
   },
+  bossLoss: {
+    /** share of the dive's coins lost when the claw is destroyed */
+    coinShare: 0.5,
+    /** share of the biome goal kept (the rest must be caught again) */
+    goalKept: 0.6,
+  },
   economy: {
     /** value multiplier = 1 + sqrt(depth)/depthDivisor */
     depthDivisor: 20,
+    /** global scale on every capture's coins */
+    valueScale: 0.55,
+    /** automatic claws earn this share of a manual capture */
+    autoValue: 0.5,
     comboWindowMs: 3200,
     comboStep: 0.1,
     comboMaxBonus: 0.5,
@@ -108,12 +118,13 @@ export const CONFIG = {
     goldenCrab: 5,
     legendary: 10,
   },
-  upgradeGrowth: 1.7,
+  upgradeGrowth: 1.8,
   frenzy: { combo: 5, seconds: 4, haste: 0.55, valueMult: 2 },
   turbo: { seconds: 2.5, rechargePerSecond: 0.12, speedMult: 2 },
   events: { firstAfter: 6, minGap: 9, maxGap: 14, currentPush: 55, currentSeconds: 5 },
   aquarium: { perMinute: 0.05, capHours: 8, levelMult: 0.5 },
   chest: { chunkChance: 0.16, mimicChance: 0.3, starChance: 0.25, hourglassChance: 0.08 },
-  quota: { baseKg: 24, growth: 1.3, coinsPerKg: 7, licenseValue: 0.04, fine: 0.15 },
+  /** daily quota: grows each met day and a lot with each biome (the sea gets fuller and heavier) */
+  quota: { baseKg: 180, growth: 1.35, biomeMult: 2.6, coinsPerKg: 2.5, licenseValue: 0.03, fine: 0.25 },
   bait: { maxActive: 2, sinkSpeed: 170, callEvery: 1.3 },
 };

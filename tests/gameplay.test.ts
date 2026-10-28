@@ -164,7 +164,7 @@ describe('economy', () => {
   it('deeper captures are worth more, variants multiply', () => {
     const fish = SPECIES_BY_ID.orangeFish;
     expect(captureValue(fish, 'normal', 400, 0, 0)).toBeGreaterThan(captureValue(fish, 'normal', 0, 0, 0));
-    expect(captureValue(fish, 'golden', 0, 0, 0)).toBe(Math.round(fish.baseValue * 4));
+    expect(captureValue(fish, 'golden', 0, 0, 0)).toBe(Math.round(fish.baseValue * 4 * CONFIG.economy.valueScale));
     expect(depthValueMult(0)).toBe(1);
   });
 

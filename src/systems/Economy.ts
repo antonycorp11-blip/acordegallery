@@ -15,7 +15,7 @@ export function captureValue(
   perfectBonus: number,
   mult = 1,
 ): number {
-  const v = def.baseValue * VARIANTS[variant].valueMult * depthValueMult(depthMeters) * (1 + comboBonus + perfectBonus) * mult;
+  const v = def.baseValue * VARIANTS[variant].valueMult * depthValueMult(depthMeters) * (1 + comboBonus + perfectBonus) * mult * CONFIG.economy.valueScale;
   return Math.max(1, Math.round(v));
 }
 

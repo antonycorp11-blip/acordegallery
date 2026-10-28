@@ -5,6 +5,7 @@
 import { CONFIG } from '../config';
 import type { QuotaState, SaveData } from '../core/Save';
 import { VARIANTS, isCreature, type SpeciesDefinition, type VariantId } from '../entities/Species';
+import { currentBiome } from '../entities/Boss';
 
 export const DIVES_PER_DAY = 3;
 
@@ -19,12 +20,13 @@ export function catchKg(def: SpeciesDefinition, variant: VariantId): number {
   return Math.round(((def.size.w * def.size.h) / 30) * s * s * 10) / 10;
 }
 
-export function quotaTarget(tier: number): number {
-  return Math.round(CONFIG.quota.baseKg * Math.pow(CONFIG.quota.growth, tier));
+export function quotaTarget(tier: number, biome = 0): number {
+  const q = CONFIG.quota;
+  return Math.round(q.baseKg * Math.pow(q.growth, tier) * Math.pow(q.biomeMult, biome));
 }
 
-export function quotaReward(q: QuotaState): { coins: number; stars: number } {
-  const target = quotaTarget(q.tier);
+export function quotaReward(q: QuotaState, biome = 0): { coins: number; stars: number } {
+  const target = quotaTarget(q.tier, biome);
   return { coins: Math.round(target * CONFIG.quota.coinsPerKg * (1 + 0.1 * q.license)), stars: 1 + (q.tier % 3 === 2 ? 1 : 0) };
 }
 
@@ -39,10 +41,11 @@ export type QuotaOutcome =
 /** Delivers a dive's catch. Mutates the save (coins, stars, quota). */
 export function deliverDive(save: SaveData, kg: number): QuotaOutcome {
   const q = save.quota;
-  const target = quotaTarget(q.tier);
+  const biome = currentBiome(save.bosses);
+  const target = quotaTarget(q.tier, biome);
   q.deliveredKg = Math.round((q.deliveredKg + kg) * 10) / 10;
   if (q.deliveredKg >= target) {
-    const r = quotaReward(q);
+    const r = quotaReward(q, biome);
     const overKg = Math.round((q.deliveredKg - target) * 10) / 10;
     const bonusCoins = Math.round(overKg * CONFIG.quota.coinsPerKg * 0.5);
     save.coins += r.coins + bonusCoins;

@@ -1,7 +1,8 @@
 import { Struggle } from '../systems/Struggle';
 import { CONFIG, VIEW_H, VIEW_W } from '../config';
 import { BAITS, BAITS_BY_ID, baitAttracts, type BaitDef } from '../entities/Baits';
-import { Boss, CHECKPOINTS, bossAwake, bossBiome, checkpointUnlocked, nextBoss, type BossDef } from '../entities/Boss';
+import { BIOMES } from '../world/Biomes';
+import { Boss, CHECKPOINTS, bossAwake, bossBiome, currentBiome, nextBoss, startXFor, type BossDef } from '../entities/Boss';
 import { Claw, type ClawState } from '../entities/Claw';
 import { updateSchool, type Creature, type CreatureEvent } from '../entities/Creature';
 import { findPathHit, resolveStrike } from '../entities/Hit';
@@ -51,6 +52,8 @@ export interface RunSummary {
   quota: QuotaOutcome;
   quotaTargetKg: number;
   clawBroken: boolean;
+  /** losing to a guardian costs: half the dive's coins, the guardian heals, the biome goal drops */
+  bossLoss: { name: string; coinsLost: number; goalLeft: number } | null;
 }
 
 export interface BossShot {
@@ -211,7 +214,7 @@ export class Game {
     this.spawn = this.makeSpawn(this.terrain);
     this.claw = new Claw(this.stats);
     this.combo = new ComboTracker(this.stats);
-    this.setupWorld(1234, 0);
+    this.setupWorld(1234, this.startCheckpointX() + 200);
   }
 
   private makeSpawn(t: Terrain): SpawnDirector {
@@ -224,7 +227,8 @@ export class Game {
     this.renderer.resetWorld();
     this.effects.clear();
     this.boss = null;
-    this.cam.x = Math.max(0, startX);
+    this.cam.minX = BIOMES[currentBiome(this.save.bosses)].startX;
+    this.cam.x = Math.max(this.cam.minX, startX);
     this.cam.vx = 0;
     this.cam.snap(this.terrain);
     this.claw = new Claw(this.stats);
@@ -276,9 +280,9 @@ export class Game {
 
   // ───────────────────────── run lifecycle
 
+  /** Dives start in the current biome (furthest buoy reached), never back at the reef. */
   startCheckpointX(): number {
-    const i = checkpointUnlocked(this.save.bosses, this.save.checkpoint, this.save.bestDistance) ? this.save.checkpoint : 0;
-    return CHECKPOINTS[i].x;
+    return startXFor(this.save.bosses, this.save.bestDistance);
   }
 
   startRun(): void {
@@ -352,11 +356,21 @@ export class Game {
     const depthRecord = this.maxDepth > s.bestDepth + 0.5;
     this.orderEvent({ type: 'depth', meters: this.maxDepth });
     this.orderEvent({ type: 'run', captures: this.captures.length, coins: this.runCoins });
+    // losing to a guardian hurts: half the dive's coins, it heals, and you must hunt again to call it
+    let bossLoss: RunSummary['bossLoss'] = null;
+    if (this.clawBroken && this.boss && !this.boss.defeated) {
+      const def = this.boss.def;
+      const coinsLost = Math.floor(this.runCoins * CONFIG.bossLoss.coinShare);
+      this.runCoins -= coinsLost;
+      delete s.bossDamage[def.id];
+      s.bossRage[def.id] = Math.floor(def.rage * CONFIG.bossLoss.goalKept);
+      bossLoss = { name: def.name, coinsLost, goalLeft: def.rage - s.bossRage[def.id] };
+    }
     s.coins += this.runCoins;
     s.totalEarned += this.runCoins;
     s.earnedThisLife += this.runCoins;
     s.stars += this.runStars;
-    const quotaTargetKg = quotaTarget(s.quota.tier);
+    const quotaTargetKg = quotaTarget(s.quota.tier, currentBiome(s.bosses));
     const quota = deliverDive(s, this.runKg);
     s.totalCaptures += this.captures.length;
     s.totalRuns += 1;
@@ -385,6 +399,7 @@ export class Game {
       quota,
       quotaTargetKg,
       clawBroken: this.clawBroken,
+      bossLoss,
     };
     this.fight = null;
     this.shots = [];
@@ -400,7 +415,7 @@ export class Game {
   /** Back to the base: idle reef in the background. */
   toMenu(): void {
     this.refreshStats();
-    this.setupWorld((this.rng() * 0xffffffff) >>> 0, 0);
+    this.setupWorld((this.rng() * 0xffffffff) >>> 0, this.startCheckpointX() + 200);
     this.setMode('menu');
   }
 
@@ -573,7 +588,7 @@ export class Game {
       frenzy: this.frenzy > 0 ? this.frenzy / stats.frenzySeconds : 0,
       turbo: this.turbo / stats.turboSeconds,
       boss: b ? { name: b.def.name, hp: b.hp, max: b.total, open: b.open, hearts: this.hearts, maxHearts: this.stats.hearts } : null,
-      quota: { kg: this.save.quota.deliveredKg + this.runKg, target: quotaTarget(this.save.quota.tier), divesLeft: this.save.quota.divesLeft },
+      quota: { kg: this.save.quota.deliveredKg + this.runKg, target: quotaTarget(this.save.quota.tier, currentBiome(this.save.bosses)), divesLeft: this.save.quota.divesLeft },
       bait: this.baitHud(),
       hunt: this.fight ? { marker: this.fight.game.marker, window: this.fight.game.halfWindow,
         tension: this.fight.game.tension, progress: this.fight.game.progress,
@@ -581,7 +596,7 @@ export class Game {
       tools: { net: this.netCooldown, harpoon: this.harpoonCooldown, prestige: this.save.prestiges },
       flash: this.flash ? { name: this.flash.name, got: this.flash.got, need: this.flash.need, t: this.flash.t } : null,
       tide: this.tide() > 0,
-      rage: (() => { const nb = nextBoss(this.save.bosses); return nb ? `${nb.name}: ${Math.min(nb.rage, this.save.bossRage[nb.id] ?? 0)}/${nb.rage}` : 'Guardiões dominados'; })(),
+      rage: (() => { const nb = nextBoss(this.save.bosses); if (!nb) return 'Guardiões dominados'; const n = Math.min(nb.rage, this.save.bossRage[nb.id] ?? 0); return n >= nb.rage ? `${nb.name} está aqui!` : `${n}/${nb.rage} peixes → ${nb.name}`; })(),
     });
   }
 
@@ -708,7 +723,7 @@ export class Game {
     this.audio.play('resist');
     if (this.hearts <= 0) {
       this.clawBroken = true;
-      this.onBanner('GARRA DESTRUÍDA!', 'O guardião venceu desta vez. Melhore a garra e volte.', '#ff4a5a');
+      this.onBanner('GARRA DESTRUÍDA!', 'O guardião se recuperou e você perde metade das moedas do mergulho.', '#ff4a5a');
       this.timeLeft = Math.min(this.timeLeft, 1.2);
     }
   }
@@ -983,7 +998,6 @@ export class Game {
       if (Math.abs(c.x - mouthX) < 8 + c.w / 2 && Math.abs(c.y - shark.y) < shark.h / 2 + c.h / 2) {
         c.removed = true;
         shark.feed();
-        this.feedRage(shark.x, 2);
         this.effects.text(shark.x, shark.y - shark.h, `NHAC! ${shark.meals}/8 · ×${shark.trophyMult.toFixed(1)}`, '#ffb36a', true);
         this.effects.burst('ring', shark.x, shark.y, 1, 0, 0.5, ['#ffb36a'], shark.w * 0.6);
         this.effects.burst('bubble', c.x, c.y, 6, 30, 0.8, ['#e8ffff']);
@@ -1350,7 +1364,7 @@ export class Game {
     const newVariant = creature && c.variant !== 'normal' && !collected.has(c.variant);
     if (creature) this.seenVariants.add(`${c.def.id}|${c.variant}`);
     const collectMult = 1 + 0.05 * Math.max(0, collected.size - 1);
-    const value = captureValue(c.def, c.variant, depth, comboBonus, perfect, this.valueMult * frenzyMult * tideMult * collectMult * c.trophyMult);
+    const value = captureValue(c.def, c.variant, depth, comboBonus, perfect, this.valueMult * frenzyMult * tideMult * collectMult * c.trophyMult * (auto ? CONFIG.economy.autoValue : 1));
     this.runCoins += value;
     const kg = catchKg(c.def, c.variant) * stats.kgMult * c.trophyMult;
     this.runKg = Math.round((this.runKg + kg) * 10) / 10;
@@ -1428,7 +1442,7 @@ export class Game {
     if (!nb || bossAwake(nb, this.save.bossRage) || biomeIndexAt(x) < bossBiome(nb)) return;
     this.save.bossRage[nb.id] = (this.save.bossRage[nb.id] ?? 0) + amount;
     if (bossAwake(nb, this.save.bossRage)) {
-      this.onBanner(`${nb.name.toUpperCase()} ACORDOU!`, 'Você tirou comida demais do território dele. Ele está vindo até você!', '#ff6a5a');
+      this.onBanner(`META DO BIOMA COMPLETA!`, `Você tirou comida demais do território. ${nb.name} está vindo até você!`, '#ff6a5a');
       this.audio.play('resist');
       this.effects.shake = 8;
       this.vibrate([60, 60, 120]);

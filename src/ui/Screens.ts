@@ -2,7 +2,7 @@ import { CONFIG } from '../config';
 import type { Game, RunSummary } from '../core/Game';
 import { clearSave, defaultSave } from '../core/Save';
 import { BAITS, BAITS_BY_ID } from '../entities/Baits';
-import { BOSSES, CHECKPOINTS, LORE_INTRO, bossAwake, checkpointUnlocked, nextBoss } from '../entities/Boss';
+import { BOSSES, LORE_INTRO, bossAwake, currentBiome, nextBoss } from '../entities/Boss';
 import { CLAWS, type ClawDefinition } from '../entities/ClawsCatalog';
 import { RARITIES, RARITY_COLOR, RARITY_LABEL, SPECIES, SPECIES_BY_ID, VARIANTS, isCreature, strengthRequired, variantsFor, type VariantId } from '../entities/Species';
 
@@ -75,19 +75,6 @@ export class Screens {
       case 'start': this.clear(); g.startRun(); break;
       case 'tab': this.confirm = null; this.showBase(id as Tab); g.audio.play('click'); break;
       case 'home': this.showBase(); g.audio.play('click'); break;
-      case 'checkpoint':
-        if (checkpointUnlocked(s.bosses, Number(id), s.bestDistance)) { s.checkpoint = Number(id); g.persist(); g.audio.play('click'); }
-        this.rerender();
-        break;
-      case 'cpStep': {
-        const unlocked = CHECKPOINTS.map((_, i) => i).filter((i) => checkpointUnlocked(s.bosses, i, s.bestDistance));
-        const cur = Math.max(0, unlocked.indexOf(s.checkpoint));
-        s.checkpoint = unlocked[(cur + Number(id) + unlocked.length) % unlocked.length];
-        g.persist();
-        g.audio.play('click');
-        this.rerender();
-        break;
-      }
       case 'loreOk':
         s.loreSeen = true;
         g.persist();
@@ -281,21 +268,22 @@ export class Screens {
     const strong = st.strength >= b.strength;
     const idx = BOSSES.indexOf(b);
     return `<div class="card objective">
-      <div class="obj-kicker">OBJETIVO · GUARDIÃO ${idx + 1}/${BOSSES.length}</div>
-      <b>Capture: ${esc(b.name)}</b>
-      <p class="desc">Pode surgir em qualquer bioma ao ser provocado. Território de origem: ${esc(BIOMES[Math.min(idx, BIOMES.length - 1)].name)}. Agarre os pontos fracos brilhantes quando abrirem.</p>
+      <div class="obj-kicker">BIOMA ${currentBiome(s.bosses) + 1} · ${esc(BIOMES[currentBiome(s.bosses)].name.toUpperCase())} · GUARDIÃO ${idx + 1}/${BOSSES.length}</div>
+      <b>Capture ${b.rage} peixes neste bioma e vença: ${esc(b.name)}</b>
+      <p class="desc">Ao completar a meta, o guardião aparece onde você estiver. Vencendo, os próximos mergulhos já começam no bioma seguinte. Agarre os pontos fracos brilhantes quando abrirem.</p>
       <div class="obj-row"><div class="pips boss-pips">${pips}</div><span>${dmg}/${b.weakPoints.length * b.hits} agarrões nos pontos fracos</span></div>
-      <div class="obj-row">${bossAwake(b, s.bossRage) ? '<span class="awake">ACORDADO — aparecerá perto de você no próximo mergulho</span>' : `<span>Dormindo. Fúria: ${s.bossRage[b.id] ?? 0}/${b.rage} pontos de caça (capturas e alimentação de tubarões)</span>`}</div>
+      <div class="obj-row">${bossAwake(b, s.bossRage) ? '<span class="awake">META COMPLETA — o guardião aparece no próximo mergulho</span>' : `<span>Peixes do bioma: ${s.bossRage[b.id] ?? 0}/${b.rage}</span>`}</div>
       <div class="obj-row"><span class="${strong ? 'ok' : 'lock'}">Força ${st.strength.toFixed(1)} / ${b.strength.toFixed(1)}${strong ? ' ✔' : ' — compre Força na árvore'}</span></div>
-      <div class="obj-row reward">Recompensa: ${$(b.coins)} · ${b.stars}★ · avanço na caçada</div>
+      <div class="obj-row reward">Recompensa: ${$(b.coins)} · ${b.stars}★ · próximo bioma</div>
     </div>`;
   }
 
   private quotaHtml(): string {
     const q = this.game.save.quota;
-    const target = quotaTarget(q.tier);
+    const biome = currentBiome(this.game.save.bosses);
+    const target = quotaTarget(q.tier, biome);
     const pct = Math.min(100, Math.round((q.deliveredKg / target) * 100));
-    const r = quotaReward(q);
+    const r = quotaReward(q, biome);
     const pips = Array.from({ length: 3 }, (_, i) => `<i class="${i < q.divesLeft ? '' : 'done'}"></i>`).join('');
     return `<div class="card quota">
       <div class="obj-kicker">COTA DO DIA ${q.day} · COOPERATIVA ABISSAL</div>
@@ -333,17 +321,27 @@ export class Screens {
     const n = this.affordableCount();
     const daily = dailyAvailable(s, now) ? dailyPreview(s, now) : null;
     const pending = aquariumPending(s, now);
-    const cp = CHECKPOINTS[checkpointUnlocked(s.bosses, s.checkpoint, s.bestDistance) ? s.checkpoint : 0];
-    const unlockedCps = CHECKPOINTS.filter((_, i) => checkpointUnlocked(s.bosses, i, s.bestDistance)).length;
     const prestigeReady = canPrestige(s);
     const b = nextBoss(s.bosses);
     const st = computeStats(s);
+    const bi = currentBiome(s.bosses);
     const q = s.quota;
-    const qTarget = quotaTarget(q.tier);
+    const qTarget = quotaTarget(q.tier, bi);
     const ready = s.orders.filter(isComplete).length;
     const tile = (act: string, id: string, icon: string, label: string, badge = '', extra = '') =>
       `<button class="tile ${extra}" data-act="${act}" data-id="${id}"><img src="${icon}" alt=""><span>${label}</span>${badge ? `<i class="badge">${badge}</i>` : ''}</button>`;
-    const bossDone = b ? Math.floor((s.bossDamage[b.id] ?? 0) / b.hits) : 0;
+    const caught = b ? Math.min(b.rage, s.bossRage[b.id] ?? 0) : 0;
+    const goal = b
+      ? `<div class="biome-card">
+          <div class="bc-kick">BIOMA ${bi + 1} · ${esc(BIOMES[bi].name.toUpperCase())}</div>
+          ${caught >= b.rage
+            ? `<b class="awake">${esc(b.name)} espera por você!</b>`
+            : `<b>${caught.toLocaleString('pt-BR')} / ${b.rage.toLocaleString('pt-BR')} peixes</b>`}
+          <div class="bar big"><i style="width:${Math.round((caught / b.rage) * 100)}%"></i></div>
+          <span class="bc-sub">${caught >= b.rage ? 'Vença-o para abrir o próximo bioma' : `Depois vem o guardião: ${esc(b.name)}`}</span>
+          ${st.strength < b.strength ? `<span class="bc-sub lock">Força ${st.strength.toFixed(1)} / ${b.strength.toFixed(1)} para segurá-lo</span>` : ''}
+        </div>`
+      : `<div class="biome-card"><div class="bc-kick">ABISMO CONQUISTADO</div><b>Todos os guardiões capturados</b><span class="bc-sub">Renasça para ficar ainda mais forte</span></div>`;
     return `
       <div class="home">
         <div class="home-top">
@@ -354,40 +352,16 @@ export class Screens {
           </div>
           <div class="pills">
             ${daily ? `<button class="pill gift" data-act="daily">🎁 Presente!</button>` : ''}
-            ${pending > 0 ? `<button class="pill tank" data-act="collect">🐠 +${$(pending)}</button>` : ''}
+            ${pending > 0 ? `<button class="pill tank" data-act="collect">🐠 +<span data-live="tank">${$(pending)}</span></button>` : ''}
             <button class="pill icon" data-act="tab" data-id="settings" aria-label="Configurações">⚙</button>
           </div>
         </div>
         <div class="home-center">
           <h1 class="logo big">ABYSS<span>CLAW</span></h1>
+          ${goal}
           <button class="dive-btn" data-act="start">MERGULHAR</button>
-          <div class="cp-pick">
-            <button data-act="cpStep" data-id="-1" ${unlockedCps > 1 ? '' : 'disabled'}>◀</button>
-            <span>Partida: <b>${esc(cp.name)}</b></span>
-            <button data-act="cpStep" data-id="1" ${unlockedCps > 1 ? '' : 'disabled'}>▶</button>
-          </div>
-          <div class="zone-map">${CHECKPOINTS.map((zone,i) => {
-            const open = checkpointUnlocked(s.bosses,i,s.bestDistance);
-            return `<button data-act="checkpoint" data-id="${i}" class="${s.checkpoint === i ? 'selected' : ''}" ${open ? '' : 'disabled'} title="${open ? 'Iniciar aqui' : 'Explore até esta zona ou derrote o guardião'}">${open ? '' : '🔒 '}${esc(zone.name)}</button>`;
-          }).join('')}</div>
-          <div class="hunt-home-tip">30–75s · sem bônus de tempo · nade para explorar · use iscas para preparar troféus</div>
+          <button class="quota-line" data-act="tab" data-id="missions">Cota do dia ${q.day}: <b>${q.deliveredKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })}/${qTarget.toLocaleString('pt-BR')} kg</b> · ${q.divesLeft} mergulho(s)${ready ? ` · <em>${ready} encomenda(s) pronta(s)</em>` : ''}</button>
         </div>
-        <button class="widget left" data-act="tab" data-id="missions">
-          ${b ? `<span class="w-kick">GUARDIÃO ${BOSSES.indexOf(b) + 1}/${BOSSES.length}</span>
-          <b>${esc(b.name)}</b>
-          <div class="pips boss-pips">${b.weakPoints.map((_, i) => `<i class="${i < bossDone ? 'done' : ''}"></i>`).join('')}</div>
-          ${bossAwake(b, s.bossRage)
-            ? `<span class="awake">ACORDADO! vem até você</span>`
-            : `<span class="w-sub">dormindo · fúria ${s.bossRage[b.id] ?? 0}/${b.rage}</span><div class="bar rage"><i style="width:${Math.round(((s.bossRage[b.id] ?? 0) / b.rage) * 100)}%"></i></div>`}
-          <span class="${st.strength >= b.strength ? 'ok' : 'lock'}">força ${st.strength.toFixed(1)}/${b.strength.toFixed(1)}</span>` : '<span class="w-kick">ABISMO CONQUISTADO</span><b>Renasça!</b>'}
-        </button>
-        <button class="widget right" data-act="tab" data-id="missions">
-          <span class="w-kick q">COTA · DIA ${q.day}</span>
-          <b>${q.deliveredKg.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} / ${qTarget} kg</b>
-          <div class="bar big"><i style="width:${Math.min(100, Math.round((q.deliveredKg / qTarget) * 100))}%"></i></div>
-          <span class="w-sub">${q.divesLeft} mergulho(s) · licença ${q.license}</span>
-          <span class="w-kick">ENCOMENDAS ${ready ? `<i class="badge">${ready} pronta(s)</i>` : `${s.orders.length}`}</span>
-        </button>
         ${s.loreSeen ? '' : `<div class="lore-modal"><div class="lore-card">
           <div class="w-kick">REGISTRO DA COOPERATIVA ABISSAL</div>
           <h2>O METEORO</h2>
@@ -397,10 +371,9 @@ export class Screens {
         <div class="dock">
           ${tile('tab', 'skills', iconUrl('variants', '#ffd84a'), 'Habilidades', n ? String(n) : '')}
           ${tile('tab', 'workshop', iconUrl('opening', '#cfefff'), 'Oficina')}
-          ${tile('tab', 'missions', iconUrl('perfect', '#ff8a6a'), 'Missões', ready ? String(ready) : '')}
-          ${tile('tab', 'aquarium', iconUrl('aquarium', '#7affea'), 'Aquário')}
           ${tile('tab', 'catalog', iconUrl('density', '#ff9a1f'), 'Catálogo')}
-          ${tile('tab', 'essence', iconUrl('frenzy', '#ff7ff5'), 'Renascer', prestigeReady ? '!' : '', prestigeReady ? 'glow' : '')}
+          ${tile('tab', 'missions', iconUrl('perfect', '#ff8a6a'), 'Missões', ready ? String(ready) : '')}
+          ${prestigeReady || s.prestiges ? tile('tab', 'essence', iconUrl('frenzy', '#ff7ff5'), 'Renascer', prestigeReady ? '!' : '', prestigeReady ? 'glow' : '') : ''}
         </div>
       </div>`;
   }
@@ -633,6 +606,7 @@ export class Screens {
     const claimable = s.orders.filter(isComplete).length;
     const highlights = [
       ...r.bossesDefeated.map((b) => `<span class="chip hl">👑 Guardião capturado: <b>${esc(b)}</b></span>`),
+      r.bossLoss ? `<span class="chip bad-chip">💥 ${esc(r.bossLoss.name)} destruiu a garra: −${$(r.bossLoss.coinsLost)}, ele se curou e faltam ${r.bossLoss.goalLeft} peixes para chamá-lo de novo</span>` : '',
       r.weakPointsHit && !r.bossesDefeated.length ? `<span class="chip">Pontos fracos agarrados: <b>${r.weakPointsHit}</b></span>` : '',
       ...r.ordersCompleted.map((o) => `<span class="chip ok-chip">✔ ${esc(o)}</span>`),
     ].join('');

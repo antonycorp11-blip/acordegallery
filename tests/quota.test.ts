@@ -6,7 +6,7 @@ import { claimDaily, doPrestige } from '../src/systems/Meta';
 import { DIVES_PER_DAY, catchKg, deliverDive, licenseBonus, quotaTarget } from '../src/systems/Quota';
 import { Camera } from '../src/core/Camera';
 import { Terrain } from '../src/world/Terrain';
-import { VIEW_W } from '../src/config';
+import { CONFIG, VIEW_W } from '../src/config';
 
 describe('daily quota', () => {
   it('weights catches, bigger variants weigh more, objects weigh nothing', () => {
@@ -39,7 +39,7 @@ describe('daily quota', () => {
     expect(s.quota.deliveredKg).toBe(DIVES_PER_DAY - 1);
     const out = deliverDive(s, 1);
     expect(out.kind).toBe('failed');
-    expect(s.coins).toBe(850);
+    expect(s.coins).toBe(1000 - Math.round(1000 * CONFIG.quota.fine));
     expect(s.quota.license).toBe(1);
     expect(quotaTarget(s.quota.tier)).toBe(target);
     expect(s.quota.divesLeft).toBe(DIVES_PER_DAY);

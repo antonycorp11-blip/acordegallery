@@ -9,11 +9,13 @@ import type { Terrain } from '../world/Terrain';
  */
 export class Camera {
   focus = VIEW_W / 2;
+  /** left edge of the world for this dive (the current biome's start) */
+  minX = CONFIG.camera.minWorldX;
   y = 0;
   vx = 0;
 
   get x(): number {
-    return Math.max(CONFIG.camera.minWorldX, this.focus - VIEW_W / 2);
+    return Math.max(this.minX, this.focus - VIEW_W / 2);
   }
 
   /** Placing the camera places its focus at the screen center. */
@@ -55,7 +57,7 @@ export class Camera {
   }
 
   clampFocus(maxFocus = Infinity): boolean {
-    const min = CONFIG.camera.minWorldX + 22;
+    const min = this.minX + 22;
     if (this.focus < min) {
       this.focus = min;
       if (this.vx < 0) this.vx = 0;
