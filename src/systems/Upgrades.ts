@@ -26,17 +26,17 @@ export type StatKey =
   | 'runTime' | 'strikeSpeed' | 'recovery' | 'opening' | 'strength' | 'precision' | 'multi'
   | 'lateral' | 'timeBonus' | 'density' | 'luck' | 'schools' | 'variants' | 'combo' | 'perfect' | 'sonar'
   | 'value' | 'frenzy' | 'aquarium' | 'clawDiscount' | 'keepRoutes' | 'turbo'
-  | 'stealth' | 'hull' | 'kg' | 'baitTime';
+  | 'stealth' | 'hull' | 'kg' | 'baitTime' | 'grip' | 'tools' | 'dual';
 
 const pct = (v: number) => `${Math.round(v * 100)}%`;
 
 /** Human readable contribution of `n` stat levels. */
 export const STAT_TEXT: Record<StatKey, (n: number) => string> = {
   runTime: (n) => `+${n * CONFIG.run.secondsPerTimeLevel}s de mergulho`,
-  strikeSpeed: (n) => `golpe ${Math.round(n * 7)}% mais rápido`,
-  recovery: (n) => `recarga ${Math.round(n * 5.5)}% menor`,
+  strikeSpeed: (n) => `reduz ${Math.round((1 - strikeMult(n)) * 100)}% da espera até a velocidade máxima`,
+  recovery: (n) => `reduz ${Math.round((1 - cooldownMult(n)) * 100)}% da espera até a recarga mínima`,
   opening: (n) => `+${(n * 1.3).toFixed(1)} px de abertura`,
-  strength: (n) => `+${(n * 0.5).toFixed(1)} de força`,
+  strength: (n) => `${n} nível(is) de força · +0,5 por nível, ganho acelerado após 6 níveis somados`,
   precision: (n) => `+${n} px de tolerância`,
   multi: (n) => `+${n} alvo(s) por golpe`,
   lateral: (n) => `+${pct((n * CONFIG.movement.speedPerLevel) / CONFIG.movement.baseSpeed)} de velocidade lateral`,
@@ -57,6 +57,9 @@ export const STAT_TEXT: Record<StatKey, (n: number) => string> = {
   stealth: (n) => `bichos reagem ${n * 10}% mais devagar`,
   hull: (n) => `+${n} ♥ contra guardiões`,
   kg: (n) => `+${n * 10}% de kg para a cota`,
+  grip: (n) => `Disputa: +${n * 4}% de tolerância e +${n * 5}% de força na linha`,
+  tools: (n) => `Ferramentas: recarga ${n * 8}% menor`,
+  dual: (n) => `Segunda garra: +${n} presa(s) próxima(s) por golpe`,
   baitTime: (n) => `iscas duram +${n * 25}% e chamam +${n} bicho(s)`,
 };
 
@@ -73,6 +76,7 @@ export interface UpgradeDef {
   parent: string | null;
   /** Sealed until this guardian is captured (the tree grows with the game). */
   requiresBoss?: string;
+  requiresPrestige?: number;
   /** Grid position in the tree (root at 0,0; y grows downward). */
   x: number;
   y: number;
@@ -84,8 +88,14 @@ type NodeSpec = Omit<UpgradeDef, 'effect' | 'tree'>;
 
 const NODES: NodeSpec[] = [
   { id: 'core', branch: 'core', name: 'Instinto de Caça', stat: 'runTime', maxLevel: 1, baseCost: 20, parent: null, x: 0, y: 0,
-    description: 'O primeiro passo. +5 segundos de mergulho e libera os caminhos da árvore.' },
+    description: 'O primeiro passo. +3 segundos de mergulho e libera os caminhos da árvore.' },
 
+  { id: 'grip', branch: 'capture', name: 'Domínio da Linha', stat: 'grip', maxLevel: 5, baseCost: 220, parent: 'strength', x: 2, y: -2,
+    description: 'Presas gigantes, lendárias e tubarões alimentados iniciam uma disputa. Clique no verde para vencer; errar aumenta a tensão. Cada nível facilita.' },
+  { id: 'tools', branch: 'tech', name: 'Arsenal de Caça', stat: 'tools', maxLevel: 5, baseCost: 1200, parent: 'combo', x: -5, y: 0,
+    description: 'Melhora a recarga da rede (1º renascimento) e do arpão (2º). Ferramentas usam recarga, não moedas por disparo.' },
+  { id: 'dual', branch: 'capture', name: 'Garra Gêmea', stat: 'dual', maxLevel: 2, baseCost: 8000, parent: 'multi2', x: 1, y: -6, requiresPrestige: 1,
+    description: 'Após renascer, monte uma segunda garra: ela captura vizinhos do alvo principal. A linha adicional aparece durante o golpe.' },
   // ── Captura (para cima)
   { id: 'strikeSpeed', branch: 'capture', name: 'Golpe Rápido', stat: 'strikeSpeed', maxLevel: 4, baseCost: 45, parent: 'core', x: 0, y: -1,
     description: 'Investida e recolhimento mais rápidos. Menos tempo para o bicho fugir.' },
@@ -112,23 +122,23 @@ const NODES: NodeSpec[] = [
 
   // ── Expedição (para a direita)
   { id: 'runTime', branch: 'expedition', name: 'Mais Tempo', stat: 'runTime', maxLevel: 3, baseCost: 50, parent: 'core', x: 1, y: 0,
-    description: 'Cada nível adiciona 5 segundos ao mergulho.' },
-  { id: 'lateral', branch: 'expedition', name: 'Propulsores', stat: 'lateral', maxLevel: 4, baseCost: 55, parent: 'runTime', x: 2, y: 0,
+    description: 'Cada nível adiciona 3 segundos. Limite de 75s; níveis excedentes dão +3% no valor.' },
+  { id: 'lateral', branch: 'expedition', name: 'Natação • Propulsores', stat: 'lateral', maxLevel: 4, baseCost: 35, parent: 'core', x: 2, y: 0,
     description: 'Navega mais rápido para a direita (e para águas fundas).' },
   { id: 'runTime2', branch: 'expedition', name: 'Mergulho Longo', stat: 'runTime', maxLevel: 3, baseCost: 304, parent: 'lateral', x: 3, y: -1,
     description: 'Ainda mais segundos por mergulho.' },
   { id: 'lateral2', branch: 'expedition', name: 'Turbina', stat: 'lateral', maxLevel: 3, baseCost: 336, parent: 'lateral', x: 3, y: 0,
     description: 'Deslocamento lateral ainda mais rápido.' },
-  { id: 'timeBonus', branch: 'expedition', name: 'Relógio Dourado', stat: 'timeBonus', maxLevel: 3, baseCost: 416, parent: 'runTime2', x: 4, y: -1,
-    description: 'Bônus de tempo maiores, e raros passam a dar segundos.' },
+  { id: 'timeBonus', branch: 'expedition', name: 'Caça Seletiva', stat: 'value', maxLevel: 3, baseCost: 416, parent: 'runTime2', x: 4, y: -1,
+    description: 'Mais valor por captura, sem prolongar o relógio. Escolha suas presas.' },
   { id: 'runTime3', branch: 'expedition', name: 'Fôlego Abissal', stat: 'runTime', maxLevel: 4, baseCost: 1040, parent: 'runTime2', x: 3, y: -2,
     description: 'Mergulhos muito mais longos.' },
   { id: 'lateral3', branch: 'expedition', name: 'Hélice Abissal', stat: 'lateral', maxLevel: 3, baseCost: 1200, parent: 'lateral2', x: 4, y: 0,
     description: 'Velocidade para alcançar o abismo.' },
   { id: 'turbo', branch: 'expedition', name: 'Turbo', stat: 'turbo', maxLevel: 3, baseCost: 384, parent: 'lateral2', x: 3, y: 1,
     description: 'Mais segundos de turbo por mergulho.' },
-  { id: 'timeBonus2', branch: 'expedition', name: 'Ampulheta Viva', stat: 'timeBonus', maxLevel: 3, baseCost: 2400, parent: 'timeBonus', x: 5, y: -1,
-    description: 'Bônus de tempo ainda maiores.' },
+  { id: 'timeBonus2', branch: 'expedition', name: 'Troféus de Caça', stat: 'value', maxLevel: 3, baseCost: 2400, parent: 'timeBonus', x: 5, y: -1,
+    description: 'Colecionadores pagam melhor pelas suas capturas. O relógio continua correndo.' },
 
   // ── Ecologia (para baixo)
   { id: 'density', branch: 'ecology', name: 'Mais Criaturas', stat: 'density', maxLevel: 3, baseCost: 65, parent: 'runTime', x: 1, y: 1,
@@ -215,7 +225,7 @@ const ESSENCE_NODES: NodeSpec[] = [
   { id: 'e_core', branch: 'essence', name: 'Memória Abissal', stat: 'value', maxLevel: 5, baseCost: 1, parent: null, x: 0, y: 0,
     description: 'Tudo o que você captura vale mais, para sempre.' },
   { id: 'e_time', branch: 'essence', name: 'Fôlego Eterno', stat: 'runTime', maxLevel: 3, baseCost: 2, parent: 'e_core', x: -1, y: -1,
-    description: '+5 segundos em todo mergulho.' },
+    description: '+3 segundos em todo mergulho.' },
   { id: 'e_strength', branch: 'essence', name: 'Garra Ancestral', stat: 'strength', maxLevel: 4, baseCost: 2, parent: 'e_core', x: 1, y: -1,
     description: 'Força permanente para qualquer garra.' },
   { id: 'e_aquarium', branch: 'essence', name: 'Maré Fértil', stat: 'aquarium', maxLevel: 3, baseCost: 2, parent: 'e_core', x: 0, y: 1,
@@ -241,8 +251,15 @@ export const UPGRADES_BY_ID: Record<string, UpgradeDef> = Object.fromEntries(UPG
 export const childrenOf = (id: string) => UPGRADES.filter((u) => u.parent === id);
 
 // ── effect curves (exported for tests); `l` = total stat levels
-export const strikeMult = (l: number) => Math.max(0.45, 1 - 0.07 * l);
-export const cooldownMult = (l: number) => Math.max(0.55, 1 - 0.055 * l);
+export const strikeMult = (l: number) => Math.pow(0.86, l);
+export const cooldownMult = (l: number) => Math.pow(0.88, l);
+
+// Preserve the first guardian's progression, then outgrow giant/armored prey.
+export const strengthBonus = (l: number) => 0.5 * l + 0.04 * Math.pow(Math.max(0, l - 6), 2);
+
+// Approach the timing floor smoothly so every purchased level still helps.
+const upgradedTiming = (base: number, floor: number, mult: number) =>
+  Math.min(base, floor) + Math.max(0, base - floor) * mult;
 export const densityMult = (l: number) => 1 + 0.16 * l;
 export const luckValue = (l: number) => 1 - Math.pow(0.86, l);
 export const variantMult = (l: number) => 1 + 0.3 * l;
@@ -276,6 +293,7 @@ export function upgradeCost(def: UpgradeDef, currentLevel: number): number {
 }
 
 export function requirementsMet(save: SaveData, def: UpgradeDef): boolean {
+  if (def.requiresPrestige && save.prestiges < def.requiresPrestige) return false;
   if (def.requiresBoss && !save.bosses.includes(def.requiresBoss)) return false;
   return def.parent === null || level(save, def.parent) >= 1;
 }
@@ -351,6 +369,9 @@ export function buyClaw(save: SaveData, id: string): boolean {
 export interface RunStats {
   claw: ClawDefinition;
   runSeconds: number;
+  grip: number;
+  toolCooldown: number;
+  dual: number;
   strikeMs: number;
   retractMs: number;
   cooldownMs: number;
@@ -390,17 +411,20 @@ export function computeStats(save: SaveData): RunStats {
   const L = (stat: StatKey) => statLevel(save, stat);
   return {
     claw,
-    runSeconds: CONFIG.run.baseSeconds + L('runTime') * CONFIG.run.secondsPerTimeLevel,
-    strikeMs: Math.max(c.minStrikeMs, claw.strikeMs * strikeMult(L('strikeSpeed'))),
-    retractMs: Math.max(c.minRetractMs, claw.retractMs * strikeMult(L('strikeSpeed'))),
-    cooldownMs: Math.max(c.minCooldownMs, claw.cooldownMs * cooldownMult(L('recovery'))),
+    runSeconds: Math.min(CONFIG.run.maxSeconds, CONFIG.run.baseSeconds + L('runTime') * CONFIG.run.secondsPerTimeLevel),
+    grip: L('grip'),
+    toolCooldown: Math.pow(0.92, L('tools')),
+    dual: save.prestiges >= 1 ? L('dual') : 0,
+    strikeMs: upgradedTiming(claw.strikeMs, c.minStrikeMs, strikeMult(L('strikeSpeed'))),
+    retractMs: upgradedTiming(claw.retractMs, c.minRetractMs, strikeMult(L('strikeSpeed'))),
+    cooldownMs: upgradedTiming(claw.cooldownMs, c.minCooldownMs, cooldownMult(L('recovery'))),
     opening: claw.opening + L('opening') * 1.3,
-    strength: claw.strength + L('strength') * 0.5,
+    strength: claw.strength + strengthBonus(L('strength')),
     precision: L('precision'),
     maxTargets: claw.maxTargets + L('multi'),
     reach: claw.reach,
     lateralSpeed: CONFIG.movement.baseSpeed + L('lateral') * CONFIG.movement.speedPerLevel,
-    valueMult: 1 + 0.15 * L('value'),
+    valueMult: 1 + 0.15 * L('value') + 0.03 * Math.max(0, L('runTime') - 15),
     frenzySeconds: CONFIG.frenzy.seconds + L('frenzy'),
     turboSeconds: CONFIG.turbo.seconds + L('turbo'),
     stealth: 1 + 0.1 * L('stealth'),

@@ -1,10 +1,26 @@
 # ABYSS CLAW
 
-Jogo incremental/arcade 2D de capturas submarinas. Uma garra vem do topo da tela e dá um golpe seco (**PÁ!**) para pegar animais que podem fugir, esquivar ou resistir. Avance para a **direita**: o mar fica mais fundo, mais estranho e mais valioso, até chegar aos **guardiões** que bloqueiam cada bioma. Cada mergulho começa com **30 segundos**; com o dinheiro você compra habilidades, garras e muito mais.
+Jogo incremental/arcade 2D de capturas submarinas. Uma garra vem do topo da tela e dá um golpe seco (**PÁ!**) para pegar animais que podem fugir, esquivar ou resistir. Avance para a **direita**: o mar fica mais fundo, mais estranho e mais valioso, provocando **guardiões** que aparecem perto do jogador, sem bloquear os biomas. Cada mergulho começa com **30 segundos**; com o dinheiro você compra habilidades, garras e muito mais.
 
 **História:** há décadas um meteoro alienígena caiu no ponto mais fundo do oceano e sua radiação reescreveu o DNA da vida marinha. Daí vêm os peixes que brilham, os mutantes e os guardiões gigantes. A Cooperativa Abissal contrata você para coletar espécimes e chegar até o meteoro, que aparece de verdade no fim do Abismo. Um diário, na aba Missões, libera um trecho da história a cada guardião capturado.
 
 Toda a arte é **pixel art desenhada por código** em Canvas 2D (270 px de altura, ampliada com nearest-neighbor). Não há imagens externas.
+
+## v0.2.0 — Maré de Caça
+
+A versão aparece no canto inferior direito e vem do package.json usado no build.
+
+- Partidas de 30 a 75 segundos, sem acréscimo por captura ou guardião. Antigos nós de bônus de tempo viraram bônus de valor, preservando os níveis comprados.
+- Natação de 120 a 600 px/s na árvore principal (696 com essência), aceleração rápida e atalhos para Natação, Força, Disputa e Arsenal.
+- População renovada antes do spawn e cobertura de fauna em faixas de 120 px, inclusive ao revisitar regiões.
+- Isca Calmante reduz a força exigida em 35%. Banquete dos Tubarões atrai cardume e predador; até oito refeições aumentam tamanho, dificuldade, peso e valor (até 5×). Encomendas passam a pedir tubarões alimentados.
+- Domínio da Linha libera disputa para troféus: clique no verde; erros tensionam a linha, abandonar por 9s perde a presa. O relógio da partida continua correndo.
+- Primeiro renascimento libera rede e compra da Garra Gêmea; segundo libera arpão. Rede captura até seis presas pequenas; arpão atordoa e enfraquece presas e danifica guardiões. Ferramentas usam recarga, com botões para toque e teclas R/F.
+- Três tubarões e sete guardiões, incluindo Matriarca de Ferro e Raia da Tempestade. Capturas e alimentação provocam guardiões em qualquer região. Fuja nadando; o dano permanece salvo.
+- Mapa de zonas na base e seis espaços de variantes por espécie no catálogo.
+- Saves existentes preservados, sem reset obrigatório.
+
+Validação: npm test; npm run build; npm run smoke; node scripts/hunt-smoke.cjs; node scripts/capture-check.cjs. Os scripts de navegador requerem Playwright/Chromium. A integração cobre alimentação real pela IA, crescimento, disputa, ferramentas, pausa, guardião fora da região original, fuga, compra e escolha de zona.
 
 ## Como rodar
 
@@ -40,12 +56,12 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
   - Falhar custa multa de 15% do saldo e um nível de licença, e a cota se repete.
 
 - **Mundo longo**: cada bioma tem milhares de metros de distância (o primeiro guardião está a 5.800). Atravessar um bioma leva vários mergulhos e melhorias; no meio de cada bioma há uma **boia** que vira ponto de partida quando você a alcança.
-- **Guardiões dormem até serem provocados**: cada bicho capturado no bioma de um guardião enche a **fúria** dele (você está tirando a comida dele). Quando enche, ele **acorda** e espera no fim do bioma; até lá, a correnteza dele bloqueia o caminho.
+- **Guardiões dormem até serem provocados**: capturas e refeições de tubarões enchem a **fúria** do próximo guardião. Ele aparece perto de você em qualquer região; enfrente ou fuja.
 - **Guardiões atacam**: arremessam pedras (ou orbes elétricos) na direção da garra. Desvie com ◀ ▶. A garra tem 3 ♥ na luta (mais com o upgrade Casco), e cada acerto custa um coração e 3 s. A vida do guardião fica embaixo da tela para não esconder os tiros. Sem corações, a garra quebra e o mergulho acaba.
-- **Guardiões de bioma**: cinco chefes gigantes bloqueiam o caminho com uma parede de correnteza: Caranguejo-Rei, Moreia Colossal, Polvo do Naufrágio, Água-Viva Catedral e Leviatã Primordial.
+- **Guardiões de bioma**: sete chefes surgem quando provocados: Caranguejo-Rei, Moreia Colossal, Polvo do Naufrágio, Água-Viva Catedral, Leviatã Primordial, Matriarca de Ferro e Raia da Tempestade.
   - Para capturá-los, agarre um a um os **pontos fracos brilhantes** quando abrirem (3 vezes cada; o Leviatã, 4), e só com força suficiente; o primeiro já exige Força na árvore. O dano persiste entre mergulhos. O Caranguejo-Rei e a Moreia Colossal têm arte e animação próprias: o caranguejo anda, abre e fecha as pinças e ergue-as para atacar; a moreia ondula o corpo pintado, abre a bocarra cheia de dentes no ataque e reage ao dano.
   - Eles avisam antes de atacar (brilho vermelho). O ataque atordoa a garra que estiver perto.
-  - Cada vitória paga moedas, estrelas e +10 s, e libera um **ponto de partida** no bioma seguinte.
+  - Cada vitória paga moedas e estrelas; os guardiões originais também liberam pontos de partida. Não há bônus de tempo.
 - **Encomendas**: três pedidos ativos por vez (capturar espécies, raridades ou variantes, chegar a uma profundidade, fazer combos, ganhar moedas num só mergulho). Pagam moedas e ★, e são resgatadas na base.
 - **Aquário**: as espécies capturadas nadam num tanque animado e rendem moedas mesmo com o jogo fechado (até 8 h, mais com ampliações pagas em ★). Completar a **coleção** de um bioma dá +10% no valor de toda captura.
 - **Presente diário** com sequência de até 7 dias.
@@ -65,11 +81,11 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
 - **Golpe brusco** (cerca de 70–165 ms) com colisão no instante do contato, fuga real dos animais, "hit-stop" na captura e moedas voando até o contador. O celular vibra a cada captura (dá para desligar).
 - **Frenesi**: 5 capturas seguidas deixam os golpes ultrarrápidos e dobram o valor por alguns segundos.
 - **Eventos aleatórios**:
-  - **Cardume dourado** (peixes que valem 4× e dão segundos extras);
+  - **Cardume dourado** (peixes que valem 4×);
   - **Correnteza** (empurra para águas fundas);
   - **Tubarão-Martelo** (devora os bichos pequenos e morde garras fracas; com força suficiente, dá para capturá-lo).
 - **Baús de tesouro** (moedas e às vezes ★) e **Baús-Mímicos**, que fingem ser baú, mostram os dentes e fogem.
-- **22 espécies** com IA própria (o recife tem 12, incluindo Cirurgião-Azul, Peixe-Papagaio, Ermitão, Baiacu, Cavalo-Marinho e Raia-Manta), raridades de comum a anômala e variantes mini, gigante, dourado, bioluminescente e mutante.
+- **24 espécies e um baú** com IA própria (o recife tem 12, incluindo Cirurgião-Azul, Peixe-Papagaio, Ermitão, Baiacu, Cavalo-Marinho e Raia-Manta), raridades de comum a anômala e variantes mini, gigante, dourado, bioluminescente e mutante.
 - **8 garras**:
   - **Sucata**: equilibrada.
   - **Relâmpago**: muito rápida, pouca força.
@@ -82,8 +98,8 @@ O jogo ocupa a tela inteira, sem faixas pretas: a altura interna é fixa em 270 
 
   As três últimas também custam ★. Todas são desenhadas por código, simétricas, e o **acabamento evolui** (Básica → Reforçada → Dourada → Lendária) conforme você compra melhorias de captura na árvore.
 - **Árvore de habilidades em tela cheia** (estilo incremental): tocar num nó abre um balão com a descrição; tocar de novo (ou em Comprar) compra. Comprar revela os filhos, o anel seguinte aparece como `?` e o resto fica escondido. Dá para arrastar e dar zoom.
-  - 58 nós na árvore principal (antes eram 35). Os mais fortes são **selados** (🔒) e só abrem depois de capturar um guardião: Força pesada, Furtividade (bichos reagem mais devagar), Casco (+♥), Rede de Carga (+kg), Iscas Concentradas, Valor de Mercado e outros.
-  - Cada nível de tempo dá +3 s.
+  - Novos nós de Disputa, Arsenal e Garra Gêmea preservam os IDs anteriores. Os mais fortes são **selados** (🔒) e só abrem depois de capturar um guardião: Força pesada, Furtividade (bichos reagem mais devagar), Casco (+♥), Rede de Carga (+kg), Iscas Concentradas, Valor de Mercado e outros.
+  - Cada nível de tempo dá +3s, até 75s; os excedentes dão +3% de valor.
 
 ## Visual
 
@@ -113,7 +129,7 @@ scripts/smoke.cjs      smoke test com Playwright
 
 ## Testes
 
-- `npm test`: 65 testes unitários, cobrindo:
+- `npm test`: testes unitários e de regressão, cobrindo:
   - profundidade, biomas e determinismo do terreno;
   - custos e efeitos dos upgrades, estrutura das duas árvores, revelação de nós e nós selados por guardião, garras com estrelas;
   - save/load e recuperação de save corrompido;
@@ -128,7 +144,7 @@ scripts/smoke.cjs      smoke test com Playwright
   1. inicia a run (00:30) e captura um animal;
   2. confere que a profundidade aumenta indo para a direita;
   3. termina o cronômetro e confere que as moedas são creditadas uma vez e salvas;
-  4. compra o nó raiz da árvore e confere que 2 nós novos aparecem;
+  4. compra o nó raiz da árvore e confere que 3 nós novos aparecem;
   5. confere que a próxima run começa com 00:33 e que o progresso persiste após recarregar.
 
 ## Próximos passos

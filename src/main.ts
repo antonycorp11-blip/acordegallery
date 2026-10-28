@@ -1,4 +1,6 @@
 import './styles.css';
+import { HuntPanel } from './ui/HuntPanel';
+import { version } from '../package.json';
 import { setViewAspect, VIEW_H, VIEW_MAX_W, VIEW_MIN_W } from './config';
 import { Game } from './core/Game';
 import { HUD, TouchControls } from './ui/HUD';
@@ -22,6 +24,11 @@ const touch = new TouchControls(stage);
 stage.insertBefore(hud.root, screenEl);
 stage.insertBefore(touch.root, screenEl);
 const screens = new Screens(screenEl, game);
+const hunt = new HuntPanel(game, stage);
+const versionEl = document.createElement('div');
+versionEl.className = 'game-version';
+versionEl.textContent = `v${version} · Maré de Caça`;
+stage.append(versionEl);
 
 game.input.bindHoldButton(touch.left, 'left');
 game.input.bindHoldButton(touch.right, 'right');
@@ -37,12 +44,13 @@ hud.pauseBtn.addEventListener('pointerdown', (e) => {
 
 const coarse = window.matchMedia?.('(pointer: coarse)').matches ?? false;
 if (coarse) game.input.touchMode = true;
-game.input.onTouchMode = () => touch.show(game.mode === 'playing');
+game.input.onTouchMode = () => { touch.show(game.mode === 'playing'); document.body.classList.add('touch'); };
 game.input.onPause = () => game.togglePause();
 
 game.onModeChange = (m) => {
   const playing = m === 'playing';
   hud.show(playing || m === 'paused');
+  hunt.show(playing);
   touch.show(playing && game.input.touchMode);
   document.body.classList.toggle('touch', game.input.touchMode);
   document.body.classList.toggle('menu', !playing);
@@ -52,7 +60,7 @@ game.onModeChange = (m) => {
     updateCoinTarget();
   }
 };
-game.onHud = (h) => hud.update(h);
+game.onHud = (h) => { hud.update(h); hunt.update(h); };
 game.onBanner = (title, sub, color) => hud.banner(title, sub, color);
 game.onRunEnd = (s) => screens.showResults(s);
 game.renderer.onCoinLanded = () => hud.bumpCoins();

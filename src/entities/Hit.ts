@@ -25,7 +25,9 @@ export function circleHitsBox(cx: number, cy: number, r: number, t: Hittable): b
   const ny = Math.max(t.y - hh, Math.min(cy, t.y + hh));
   const dx = cx - nx;
   const dy = cy - ny;
-  return dx * dx + dy * dy <= r * r;
+  // Column dives stop exactly at tangency. Floating point rounding must not
+  // turn that same contact into a miss when resolveStrike checks it again.
+  return dx * dx + dy * dy <= r * r + 1e-7;
 }
 
 export function resolveStrike<T extends Hittable>(

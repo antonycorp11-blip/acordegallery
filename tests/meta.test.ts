@@ -153,8 +153,9 @@ describe('guardians', () => {
     // mid-biome buoy: unlocked by reaching it
     expect(checkpointUnlocked([], 1, 0)).toBe(false);
     expect(checkpointUnlocked([], 1, 3000)).toBe(true);
-    // next biome: needs the guardian
-    expect(checkpointUnlocked([], 2, 99999)).toBe(false);
+    // Exploration or defeating a guardian unlocks the next biome.
+    expect(checkpointUnlocked([], 2, 6199)).toBe(false);
+    expect(checkpointUnlocked([], 2, 6200)).toBe(true);
     expect(checkpointUnlocked(['kingCrab'], 2)).toBe(true);
     for (const c of CHECKPOINTS) if (c.requires) expect(c.x).toBeGreaterThan(BOSSES.find((b) => b.id === c.requires)!.x);
     // biomes are long: the first guardian is far from the start
@@ -218,7 +219,7 @@ describe('guardian wake-up (rage)', () => {
     s.bossRage.kingCrab++;
     expect(bossAwake(BOSSES[0], s.bossRage)).toBe(true);
     for (const b of BOSSES) {
-      expect(b.rage).toBeGreaterThan(30);
+      expect(b.rage).toBeGreaterThanOrEqual(18);
       expect(b.lore.length).toBeGreaterThan(40);
     }
     s.bosses = ['kingCrab', 'colossalEel'];

@@ -21,11 +21,17 @@ export interface BaitDef {
   /** variant forced/boosted on called creatures */
   variant?: VariantId;
   variantChance?: number;
+  weaken?: number;
+  chum?: boolean;
   color: string;
   dark: string;
 }
 
 export const BAITS: BaitDef[] = [
+  { id: 'sedative', name: 'Isca Calmante', description: 'Enfraquece em 35% e atrasa a reação das presas na nuvem violeta. Ideal para gigantes.', price: 90, stars: 0, unlockDepth: 100,
+    species: ['*'], radius: 170, seconds: 8, calls: 3, weaken: 0.65, color: '#c798ff', dark: '#65388a' },
+  { id: 'chum', name: 'Banquete dos Tubarões', description: 'Chama um cardume e um tubarão. Deixe-o comer: ele cresce, vale mais e provoca o guardião. Capture-o após 3 refeições para a encomenda.', price: 85, stars: 0, unlockDepth: 80,
+    species: ['orangeFish', 'lanternFish', 'hammerShark', 'reefShark', 'tigerShark'], radius: 230, seconds: 12, calls: 8, chum: true, color: '#ff7777', dark: '#8a2838' },
   {
     id: 'algae', name: 'Pão de Algas', price: 12, stars: 0, unlockDepth: 0,
     description: 'Atrai peixes de cardume e o Peixe-Cofre. Barata e eficiente no raso.',

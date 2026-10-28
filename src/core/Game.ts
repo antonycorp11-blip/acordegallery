@@ -1,13 +1,14 @@
+import { Struggle } from '../systems/Struggle';
 import { CONFIG, VIEW_H, VIEW_W } from '../config';
 import { BAITS, BAITS_BY_ID, baitAttracts, type BaitDef } from '../entities/Baits';
-import { BOSSES, Boss, CHECKPOINTS, bossAwake, checkpointUnlocked, nextBoss, type BossDef } from '../entities/Boss';
+import { Boss, CHECKPOINTS, bossAwake, checkpointUnlocked, nextBoss, type BossDef } from '../entities/Boss';
 import { Claw, type ClawState } from '../entities/Claw';
 import { updateSchool, type Creature, type CreatureEvent } from '../entities/Creature';
 import { findPathHit, resolveStrike } from '../entities/Hit';
 import { RARITIES, RARITY_COLOR, SPECIES_BY_ID, VARIANTS, isCreature, type Rarity, type VariantId } from '../entities/Species';
 import { Effects } from '../render/Effects';
 import { Renderer } from '../render/Renderer';
-import { ComboTracker, captureValue, recordCapture, timeBonusFor } from '../systems/Economy';
+import { ComboTracker, captureValue, recordCapture } from '../systems/Economy';
 import { aquariumTouch, collectionBonus } from '../systems/Meta';
 import { applyOrderEvent, ensureOrders, orderText, type OrderEvent } from '../systems/Orders';
 import { catchKg, deliverDive, licenseBonus, quotaTarget, type QuotaOutcome } from '../systems/Quota';
@@ -76,6 +77,9 @@ export interface RunHud {
   boss: { name: string; hp: number; max: number; open: boolean; hearts: number; maxHearts: number } | null;
   quota: { kg: number; target: number; divesLeft: number };
   bait: { name: string; count: number; color: string };
+  hunt: { marker: number; window: number; tension: number; progress: number; target: number; name: string } | null;
+  tools: { net: number; harpoon: number; prestige: number };
+  rage: string;
 }
 
 export interface ActiveBait {
@@ -92,6 +96,12 @@ export interface ActiveBait {
 export type EventKind = 'goldenSchool' | 'current' | 'shark';
 
 export class Game {
+  fight: { target: Creature; game: Struggle; perfect: boolean } | null = null;
+  netCooldown = 0;
+  harpoonCooldown = 0;
+  private fightTapQueued = false;
+  private toolQueued: 'net' | 'harpoon' | null = null;
+  private bossEscape = 0;
   save: SaveData;
   stats: RunStats;
   mode: Mode = 'menu';
@@ -130,7 +140,6 @@ export class Game {
   private ordersCompleted: string[] = [];
   private eventTimer = 0;
   private lastOrderDepth = 0;
-  private barrierHint = 0;
   private bossIntroShown = new Set<string>();
   private buoysAnnounced = new Set<string>();
   private valueMult = 1;
@@ -239,6 +248,10 @@ export class Game {
     this.setupWorld((this.rng() * 0xffffffff) >>> 0, this.startCheckpointX());
     this.combo = new ComboTracker(this.stats);
     this.timeLeft = this.stats.runSeconds;
+    this.fight = null;
+    this.fightTapQueued = false;
+    this.toolQueued = null;
+    this.netCooldown = this.harpoonCooldown = this.bossEscape = 0;
     this.runCoins = 0;
     this.runStars = 0;
     this.captures = [];
@@ -260,7 +273,6 @@ export class Game {
     this.weakPointsHit = 0;
     this.ordersCompleted = [];
     this.eventTimer = CONFIG.events.firstAfter;
-    this.barrierHint = 0;
     this.valueMult = this.stats.valueMult * (1 + collectionBonus(this.save) + licenseBonus(this.save.quota.license));
     this.runCommitted = false;
     this.lastTick = -1;
@@ -331,6 +343,7 @@ export class Game {
       quotaTargetKg,
       clawBroken: this.clawBroken,
     };
+    this.fight = null;
     this.shots = [];
     this.baits = [];
     this.claw.held = [];
@@ -439,6 +452,9 @@ export class Game {
       this.orderEvent({ type: 'depth', meters: this.maxDepth });
     }
 
+    this.netCooldown = Math.max(0, this.netCooldown - dt);
+    this.harpoonCooldown = Math.max(0, this.harpoonCooldown - dt);
+    if (this.toolQueued) { this.useTool(this.toolQueued); this.toolQueued = null; }
     this.updateBoss(dt);
     this.updateShots(dt);
     this.updateEvents(dt);
@@ -450,7 +466,29 @@ export class Game {
     if (this.input.consumeBaitCycle()) this.cycleBait();
     if (this.input.consumeBait()) this.throwBait();
     this.updateBaits(dt);
-    if (this.input.consumeStrike() || this.claw.takeBuffered()) this.tryStrike(restY);
+    const strike = this.input.consumeStrike();
+    if (this.fight) {
+      const f = this.fight;
+      f.game.update(dt);
+      if (strike || this.fightTapQueued) {
+        const good = f.game.tap();
+        this.effects.burst('spark', f.target.x, f.target.y, 5, 40, 0.3, [good ? '#7affb0' : '#ff6a5a']);
+        this.audio.play(good ? 'bonus' : 'resist');
+      }
+      if (f.game.resolved) {
+        this.fight = null;
+        if (f.game.resolved === 'caught') {
+          this.captureCreature(f.target, f.perfect, this.time * 1000, f.target.y - 16);
+          this.effects.text(f.target.x, f.target.y - 28, 'TROFÉU DOMINADO!', '#ffe14a', true);
+        } else {
+          f.target.stun(0.3);
+          f.target.shove(1);
+          this.combo.miss();
+          this.effects.text(f.target.x, f.target.y - 18, 'LINHA SOLTOU!', '#ff8a6a');
+        }
+      }
+    } else if (strike || this.claw.takeBuffered()) this.tryStrike(restY);
+    this.fightTapQueued = false;
     const prevTip = this.claw.tipY;
     const wasStriking = this.claw.state === 'STRIKE';
     this.claw.update(dt * 1000, this.cam.x + this.aimSX, restY);
@@ -462,7 +500,7 @@ export class Game {
       const y = Math.min(hit?.y ?? Infinity, bh?.y ?? Infinity);
       if (Number.isFinite(y)) this.claw.stopAt(y);
     }
-    if (this.claw.contactPending) this.resolveContact();
+    if (this.claw.contactPending && !this.fight) this.resolveContact();
     if (this.prevClawState === 'RETRACT' && this.claw.state === 'COOLDOWN') this.deliverHeld();
     this.prevClawState = this.claw.state;
 
@@ -485,28 +523,25 @@ export class Game {
       boss: b ? { name: b.def.name, hp: b.hp, max: b.total, open: b.open, hearts: this.hearts, maxHearts: this.stats.hearts } : null,
       quota: { kg: this.save.quota.deliveredKg + this.runKg, target: quotaTarget(this.save.quota.tier), divesLeft: this.save.quota.divesLeft },
       bait: this.baitHud(),
+      hunt: this.fight ? { marker: this.fight.game.marker, window: this.fight.game.halfWindow,
+        tension: this.fight.game.tension, progress: this.fight.game.progress,
+        target: 3 + Math.floor(this.fight.game.difficulty), name: this.fight.target.def.name } : null,
+      tools: { net: this.netCooldown, harpoon: this.harpoonCooldown, prestige: this.save.prestiges },
+      rage: (() => { const nb = nextBoss(this.save.bosses); return nb ? `${nb.name}: ${Math.min(nb.rage, this.save.bossRage[nb.id] ?? 0)}/${nb.rage}` : 'Guardiões dominados'; })(),
     });
   }
 
   // ───────────────────────── guardians
 
-  /** The next undefeated guardian blocks the way: the claw rail can't pass it. */
-  private applyBarrier(): void {
-    const nb = nextBoss(this.save.bosses);
-    // the claw column must be able to sweep the whole guardian
-    if (this.cam.clampFocus(nb ? nb.x + nb.w * 0.5 + 12 : Infinity) && nb && this.time - this.barrierHint > 6) {
-      this.barrierHint = this.time;
-      const left = nb.rage - (this.save.bossRage[nb.id] ?? 0);
-      if (left > 0) this.onBanner(`${nb.name.toUpperCase()} DORME`, `A correnteza dele bloqueia o caminho. Capture mais ${left} bicho(s) deste bioma para provocá-lo.`, '#9fd8e8');
-      else this.effects.text(this.cam.x + VIEW_W * 0.8, this.cam.y + 120, 'CORRENTEZA BLOQUEIA!', '#9fd8e8');
-    }
-  }
+  /** Exploration is free; guardians are provoked rather than used as walls. */
+  private applyBarrier(): void { this.cam.clampFocus(); }
 
   private updateBoss(dt: number): void {
     const nb = nextBoss(this.save.bosses);
     const centerX = this.cam.x + VIEW_W / 2;
-    if (!this.boss && nb && bossAwake(nb, this.save.bossRage) && Math.abs(nb.x - centerX) < 650) {
-      this.boss = new Boss(nb, this.save.bossDamage[nb.id] ?? 0);
+    if (!this.boss && nb && bossAwake(nb, this.save.bossRage) ) {
+      this.boss = new Boss({ ...nb, x: centerX + 130 }, this.save.bossDamage[nb.id] ?? 0);
+      this.bossEscape = 0;
       if (!this.bossIntroShown.has(nb.id)) {
         this.bossIntroShown.add(nb.id);
         this.onBanner(`GUARDIÃO: ${nb.name.toUpperCase()}`, nb.intro, '#ff6a5a');
@@ -515,6 +550,16 @@ export class Game {
     }
     const boss = this.boss;
     if (!boss) return;
+    if (!boss.defeated && Math.abs(boss.x - centerX) > VIEW_W * 0.9) {
+      this.bossEscape += dt;
+      if (this.bossEscape > 1.5) {
+        this.save.bossRage[boss.def.id] = Math.floor(boss.def.rage * 0.5);
+        this.boss = null;
+        this.bossEscape = 0;
+        this.onBanner('VOCÊ DESPISTOU O GUARDIÃO', 'O dano fica salvo. Continue caçando para provocá-lo novamente.', '#7affea');
+        return;
+      }
+    } else this.bossEscape = 0;
     if (boss.defeated && boss.dying > 2.2) {
       this.boss = null;
       return;
@@ -646,8 +691,7 @@ export class Game {
     this.runCoins += coins;
     this.runStars += def.stars;
     this.bossesDefeated.push(def.name);
-    this.timeLeft += 10;
-    this.bonusSeconds += 10;
+
     const boss = this.boss!;
     this.effects.burst('star', boss.x, boss.y, 40, 160, 1.2, ['#ffffff', '#ffe14a', '#ff7ff5', '#7affea']);
     this.effects.coinFly(boss.x - this.cam.x, boss.y - this.cam.y, 14);
@@ -659,7 +703,7 @@ export class Game {
     const cp = CHECKPOINTS.findIndex((c) => c.requires === def.id);
     this.onBanner(
       last ? 'VOCÊ CONQUISTOU O ABISMO!' : 'GUARDIÃO CAPTURADO!',
-      `${def.name} · +$${coins.toLocaleString('pt-BR')} · +${def.stars}★ · +10s${cp > 0 ? ` · novo ponto de partida: ${CHECKPOINTS[cp].name}` : ''}`,
+      `${def.name} · +$${coins.toLocaleString('pt-BR')} · +${def.stars}★${cp > 0 ? ` · novo ponto de partida: ${CHECKPOINTS[cp].name}` : ''}`,
       '#ffe14a',
     );
   }
@@ -690,7 +734,7 @@ export class Game {
       case 'goldenSchool': {
         const def = SPECIES_BY_ID[depth > 900 ? 'lanternFish' : 'orangeFish'];
         this.spawn.spawnSchool(def, 'golden', this.cam.x + VIEW_W + 50, 7, -1);
-        this.onBanner('CARDUME DOURADO!', 'Peixes dourados valem 4× e dão segundos extras', '#ffd84a');
+        this.onBanner('CARDUME DOURADO!', 'Peixes dourados valem 4× — capture antes de acabar o tempo', '#ffd84a');
         this.audio.play('bonus');
         break;
       }
@@ -702,7 +746,7 @@ export class Game {
       case 'shark': {
         const fromLeft = this.rng() < 0.5;
         const x = fromLeft ? this.cam.x - 60 : this.cam.x + VIEW_W + 60;
-        this.spawn.spawnSpecial(SPECIES_BY_ID.hammerShark, 'normal', x, this.terrain.seabedY(x) - 70, fromLeft ? 1 : -1);
+        this.spawn.spawnSpecial(SPECIES_BY_ID[depth > 1500 ? 'tigerShark' : this.rng() < 0.5 ? 'reefShark' : 'hammerShark'], 'normal', x, this.terrain.seabedY(x) - 70, fromLeft ? 1 : -1);
         this.onBanner('TUBARÃO!', 'Ele devora os bichos pequenos — pegue-os antes!', '#ff6a5a');
         this.audio.play('resist');
         break;
@@ -718,7 +762,7 @@ export class Game {
     const drift = this.current.t > 0 ? this.current.dir * CONFIG.events.currentPush * 0.7 * dt : 0;
     for (const c of this.spawn.creatures) {
       c.frozen = Math.abs(c.x - cx) > freeze && c.def.behavior !== 'predator';
-      if (c.frozen) continue;
+      if (c.frozen || c === this.fight?.target) continue;
       c.update(dt, this.terrain, this.events);
       if (drift && !c.onFloor && c.state !== 'CAPTURED') c.x += drift;
       if (c.def.behavior === 'predator') this.predatorFeed(c);
@@ -740,7 +784,10 @@ export class Game {
       if (RARITIES.indexOf(c.def.rarity) > 1 || c.onFloor) continue;
       if (Math.abs(c.x - mouthX) < 8 + c.w / 2 && Math.abs(c.y - shark.y) < shark.h / 2 + c.h / 2) {
         c.removed = true;
-        this.effects.text(c.x, c.y - 8, 'NHAC!', '#ff6a5a');
+        shark.feed();
+        this.feedRage(shark.x, 2);
+        this.effects.text(shark.x, shark.y - shark.h, `NHAC! ${shark.meals}/8 · ×${shark.trophyMult.toFixed(1)}`, '#ffb36a', true);
+        this.effects.burst('ring', shark.x, shark.y, 1, 0, 0.5, ['#ffb36a'], shark.w * 0.6);
         this.effects.burst('bubble', c.x, c.y, 6, 30, 0.8, ['#e8ffff']);
       }
     }
@@ -771,6 +818,51 @@ export class Game {
       const y = this.terrain.seabedY(x) - 2;
       for (let i = 0; i < 3; i++) this.effects.spawn('bubble', x + (Math.random() - 0.5) * 3, y - i * 3, 0, -12 - Math.random() * 10, 3 + Math.random() * 2, '#d8ffff', Math.random() < 0.4 ? 2 : 1);
     }
+  }
+
+  /** Queue actions so tools obey pause and the game update order. */
+  queueTool(tool: 'net' | 'harpoon'): void {
+    if (this.mode === 'playing') this.toolQueued = tool;
+  }
+  tapFight(): void { if (this.mode === 'playing' && this.fight) this.fightTapQueued = true; }
+
+  private useTool(tool: 'net' | 'harpoon'): void {
+    if (this.fight) return;
+    const net = tool === 'net';
+    if (this.save.prestiges < (net ? 1 : 2) || (net ? this.netCooldown : this.harpoonCooldown) > 0) return;
+    const x = this.cam.x + this.aimScreenX();
+    const floor = this.terrain.seabedY(x);
+    const y = this.pathMode ? floor - 65 : this.cam.y + this.input.aimY;
+    if (net) {
+      this.netCooldown = 10 * this.stats.toolCooldown;
+      const hits = this.spawn.creatures.filter(c => !c.frozen && c.hittable && Math.hypot(c.x - x, c.y - y) < 65)
+        .sort((a,b) => Math.hypot(a.x-x,a.y-y) - Math.hypot(b.x-x,b.y-y)).slice(0, 6);
+      for (const c of hits) {
+        if (c.captureRequirement <= this.stats.strength * 0.8 && c.def.behavior !== 'predator' && RARITIES.indexOf(c.def.rarity) < 4) this.captureCreature(c, false, this.time * 1000, c.y - 10);
+        else c.stun(1.5);
+      }
+      this.effects.text(x,y-12,'REDE!', '#7affea', true);
+      this.effects.burst('ring', x,y,3,15,0.9,['#7affea','#ffffff'],65);
+    } else {
+      this.harpoonCooldown = 7 * this.stats.toolCooldown;
+      if (this.boss && !this.boss.defeated && Math.hypot(this.boss.x-x,this.boss.y-y) < 90) {
+        if (this.stats.strength >= this.boss.def.strength) {
+          const defeated = this.boss.hitWeak();
+          this.weakPointsHit++;
+          this.save.bossDamage[this.boss.def.id] = this.boss.damage;
+          if (defeated) this.defeatBoss(this.boss.def);
+          this.persist();
+        }
+      } else {
+        const c = this.spawn.creatures.filter(c => !c.frozen && c.hittable && Math.hypot(c.x-x,c.y-y)<65)
+          .sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
+        if (c) { c.stun(3); c.weakened = 5; }
+      }
+      this.effects.text(x,y-12,'ARPÃO!', '#ffb36a', true);
+      for(let i=0;i<12;i++) this.effects.spawn('spark',x,y-i*6,0,100,0.4,'#ffb36a',2);
+    }
+    this.effects.shake = 4;
+    this.audio.play('strike');
   }
 
   // ───────────────────────── baits
@@ -804,6 +896,7 @@ export class Game {
     }
     if (this.baits.length >= CONFIG.bait.maxActive) this.baits.shift();
     this.save.baits[def.id]--;
+    this.persist();
     const x = this.cam.x + this.aimScreenX();
     const floor = this.terrain.seabedY(x);
     const targetY = this.pathMode ? floor - 34 : Math.min(floor - 4, this.cam.y + Math.max(60, this.input.aimY));
@@ -813,7 +906,6 @@ export class Game {
   }
 
   private updateBaits(dt: number): void {
-    const depth = depthAt(this.cam.x + VIEW_W / 2);
     for (let i = this.baits.length - 1; i >= 0; i--) {
       const b = this.baits[i];
       if (b.sinking) {
@@ -838,18 +930,37 @@ export class Game {
         c.lureX = b.x;
         c.lureY = b.y;
         c.lureT = 0.35;
+        if (b.def.weaken) {
+          c.weakened = 0.6;
+          c.reactTimer = c.reactTimer > 0 ? Math.max(c.reactTimer, 0.25) : c.reactTimer;
+          if (Math.random() < dt * 5) this.effects.spawn('spark', c.x, c.y, 0, -12, 0.5, b.def.color);
+        }
       }
       // call more of the right creatures in from the edges
       b.callTimer -= dt;
       if (b.callTimer <= 0 && b.called < b.def.calls + Math.round((this.stats.baitMult - 1) * 4)) {
         b.callTimer = CONFIG.bait.callEvery;
         b.called++;
-        this.callForBait(b, depth);
+        this.callForBait(b, depthAt(b.x));
       }
     }
   }
 
   private callForBait(b: ActiveBait, depth: number): void {
+    if (b.def.chum && b.called === 1) {
+      const fish = SPECIES_BY_ID[depth >= 900 ? 'lanternFish' : 'orangeFish'];
+      for (let i = 0; i < 8 && this.spawn.alive < CONFIG.spawn.maxAlive + 6; i++) {
+        const c = this.spawn.spawnSpecial(fish, 'normal', b.x + 65 + i * 7, b.y - 15 + (i % 3) * 7, -1);
+        c.lureX = b.x; c.lureY = b.y; c.lureT = 2;
+      }
+      const shark = SPECIES_BY_ID[depth >= 1500 ? 'tigerShark' : depth >= 300 ? 'hammerShark' : 'reefShark'];
+      if (this.spawn.alive < CONFIG.spawn.maxAlive + 10) {
+        const c = this.spawn.spawnSpecial(shark, 'normal', b.x - 80, b.y, 1);
+        c.lureX = b.x; c.lureY = b.y; c.lureT = 2;
+      }
+      this.effects.burst('ring', b.x, b.y, 1, 0, 0.8, [b.def.color], 80);
+      return;
+    }
     let def = null;
     if (b.def.species.includes('*')) def = pickSpecies(depth, biomeIndexAt(b.x), this.stats.luck, this.rng);
     else {
@@ -952,6 +1063,10 @@ export class Game {
 
     const candidates = this.spawn.creatures.filter((c) => !c.frozen);
     const hits = resolveStrike(x, y, stats.opening, stats.precision, candidates, stats.maxTargets, CONFIG.economy.perfectRadiusFrac);
+    if (hits.length && stats.dual > 0) {
+      hits.push(...resolveStrike(x + 38, y, stats.opening, stats.precision, candidates.filter(c => !hits.some(h => h.target === c)), stats.dual, CONFIG.economy.perfectRadiusFrac));
+      fx.burst('ring', x + 38, y, 1, 0, 0.35, ['#7affea'], stats.opening);
+    }
     // mutant tentacles grab up to two neighbours as well
     if (hits.length && stats.claw.tags.includes('tentacle')) {
       const extra = resolveStrike(x, y, stats.opening + 16, 0, candidates.filter((c) => !hits.some((h) => h.target === c)), 2, 0);
@@ -975,12 +1090,22 @@ export class Game {
 
     let captured = 0;
     let resisted = 0;
+    let requiredStrength = 0;
     let textY = y - 12;
     for (const h of hits) {
       const c = h.target;
-      const req = c.state === 'STUNNED' ? c.strengthReq * 0.75 : c.strengthReq;
+      const req = c.captureRequirement * (c.state === 'STUNNED' ? 0.75 : 1);
+      const trophy = (c.variant === 'giant' && (c.def.mass >= 2 || req > stats.strength * 0.6)) || RARITIES.indexOf(c.def.rarity) >= 4 || c.meals >= 3;
+      if (!this.fight && stats.grip > 0 && trophy && req <= stats.strength * (1.25 + stats.grip * 0.05)) {
+        this.fight = { target: c, game: new Struggle(stats.grip, Math.max(0, req / stats.strength)), perfect: h.perfect };
+        c.reactTimer = -1;
+        this.onBanner('DISPUTA DE CAPTURA!', 'Toque em FISGAR ou clique quando o marcador estiver no verde. O relógio continua!', '#ffe14a');
+        this.effects.burst('ring', c.x, c.y, 1, 0, 0.7, ['#ffe14a'], c.w);
+        break;
+      }
       if (req > stats.strength) {
         resisted++;
+        requiredStrength = Math.max(requiredStrength, req);
         c.shove(Math.sign(c.x - x) || 1);
         fx.burst('spark', c.x, c.y, 5, 60, 0.3, ['#ff6a5a', '#ffd0a0']);
         if (c.def.special.includes('bite') && !stats.claw.tags.includes('biteproof')) {
@@ -996,7 +1121,7 @@ export class Game {
       textY -= 9;
     }
     if (resisted) {
-      fx.text(x, y - (captured ? 30 : 12), 'RESISTIU!', '#ff6a5a');
+      fx.text(x, y - (captured ? 30 : 12), `RESISTIU! Força ${stats.strength.toFixed(2)} / ${requiredStrength.toFixed(2)}`, '#ff6a5a');
       if (!captured) {
         this.audio.play('resist');
         this.combo.miss();
@@ -1016,9 +1141,9 @@ export class Game {
     const perfect = perfectHit ? stats.perfectBonus : 0;
     const depth = depthAt(c.x);
     const frenzyMult = this.frenzy > 0 ? CONFIG.frenzy.valueMult : 1;
-    const value = captureValue(c.def, c.variant, depth, comboBonus, perfect, this.valueMult * frenzyMult);
+    const value = captureValue(c.def, c.variant, depth, comboBonus, perfect, this.valueMult * frenzyMult * c.trophyMult);
     this.runCoins += value;
-    const kg = catchKg(c.def, c.variant) * stats.kgMult;
+    const kg = catchKg(c.def, c.variant) * stats.kgMult * c.trophyMult;
     this.runKg = Math.round((this.runKg + kg) * 10) / 10;
     this.captures.push({ speciesId: c.def.id, variant: c.variant, value, rarity: c.def.rarity });
     const tier = RARITIES.indexOf(c.def.rarity);
@@ -1040,7 +1165,7 @@ export class Game {
         fx.text(c.x, textY, perfectHit && perfect > 0 ? 'PERFEITO!' : 'CAPTURADO!', perfectHit ? '#7affea' : '#ffffff');
         this.audio.play('capture');
       }
-      this.orderEvent({ type: 'capture', speciesId: c.def.id, rarity: c.def.rarity, variant: c.variant });
+      this.orderEvent({ type: 'capture', speciesId: c.def.id, rarity: c.def.rarity, variant: c.variant, meals: c.meals });
       this.feedRage(c.x);
     }
     const variantLabel = VARIANTS[c.variant].label;
@@ -1063,13 +1188,6 @@ export class Game {
       this.vibrate([30, 30, 30]);
     }
 
-    const tb = timeBonusFor(c.def, c.variant, stats, this.rng());
-    if (tb > 0) {
-      this.timeLeft += tb;
-      this.bonusSeconds += tb;
-      fx.text(c.x, textY - 8, `+${Number.isInteger(tb) ? tb : tb.toFixed(1)}s`, '#7aff8a', true);
-      this.audio.play('bonus');
-    }
     if (c.def.special.includes('shock') && !stats.claw.tags.includes('shockproof')) {
       this.claw.extraCooldownMs += 450;
       fx.text(this.claw.x, this.claw.targetY + 14, 'CHOQUE!', '#7affff');
@@ -1081,12 +1199,12 @@ export class Game {
   }
 
   /** Taking creatures from a guardian's biome slowly wakes it up. */
-  private feedRage(x: number): void {
+  private feedRage(_x: number, amount = 1): void {
     const nb = nextBoss(this.save.bosses);
-    if (!nb || biomeIndexAt(x) !== BOSSES.indexOf(nb) || bossAwake(nb, this.save.bossRage)) return;
-    this.save.bossRage[nb.id] = (this.save.bossRage[nb.id] ?? 0) + 1;
+    if (!nb || bossAwake(nb, this.save.bossRage)) return;
+    this.save.bossRage[nb.id] = (this.save.bossRage[nb.id] ?? 0) + amount;
     if (bossAwake(nb, this.save.bossRage)) {
-      this.onBanner(`${nb.name.toUpperCase()} ACORDOU!`, 'Você tirou comida demais do território dele. Ele espera no fim do bioma.', '#ff6a5a');
+      this.onBanner(`${nb.name.toUpperCase()} ACORDOU!`, 'Ele sentiu a caça e está vindo até você. Enfrente-o ou nade para fugir!', '#ff6a5a');
       this.audio.play('resist');
       this.effects.shake = 8;
       this.vibrate([60, 60, 120]);
@@ -1127,7 +1245,6 @@ export class Game {
   private render(): void {
     const playing = this.mode === 'playing' || this.mode === 'paused';
     const warn = playing && this.timeLeft <= CONFIG.run.warnSeconds ? 0.5 + 0.5 * Math.sin(this.time * 10) : 0;
-    const nb = playing ? nextBoss(this.save.bosses) : null;
     this.renderer.render({
       cam: this.cam,
       terrain: this.terrain,
@@ -1143,11 +1260,12 @@ export class Game {
       sonar: this.sonarTarget(),
       warn,
       boss: this.boss,
-      barrierX: nb ? nb.x + nb.w / 2 + 50 : null,
+      barrierX: null,
       current: this.current.t > 0 ? Math.min(1, this.current.t) * this.current.dir : 0,
       frenzy: playing && this.frenzy > 0 ? this.frenzy / this.stats.frenzySeconds : 0,
       baits: playing ? this.baits : [],
       shots: playing ? this.shots : [],
+      struggleTarget: playing ? this.fight?.target ?? null : null,
     });
   }
 

@@ -28,9 +28,20 @@ export class Creature implements Hittable {
   readonly def: SpeciesDefinition;
   readonly variant: VariantId;
   readonly seed: number;
-  readonly w: number;
-  readonly h: number;
+  w: number;
+  h: number;
   readonly strengthReq: number;
+  meals = 0;
+  weakened = 0;
+  get captureRequirement(): number { return this.strengthReq * (1 + this.meals * 0.08) * (this.weakened > 0 ? 0.65 : 1); }
+  get trophyMult(): number { return 1 + this.meals * 0.5; }
+  feed(): void {
+    if (this.meals >= 8) return;
+    this.meals++;
+    const scale = VARIANTS[this.variant].scale * (1 + this.meals * 0.12);
+    this.w = Math.round(this.def.size.w * scale);
+    this.h = Math.round(this.def.size.h * scale);
+  }
   x: number;
   y: number;
   vx = 0;
@@ -153,6 +164,7 @@ export class Creature implements Hittable {
 
   update(dt: number, world: WorldQuery, events: CreatureEvent[]): void {
     if (this.state === 'CAPTURED' || this.removed) return;
+    this.weakened = Math.max(0, this.weakened - dt);
     this.stateTime += dt;
     this.phase += dt * (1 + Math.abs(this.vx) / 30) * 6;
     if (this.pullT > 0) {
@@ -458,6 +470,7 @@ export class Creature implements Hittable {
   }
 
   private updatePredator(world: WorldQuery): void {
+    if (this.meals > 0) this.tether(150);
     // crosses the screen in a straight line, bobbing a little
     this.vx = this.facing * this.def.swimSpeed * this.speedMult;
     const target = world.seabedY(this.x) - 70 + Math.sin(this.phase * 0.08) * 20;

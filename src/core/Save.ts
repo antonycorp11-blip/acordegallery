@@ -10,7 +10,7 @@ export interface SpeciesRecord {
   variants: VariantId[];
 }
 
-export type OrderKind = 'catchSpecies' | 'catchRarity' | 'catchVariant' | 'reachDepth' | 'runCaptures' | 'runCoins' | 'combo';
+export type OrderKind = 'catchSpecies' | 'catchRarity' | 'catchVariant' | 'reachDepth' | 'runCaptures' | 'runCoins' | 'combo' | 'fedShark';
 
 export interface OrderState {
   id: number;
@@ -91,7 +91,7 @@ export function defaultSave(): SaveData {
     aquarium: { level: 0, last: 0 },
     daily: { last: 0, streak: 0 },
     quota: { day: 1, tier: 0, deliveredKg: 0, divesLeft: 3, license: 0, failed: 0 },
-    baits: { algae: 3, shrimp: 2 },
+    baits: { algae: 3, shrimp: 2, chum: 2, sedative: 2 },
     selectedBait: 'algae',
     totalEarned: 0,
     upgrades: {},
@@ -131,7 +131,7 @@ export function sanitizeSave(raw: unknown): SaveData {
   }
   d.loreSeen = r.loreSeen === true;
   if (Array.isArray(r.orders)) {
-    const kinds: OrderKind[] = ['catchSpecies', 'catchRarity', 'catchVariant', 'reachDepth', 'runCaptures', 'runCoins', 'combo'];
+    const kinds: OrderKind[] = ['catchSpecies', 'catchRarity', 'catchVariant', 'reachDepth', 'runCaptures', 'runCoins', 'combo', 'fedShark'];
     for (const o of r.orders) {
       if (!o || typeof o !== 'object') continue;
       const oo = o as Record<string, unknown>;
