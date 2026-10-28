@@ -20,14 +20,7 @@ export function captureValue(
 }
 
 /** Seconds added to the clock by this capture (0 if none). */
-export function timeBonusFor(def: SpeciesDefinition, variant: VariantId, stats: RunStats, roll: number): number {
-  const tb = CONFIG.timeBonus;
-  let s = 0;
-  if (def.rarity === 'legendary' || def.rarity === 'anomalous') s = tb.legendary;
-  else if (def.special.includes('timeBonus') && roll < 0.45) s = tb.goldenCrab;
-  else if (variant === 'golden') s = tb.golden;
-  if (s > 0) return s + stats.timeBonusExtra;
-  if (def.rarity !== 'common' && def.rarity !== 'uncommon') return stats.rareTimeBonus;
+export function timeBonusFor(_def: SpeciesDefinition, _variant: VariantId, _stats: RunStats, _roll: number): number {
   return 0;
 }
 

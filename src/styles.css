@@ -908,3 +908,29 @@ body.touch #hud-bait { display: none; }
 .diary .obj-kicker { color: #b6ff3a; }
 .diary p { margin: 0; color: #d8d0ff; line-height: 1.4; }
 .diary p.locked { color: #4a6a80; }
+
+/* v0.2: expedition tools, readable skill checks, build identity. */
+.game-version { position:absolute;right:8px;bottom:3px;z-index:80;font:10px monospace;color:#b3d9e8;pointer-events:none;text-shadow:0 1px 3px #001321; }
+.hunt-panel { position:absolute;inset:0;z-index:22;pointer-events:none; }
+.hunt-tools { position:absolute;left:12px;top:92px;display:flex;gap:6px;align-items:center;max-width:95%; }
+.hunt-tools button,.tree-jumps button { border:1px solid #447480;background:#092735e8;color:#7affea;border-radius:7px;padding:7px 10px;font:bold 11px monospace;pointer-events:auto;touch-action:none; }
+.hunt-tools button:disabled { color:#8ba6b5;opacity:.7; }
+.hunt-rage { color:#ffa77c;font:10px monospace;max-width:180px;text-shadow:0 1px 3px #000; }
+.hunt-fight { position:absolute;left:50%;bottom:100px;transform:translateX(-50%);width:min(390px,75%);padding:12px 18px;background:#081a2bef;border:2px solid #ffd964;border-radius:12px;display:grid;gap:7px;color:#fff;box-shadow:0 0 32px #ffce4738;pointer-events:auto;text-align:center; }
+.hunt-name { color:#ffe14a;font-size:13px; }.hunt-progress { font:12px monospace; }
+.hunt-track { position:relative;height:24px;background:#402937;border-radius:4px;overflow:hidden; }
+.hunt-green { position:absolute;height:100%;background:#287b53;border-left:2px solid #7affb0;border-right:2px solid #7affb0; }
+.hunt-marker { position:absolute;top:0;height:100%;width:4px;background:#fff;box-shadow:0 0 8px #fff; }
+.hunt-tension { height:5px;background:#273849; }.hunt-tension i { display:block;height:100%;background:#ff775a; }
+.hunt-fight small { font-size:10px;color:#b7cfdb; }.hunt-fight button { touch-action:none; }
+.tree-jumps { position:absolute;top:8px;left:8px;z-index:8;display:flex;gap:4px; }
+.tree-jumps button { font-size:10px;padding:6px; }
+.zone-map { display:flex;gap:6px;flex-wrap:wrap;justify-content:center;max-width:650px; }
+.zone-map button { padding:6px 10px;border:1px solid #3b6a77;border-radius:6px;background:#072536;color:#c4e8ed;font-size:11px; }
+.zone-map button.selected { border-color:#7affea;color:#7affea;background:#17484c; }.zone-map button:disabled { opacity:.45; }
+@media(max-height:500px) { .hunt-tools { top:66px; }.hunt-fight { bottom:74px;padding:8px 14px;gap:4px; }.hunt-rage { max-width:140px; }.game-version { font-size:8px; } }
+.hunt-home-tip { color:#9fc8d1;font-size:11px;margin-top:7px;max-width:460px;text-align:center; }
+.tree-summary { font:11px monospace;color:#9de0dc; }
+@media(max-width:800px) { .tree-summary { display:none; }.zone-map { max-width:420px;gap:3px; }.zone-map button { font-size:9px;padding:4px 6px; }.hunt-home-tip { font-size:9px; } }
+.variant-slots { display:flex;flex-wrap:wrap;gap:3px;margin-top:5px; }.variant-slots span { font-size:9px;color:#758b9c;border:1px solid #244152;border-radius:4px;padding:2px 4px; }.variant-slots .found { color:#ffd964;border-color:#8d7846;background:#413b2644; }
+.tree-jumps { top:calc(var(--u) * 13 + var(--st)); }

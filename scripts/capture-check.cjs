@@ -27,6 +27,8 @@ const { chromium } = require('playwright');
    const { CONFIG } = await import('/src/config.ts');
    const g = window.__abyss;
    g.stop();
+   // UI rendering is covered separately; skip DOM callbacks during the large simulation matrix.
+   g.onHud = () => {}; g.onBanner = () => {};
    g.save.settings.muted = true;
    function trial({id, variant='normal', seed=1, touch=false, stage='max', fps=60, claw='scrap'}) {
     g.save = defaultSave();
@@ -56,7 +58,11 @@ const { chromium } = require('playwright');
     g.input.aimX = x-g.cam.x;
     g.input.aimY = c.y-g.cam.y;
     g.tryStrike(g.cam.y + CONFIG.claw.restTipY);
-    for (let frame=0;frame<fps*1.5 && c.state!=='CAPTURED';frame++) g.updateRun(1/fps);
+    for (let frame=0;frame<fps*10 && c.state!=='CAPTURED';frame++) {
+      if (g.fight?.game.inWindow) g.tapFight();
+      g.updateRun(1/fps);
+      if (g.claw.state === 'READY' && !g.fight) break;
+    }
     return c.state === 'CAPTURED';
    }
    const rows = [];

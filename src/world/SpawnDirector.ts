@@ -44,7 +44,7 @@ export function pickVariant(def: SpeciesDefinition, depth: number, variantMult: 
     ['golden', def.special.includes('shiny') ? 0 : v.golden * variantMult],
     ['mutant', depth >= 1500 ? v.mutant * variantMult : 0],
     ['biolum', depth >= 400 && !def.special.includes('glow') ? v.biolum * variantMult : 0],
-    ['giant', def.rarity === 'legendary' ? 0 : v.giant * variantMult],
+    ['giant', v.giant * variantMult],
     ['mini', v.mini],
   ];
   for (const [id, p] of table) {
@@ -78,7 +78,7 @@ export class SpawnDirector {
 
   get alive(): number {
     let n = 0;
-    for (const c of this.creatures) if (!c.removed) n++;
+    for (const c of this.creatures) if (!c.removed && c.state !== 'CAPTURED') n++;
     return n;
   }
 
@@ -86,6 +86,14 @@ export class SpawnDirector {
   update(dt: number, camX: number, avoidX: number, moveDir: number): void {
     const cw = CONFIG.terrain.chunkWidth;
     const m = CONFIG.spawn.activeMargin;
+    // Free the population budget BEFORE filling newly visible chunks.
+    for (let i = this.creatures.length - 1; i >= 0; i--) {
+      const c = this.creatures[i];
+      if (c.removed || c.state === 'CAPTURED' || c.x < camX - m || c.x > camX + VIEW_W + m) {
+        if (c.school) c.school.alive--;
+        this.creatures.splice(i, 1);
+      }
+    }
     const first = Math.max(0, Math.floor((camX - m) / cw));
     const last = Math.floor((camX + VIEW_W + m) / cw);
     for (let i = first; i <= last; i++) {
@@ -94,6 +102,9 @@ export class SpawnDirector {
       this.populateChunk(i, camX, avoidX);
     }
 
+    this.ensureCoverage(camX);
+    // Keep history bounded during long exploration; coverage handles revisits.
+    for (const index of this.spawned) if (index < first - 8 || index > last + 8) this.spawned.delete(index);
     this.trickle -= dt * this.params.density;
     if (this.trickle <= 0) {
       this.trickle = CONFIG.spawn.trickleSeconds * (0.7 + this.rng() * 0.6);
@@ -124,6 +135,28 @@ export class SpawnDirector {
       }
     }
     for (let i = this.schools.length - 1; i >= 0; i--) if (this.schools[i].alive <= 0) this.schools.splice(i, 1);
+  }
+
+  /** Reserve habitat-appropriate wildlife in each visible 120px lane. */
+  private ensureCoverage(camX: number): void {
+    for (let left = camX; left < camX + VIEW_W; left += 120) {
+      const right = Math.min(left + 120, camX + VIEW_W);
+      const living = this.creatures.filter(c => c.hittable && c.state !== 'CAPTURED' && c.x >= left && c.x < right && !c.def.special.includes('object'));
+      for (let n = living.length; n < 2; n++) {
+        if (this.alive >= CONFIG.spawn.maxAlive) {
+          const far = this.creatures.filter(c => c.state !== 'CAPTURED' && (c.x < camX || c.x >= camX + VIEW_W))
+            .sort((a,b) => Math.abs(b.x - (left + 60)) - Math.abs(a.x - (left + 60)))[0];
+          if (!far) break;
+          far.removed = true;
+        }
+        const x = left + (right - left) * (n === 0 ? 0.35 : 0.7);
+        const depth = depthAt(x);
+        const def = pickSpecies(depth, biomeIndexAt(x), this.params.luck, this.rng)
+          ?? SPECIES_BY_ID[depth >= 900 ? 'lanternFish' : 'orangeFish'];
+        const c = this.spawnSpecial(def, pickVariant(def, depth, this.params.variantMult, this.rng), x, null, this.rng() < 0.5 ? -1 : 1);
+        if (!c.onFloor) c.y = this.terrain.seabedY(x) - 45 - this.rng() * 75;
+      }
+    }
   }
 
   countNear(x0: number, x1: number): number {
@@ -183,7 +216,7 @@ export class SpawnDirector {
 
   /** Spawns one creature (or a school). Returns number spawned. */
   spawnAt(x: number, r: Rand = this.rng, chunkIndex?: number): number {
-    if (this.alive >= CONFIG.spawn.maxAlive) return 0;
+    if (this.alive >= CONFIG.spawn.maxAlive - 16) return 0;
     const depth = depthAt(x);
     const biome = biomeIndexAt(x);
     const def = pickSpecies(depth, biome, this.params.luck, r);
@@ -198,7 +231,7 @@ export class SpawnDirector {
         homeX: x, turnTimer: 2 + r() * 3, speed: def.swimSpeed * (0.8 + r() * 0.4), alive: 0,
       };
       let made = 0;
-      for (let i = 0; i < count && this.alive < CONFIG.spawn.maxAlive; i++) {
+      for (let i = 0; i < count && this.alive < CONFIG.spawn.maxAlive - 16; i++) {
         const variant = pickVariant(def, depth, this.params.variantMult, r);
         const c = new Creature(def, variant, x + (r() - 0.5) * 30, school.y + (r() - 0.5) * 16, seed + i * 31);
         c.school = school;

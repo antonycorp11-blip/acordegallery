@@ -16,6 +16,7 @@ export function setViewAspect(aspect: number): number {
 export const CONFIG = {
   run: {
     baseSeconds: 30,
+    maxSeconds: 75,
     secondsPerTimeLevel: 3,
     warnSeconds: 5,
   },
@@ -26,10 +27,10 @@ export const CONFIG = {
     minWorldX: 0,
   },
   movement: {
-    baseSpeed: 70, // world px / s
-    speedPerLevel: 13,
-    accel: 420,
-    friction: 520,
+    baseSpeed: 120, // world px / s
+    speedPerLevel: 32,
+    accel: 2400,
+    friction: 3200,
   },
   terrain: {
     baseY: 0,

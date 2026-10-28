@@ -29,6 +29,7 @@ export interface RenderView {
   boss: Boss | null;
   /** world x of the current wall that blocks the way (null when free) */
   barrierX: number | null;
+  struggleTarget: Creature | null;
   /** -1..1 strength/direction of an active current event */
   current: number;
   /** 0..1 frenzy time left */
@@ -83,6 +84,19 @@ export class Renderer {
     if (v.boss) this.drawBoss(ctx, v.boss, camX, camY, v.time);
     for (const b of v.baits) this.drawBait(ctx, b, camX, camY, v.time);
     this.drawCreatures(ctx, v, camX, camY);
+    if (v.struggleTarget) {
+      const target = v.struggleTarget;
+      const x = target.x - camX, y = target.y - camY;
+      ctx.strokeStyle = '#ffe14a'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(v.claw.x - camX, v.claw.tipY - camY);
+      ctx.quadraticCurveTo(x + Math.sin(v.time * 15) * 12, y - 35, x, y); ctx.stroke();
+      ctx.beginPath(); ctx.arc(x,y,Math.max(target.w,target.h) * 0.65 + Math.sin(v.time*8)*2,0,Math.PI*2); ctx.stroke();
+    }
+    if (v.stats.dual > 0 && v.claw.busy) {
+      const x = v.claw.x - camX + 38, y = v.claw.tipY - camY;
+      ctx.strokeStyle = '#7affea'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,y-6); ctx.moveTo(x-7,y-9); ctx.lineTo(x-9,y+2); ctx.lineTo(x,y+7); ctx.lineTo(x+9,y+2); ctx.lineTo(x+7,y-9); ctx.stroke();
+    }
     this.drawParticles(ctx, v.effects, camX, camY);
     for (const p of v.shots) {
       const x = Math.round(p.x - camX);
@@ -416,6 +430,14 @@ export class Renderer {
       }
     }
     ctx.globalAlpha = 1;
+    if (c.weakened > 0 || c.meals > 0) {
+      ctx.strokeStyle = c.weakened > 0 ? '#c798ff' : '#ffb36a'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(sx,sy,c.w*0.6+2,c.h*0.65+2,0,0,Math.PI*2); ctx.stroke();
+      if(c.meals > 0) {
+        ctx.fillStyle = '#ffe14a'; ctx.font = '6px monospace';
+        ctx.fillText(`×${c.trophyMult.toFixed(1)}`,sx-10,sy-c.h/2-5);
+      }
+    }
     // dash trail
     if (c.trail > 0) {
       ctx.fillStyle = 'rgba(255,255,255,0.55)';

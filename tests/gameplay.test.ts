@@ -152,7 +152,8 @@ describe('spawn director', () => {
     const first = sd.creatures.length;
     expect(first).toBeGreaterThan(4);
     sd.update(0.016, 0, -999, 0);
-    expect(sd.creatures.length).toBe(first);
+    expect(sd.creatures.length).toBeLessThanOrEqual(first);
+    expect(new Set(sd.creatures.map(c => c.id)).size).toBe(sd.creatures.length);
     const dense = new SpawnDirector(terrain, { density: 50, luck: 0, schoolBonus: 5, variantMult: 1 }, 11);
     for (let x = 0; x < 3000; x += 120) dense.update(0.1, x, -999, 1);
     expect(dense.alive).toBeLessThanOrEqual(CONFIG.spawn.maxAlive);

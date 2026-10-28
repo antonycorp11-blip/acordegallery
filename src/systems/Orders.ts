@@ -8,7 +8,7 @@ import { formatCoins } from './Economy';
 export const ORDER_SLOTS = 3;
 
 export type OrderEvent =
-  | { type: 'capture'; speciesId: string; rarity: Rarity; variant: VariantId }
+  | { type: 'capture'; speciesId: string; rarity: Rarity; variant: VariantId; meals?: number }
   | { type: 'depth'; meters: number }
   | { type: 'run'; captures: number; coins: number }
   | { type: 'combo'; count: number };
@@ -25,6 +25,7 @@ export function generateOrder(save: SaveData, r: Rand): OrderState {
   const scale = 1 + Math.pow(tier, 0.8) * 0.35;
   const kinds: [OrderKind, number][] = [
     ['catchSpecies', 40],
+    ['fedShark', save.bestDepth >= 80 ? 10 : 0],
     ['catchRarity', 14],
     ['catchVariant', 9],
     ['reachDepth', 12],
@@ -37,6 +38,7 @@ export function generateOrder(save: SaveData, r: Rand): OrderState {
   let target = 1;
   let difficulty = 1;
   switch (kind) {
+    case 'fedShark': target = 1; difficulty = 3; break;
     case 'catchSpecies': {
       const pool = reachableSpecies(save);
       const sp = pool[Math.floor(r() * pool.length)] ?? SPECIES_BY_ID.coralCrab;
@@ -92,6 +94,9 @@ export function applyOrderEvent(save: SaveData, ev: OrderEvent): OrderState[] {
     if (isComplete(o)) continue;
     const before = o.progress;
     switch (o.kind) {
+      case 'fedShark':
+        if (ev.type === 'capture' && (ev.meals ?? 0) >= 3) o.progress++;
+        break;
       case 'catchSpecies':
         if (ev.type === 'capture' && ev.speciesId === o.key) o.progress++;
         break;
@@ -137,6 +142,7 @@ export function claimOrder(save: SaveData, id: number): boolean {
 
 export function orderText(o: OrderState): string {
   switch (o.kind) {
+    case 'fedShark': return 'Capture um tubarão após alimentá-lo com 3 peixes (use Banquete dos Tubarões)';
     case 'catchSpecies': return `Capture ${o.target}× ${SPECIES_BY_ID[o.key]?.name ?? o.key}`;
     case 'catchRarity': return `Capture ${o.target} bicho(s) ${RARITY_LABEL[o.key as Rarity].toLowerCase()}(s) ou melhor`;
     case 'catchVariant': return `Capture ${o.target} variante(s) especial(is)`;

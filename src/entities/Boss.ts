@@ -40,7 +40,7 @@ export const BOSSES: BossDef[] = [
     palette: { main: '#e8323a', dark: '#7a1020', light: '#ff8a6a', accent: '#ffd84a', eye: '#1a0008' },
     weakPoints: [{ dx: -0.41, dy: -0.29 }, { dx: 0.41, dy: -0.29 }, { dx: -0.13, dy: -0.22 }, { dx: 0.13, dy: -0.22 }],
     crown: { dx: 0, dy: -0.42 },
-    strength: 4.0, hits: 3, coins: 1500, stars: 4, rage: 80,
+    strength: 4.0, hits: 3, coins: 1500, stars: 4, rage: 18,
     shot: { color: '#9a8a7a', dark: '#4a3a30', count: 3, speed: 120 },
     lore: 'O Caranguejo-Rei comia os restos que a radiação do meteoro trazia na correnteza. Cresceu cem vezes o tamanho normal — e aprendeu a defender o recife.',
     intro: 'Você tirou comida demais do recife! Desvie das pedras e agarre cada ponto brilhante 3 vezes.',
@@ -50,7 +50,7 @@ export const BOSSES: BossDef[] = [
     palette: { main: '#8aa83a', dark: '#2a3a12', light: '#e8e07a', accent: '#6a8a2a', eye: '#ffe14a' },
     weakPoints: [{ dx: -0.36, dy: -0.3 }, { dx: -0.12, dy: -0.36 }, { dx: 0.12, dy: -0.4 }, { dx: 0.34, dy: -0.44 }],
     crown: { dx: 0.5, dy: -0.75 },
-    strength: 5.0, hits: 3, coins: 5000, stars: 5, rage: 130,
+    strength: 5.0, hits: 3, coins: 5000, stars: 5, rage: 28,
     shot: { color: '#7a8a6a', dark: '#2a3a2a', count: 4, speed: 135 },
     lore: 'A Moreia Colossal seguiu o brilho do meteoro rumo às fendas. Nas suas escamas foram achados cristais que não existem em nenhuma tabela periódica.',
     intro: 'Uma moreia do tamanho de um navio. Precisa de força para segurá-la.',
@@ -60,7 +60,7 @@ export const BOSSES: BossDef[] = [
     palette: { main: '#8a3ad0', dark: '#3a0f6a', light: '#d8a0ff', accent: '#ffe86a', eye: '#14081a' },
     weakPoints: [{ dx: -0.22, dy: -0.3 }, { dx: 0.22, dy: -0.3 }, { dx: 0, dy: -0.44 }, { dx: 0, dy: -0.12 }],
     crown: { dx: 0, dy: -0.54 },
-    strength: 6.5, hits: 3, coins: 12000, stars: 6, rage: 180,
+    strength: 6.5, hits: 3, coins: 12000, stars: 6, rage: 38,
     shot: { color: '#5a4a3a', dark: '#2a1a10', count: 4, speed: 140 },
     lore: 'Os navios afundados não foram tempestades: algo no fundo puxava o metal. O Polvo do Naufrágio guarda os destroços como um tesouro... ou como um aviso.',
     intro: 'Mora entre os destroços. Esconde os pontos fracos com frequência.',
@@ -70,7 +70,7 @@ export const BOSSES: BossDef[] = [
     palette: { main: '#4dfff0', dark: '#1a7ec2', light: '#e6fffb', accent: '#ff6fe8', eye: '#ffffff' },
     weakPoints: [{ dx: -0.3, dy: -0.2 }, { dx: 0.3, dy: -0.2 }, { dx: -0.12, dy: -0.38 }, { dx: 0.12, dy: -0.38 }, { dx: 0, dy: -0.1 }],
     crown: { dx: 0, dy: -0.52 },
-    strength: 8.0, hits: 3, coins: 26000, stars: 8, shocking: true, rage: 230,
+    strength: 8.0, hits: 3, coins: 26000, stars: 8, shocking: true, rage: 48,
     shot: { color: '#7affff', dark: '#1a7ec2', count: 5, speed: 150 },
     lore: 'A Água-Viva Catedral pulsa no mesmo ritmo do meteoro. Os cientistas da Cooperativa acham que ela é uma antena viva.',
     intro: 'Tocar no corpo dá choque. Só garras isoladas escapam ilesas.',
@@ -83,12 +83,27 @@ export const BOSSES: BossDef[] = [
       { dx: 0.32, dy: -0.18 }, { dx: 0.36, dy: 0.06 }, { dx: -0.16, dy: 0.14 },
     ],
     crown: { dx: 0.12, dy: -0.44 },
-    strength: 10.0, hits: 4, coins: 70000, stars: 12, rage: 300,
+    strength: 10.0, hits: 4, coins: 70000, stars: 12, rage: 60,
     shot: { color: '#b6ff3a', dark: '#3a1a6a', count: 6, speed: 160 },
     lore: 'O Leviatã Primordial dormia enrolado no meteoro. Agora que foi capturado, o caminho até a pedra alienígena está livre. O que ela quer com o nosso oceano?',
-    intro: 'O guardião final do abismo. Capture-o e o oceano é seu.',
+    intro: 'O antigo senhor do abismo. Outros caçadores seguiram seu rastro.',
   },
 ];
+
+BOSSES.push(
+  { ...BOSSES[0], id: 'ironMatriarch', name: 'Matriarca de Ferro', x: 60000, shape: 'shark', w: 154, h: 54, hover: 65,
+    strength: 12, hits: 2, rage: 45, coins: 100000, stars: 15,
+    weakPoints: [{ dx: -0.3, dy: -0.2 }, { dx: 0, dy: -0.3 }, { dx: 0.3, dy: -0.2 }],
+    palette: { main: '#657e91', dark: '#263c50', light: '#c8ecff', accent: '#ff8366', eye: '#ff4a5a' },
+    lore: 'A Matriarca aprendeu a seguir os cardumes engordados pelas iscas da Cooperativa. Sua carapaça de metal guarda marcas de centenas de arpões.',
+    intro: 'A caçadora seguiu o cheiro da comida. Mire nos pontos fracos ou use o arpão!' },
+  { ...BOSSES[3], id: 'stormRay', name: 'Raia da Tempestade', x: 65000, shape: 'ray', w: 160, h: 56, hover: 55,
+    strength: 13.5, hits: 2, rage: 55, coins: 150000, stars: 18,
+    weakPoints: [{ dx: -0.33, dy: -0.1 }, { dx: 0, dy: -0.3 }, { dx: 0.33, dy: -0.1 }],
+    palette: { main: '#765ec9', dark: '#302a66', light: '#dfceff', accent: '#7affea', eye: '#ffffff' },
+    lore: 'Depois que os guardiões antigos caíram, uma raia carregada de eletricidade emergiu das fossas. Ela atravessa todos os mares em busca do brilho das variantes.',
+    intro: 'A tempestade veio até você. Desvie das descargas e escolha entre caçar ou fugir!' },
+);
 
 export const LORE_INTRO =
   'Há décadas, um meteoro alienígena caiu no ponto mais fundo do oceano. Sua radiação reescreveu o DNA da vida marinha: peixes que brilham, mutantes, criaturas que não deveriam existir — e guardiões gigantes que defendem seus territórios. A Cooperativa Abissal contratou você e sua garra para coletar espécimes, bater as cotas… e chegar até o meteoro.';
@@ -125,8 +140,8 @@ export const CHECKPOINTS: Checkpoint[] = [
 export function checkpointUnlocked(bosses: string[], i: number, bestDistance = 0): boolean {
   const c = CHECKPOINTS[i];
   if (!c) return false;
-  if (c.requires !== null && !bosses.includes(c.requires)) return false;
-  return bestDistance >= (c.minDistance ?? 0);
+  if (i === 0) return true;
+  return (c.requires !== null && bosses.includes(c.requires)) || bestDistance >= (c.minDistance ?? c.x);
 }
 
 /** First guardian not yet defeated (they are fought in order). */
@@ -146,7 +161,7 @@ export function bossSpriteDef(b: BossDef): SpeciesDefinition {
 export type BossHit = 'weak' | 'body' | null;
 
 const OPEN_SECONDS = 2.4;
-const SHUT_SECONDS = 1.3;
+const SHUT_SECONDS = 0.9;
 const ATTACK_EVERY = 7;
 const TELEGRAPH = 0.9;
 
@@ -204,7 +219,7 @@ export class Boss {
     this.y = floor - d.h / 2 - d.hover + (d.hover > 0 ? Math.sin(this.t * 1.3) * 5 : 0) + 2;
     // weak point opens and shuts in a rhythm (more often shut when hurt)
     this.cycle += dt;
-    const shut = SHUT_SECONDS + this.damage * 0.15;
+    const shut = SHUT_SECONDS + Math.min(0.8, this.damage * 0.04);
     if (this.open && this.cycle > OPEN_SECONDS) {
       this.open = false;
       this.cycle = 0;

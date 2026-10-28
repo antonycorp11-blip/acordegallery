@@ -226,7 +226,7 @@ export class Screens {
         <div class="tree-host"></div>
         <div class="tree-bar">
           <button class="btn small" data-act="home">◀ Base</button>
-          <h2>${essence ? 'Renascer · Essência' : 'Habilidades'}</h2>
+          <h2>${essence ? 'Renascer · Essência' : 'Habilidades'}</h2><span class="tree-summary">Natação ${computeStats(s).lateralSpeed} · força ${computeStats(s).strength.toFixed(2)} · ${computeStats(s).runSeconds}s</span>
           <button class="tab" data-act="tab" data-id="${essence ? 'skills' : 'essence'}">${essence ? 'Habilidades' : 'Renascer ✦'}</button>
           <span class="spacer"></span>
           <span class="coins">${$(s.coins)}</span><span class="stars">${s.stars}★</span>${s.essence || essence ? `<span class="ess">✦${s.essence}</span>` : ''}
@@ -237,6 +237,7 @@ export class Screens {
     const bar = this.root.querySelector('.tree-bar')!;
     new SkillTree(this.root.querySelector('.tree-host')!, this.game, () => {
       bar.querySelector('.coins')!.textContent = $(s.coins);
+      bar.querySelector('.tree-summary')!.textContent = `Natação ${computeStats(s).lateralSpeed} · força ${computeStats(s).strength.toFixed(2)} · ${computeStats(s).runSeconds}s`;
       const e = bar.querySelector('.ess');
       if (e) e.textContent = `✦${s.essence}`;
     }, essence ? 'essence' : 'main');
@@ -277,11 +278,11 @@ export class Screens {
     return `<div class="card objective">
       <div class="obj-kicker">OBJETIVO · GUARDIÃO ${idx + 1}/${BOSSES.length}</div>
       <b>Capture: ${esc(b.name)}</b>
-      <p class="desc">Bloqueia o fim do bioma ${esc(BIOMES[Math.min(idx, BIOMES.length - 1)].name)} (distância ${b.x.toLocaleString('pt-BR')}). Agarre os pontos fracos brilhantes quando abrirem.</p>
+      <p class="desc">Pode surgir em qualquer bioma ao ser provocado. Território de origem: ${esc(BIOMES[Math.min(idx, BIOMES.length - 1)].name)}. Agarre os pontos fracos brilhantes quando abrirem.</p>
       <div class="obj-row"><div class="pips boss-pips">${pips}</div><span>${dmg}/${b.weakPoints.length * b.hits} agarrões nos pontos fracos</span></div>
-      <div class="obj-row">${bossAwake(b, s.bossRage) ? '<span class="awake">ACORDADO — está esperando no fim do bioma</span>' : `<span>Dormindo. Fúria: ${s.bossRage[b.id] ?? 0}/${b.rage} bichos capturados no bioma dele</span>`}</div>
+      <div class="obj-row">${bossAwake(b, s.bossRage) ? '<span class="awake">ACORDADO — aparecerá perto de você no próximo mergulho</span>' : `<span>Dormindo. Fúria: ${s.bossRage[b.id] ?? 0}/${b.rage} pontos de caça (capturas e alimentação de tubarões)</span>`}</div>
       <div class="obj-row"><span class="${strong ? 'ok' : 'lock'}">Força ${st.strength.toFixed(1)} / ${b.strength.toFixed(1)}${strong ? ' ✔' : ' — compre Força na árvore'}</span></div>
-      <div class="obj-row reward">Recompensa: ${$(b.coins)} · ${b.stars}★ · novo ponto de partida</div>
+      <div class="obj-row reward">Recompensa: ${$(b.coins)} · ${b.stars}★ · avanço na caçada</div>
     </div>`;
   }
 
@@ -360,13 +361,18 @@ export class Screens {
             <span>Partida: <b>${esc(cp.name)}</b></span>
             <button data-act="cpStep" data-id="1" ${unlockedCps > 1 ? '' : 'disabled'}>▶</button>
           </div>
+          <div class="zone-map">${CHECKPOINTS.map((zone,i) => {
+            const open = checkpointUnlocked(s.bosses,i,s.bestDistance);
+            return `<button data-act="checkpoint" data-id="${i}" class="${s.checkpoint === i ? 'selected' : ''}" ${open ? '' : 'disabled'} title="${open ? 'Iniciar aqui' : 'Explore até esta zona ou derrote o guardião'}">${open ? '' : '🔒 '}${esc(zone.name)}</button>`;
+          }).join('')}</div>
+          <div class="hunt-home-tip">30–75s · sem bônus de tempo · nade para explorar · use iscas para preparar troféus</div>
         </div>
         <button class="widget left" data-act="tab" data-id="missions">
           ${b ? `<span class="w-kick">GUARDIÃO ${BOSSES.indexOf(b) + 1}/${BOSSES.length}</span>
           <b>${esc(b.name)}</b>
           <div class="pips boss-pips">${b.weakPoints.map((_, i) => `<i class="${i < bossDone ? 'done' : ''}"></i>`).join('')}</div>
           ${bossAwake(b, s.bossRage)
-            ? `<span class="awake">ACORDADO! espera a ${b.x.toLocaleString('pt-BR')}</span>`
+            ? `<span class="awake">ACORDADO! vem até você</span>`
             : `<span class="w-sub">dormindo · fúria ${s.bossRage[b.id] ?? 0}/${b.rage}</span><div class="bar rage"><i style="width:${Math.round(((s.bossRage[b.id] ?? 0) / b.rage) * 100)}%"></i></div>`}
           <span class="${st.strength >= b.strength ? 'ok' : 'lock'}">força ${st.strength.toFixed(1)}/${b.strength.toFixed(1)}</span>` : '<span class="w-kick">ABISMO CONQUISTADO</span><b>Renasça!</b>'}
         </button>
@@ -418,7 +424,7 @@ export class Screens {
     else action = `<p class="lock">Ganhe mais moedas nesta vida para gerar Essência (${$(500)} = ✦1).</p>`;
     return `<div class="ess-info">
         <h3>Renascer</h3>
-        <p class="desc">Volte ao começo trocando o progresso desta vida por <b class="ess">Essência Abissal ✦</b>, que compra melhorias permanentes na árvore ao lado. Espécies, estrelas, aquário e essência nunca se perdem.</p>
+        <p class="desc">Volte ao começo trocando o progresso desta vida por <b class="ess">Essência Abissal ✦</b>, que compra melhorias permanentes na árvore ao lado. Espécies, estrelas, aquário e essência nunca se perdem. <b>1º renascimento: rede e Garra Gêmea; 2º: arpão.</b> As ferramentas permanecem disponíveis nos próximos renascimentos.</p>
         <p class="eff">Ganho atual: <b class="ess">✦${gain}</b> · renascimentos: ${s.prestiges}<br>Moedas nesta vida: ${$(s.earnedThisLife)}</p>
         ${action}
       </div>`;
@@ -556,6 +562,10 @@ export class Screens {
         <div class="meta">${known
           ? `Capturas: ${rec!.caught} · Valor base ${$(sp.baseValue)} · Força ${strengthRequired(sp, 'normal').toFixed(1)}<br>${esc(sp.description)}${variants.length ? `<br>Variantes: ${esc(variants.join(', '))}` : ''}`
           : esc(where)}</div>
+        <div class="variant-slots">${Object.values(VARIANTS).map(v => {
+          const found = rec?.variants.includes(v.id);
+          return `<span class="${found ? 'found' : ''}" title="${v.label || 'Normal'}">${found ? '◆' : '◇'} ${v.label || 'Normal'}</span>`;
+        }).join('')}</div>
       </div>`;
       el.firstElementChild!.replaceWith(cv);
       box.appendChild(el);
@@ -571,7 +581,7 @@ export class Screens {
       </div>
       <p><b>Controles no PC:</b> mova o mouse para mirar, <kbd>clique</kbd> ou <kbd>Espaço</kbd> para atacar, <kbd>A</kbd>/<kbd>D</kbd> ou <kbd>◀</kbd>/<kbd>▶</kbd> para navegar, <kbd>Shift</kbd> turbo, <kbd>Esc</kbd>/<kbd>P</kbd> pausa.</p>
       <p><b>No celular (horizontal):</b> a garra fica no centro; <kbd>◀</kbd> <kbd>▶</kbd> alinham o oceano com ela, <kbd>TURBO</kbd> acelera e <kbd>CAPTURAR</kbd> faz a garra descer reto e pegar o primeiro bicho no caminho (marcado em amarelo).</p>
-      <p><b>Dicas:</b> 5 capturas seguidas ativam o <b>Frenesi</b>. Guardiões só podem ser agarrados nos pontos fracos brilhantes, e só com força suficiente. Baús podem ser… outra coisa.</p>
+      <p><b>Dicas:</b> 5 capturas seguidas ativam o <b>Frenesi</b>. Guardiões surgem perto de você quando a caça os provoca; fuja nadando ou acerte os pontos fracos. <kbd>R</kbd> rede após 1 renascimento, <kbd>F</kbd> arpão após 2. Isca Calmante enfraquece; Banquete alimenta tubarões. Domínio da Linha libera a disputa dos troféus. Baús podem ser… outra coisa.</p>
       <p>Estatísticas: ${s.totalRuns} mergulhos · ${s.totalCaptures} capturas · ${$(s.totalEarned)} ganhos · ${s.ordersDone} encomendas · ${s.bosses.length}/${BOSSES.length} guardiões</p>
       <div class="row" style="justify-content:flex-start">
         ${this.confirm === 'reset'

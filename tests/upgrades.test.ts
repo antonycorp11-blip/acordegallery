@@ -34,7 +34,7 @@ describe('tree structure', () => {
         if (u.parent) expect(UPGRADES_BY_ID[u.parent].tree).toBe(tree);
       }
     }
-    expect(childrenOf('core')).toHaveLength(2);
+    expect(childrenOf('core').map(u => u.id).sort()).toEqual(['lateral','runTime','strikeSpeed']);
   });
 
   it('essence nodes are paid with essence, not coins', () => {

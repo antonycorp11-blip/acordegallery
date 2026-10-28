@@ -217,12 +217,12 @@ export const SPECIES: SpeciesDefinition[] = [
   },
   {
     id: 'goldenCrab', name: 'Caranguejo Dourado', rarity: 'rare', baseValue: 210,
-    description: 'Valioso e esperto. Às vezes rende segundos extras.',
+    description: 'Valioso e esperto. Um troféu dourado para sua coleção.',
     minDepth: 0, maxDepth: 3000, biomeWeights: [1, 1, 1, 0.6, 0.3],
     size: { w: 14, h: 9 }, swimSpeed: 26, perceptionRange: 52, reactionTime: 95,
     fleeAcceleration: 1100, fleeSpeed: 130, mass: 1.2, armor: 0.3, behavior: 'crawler',
     palette: { main: '#ffcf2e', dark: '#b07a10', light: '#fff5a8', accent: '#ffffff', eye: '#2a1a00' },
-    shapeParts: 'crab', special: ['timeBonus', 'shiny'],
+    shapeParts: 'crab', special: ['shiny'],
   },
   {
     id: 'ghostFish', name: 'Peixe-Fantasma', rarity: 'epic', baseValue: 380,
@@ -279,6 +279,16 @@ export const SPECIES: SpeciesDefinition[] = [
     shapeParts: 'chest', special: ['object', 'treasure'],
   },
 ];
+
+const sharkBase = SPECIES.find(s => s.id === 'hammerShark')!;
+SPECIES.push(
+  { ...sharkBase, id: 'reefShark', name: 'Tubarão do Recife', rarity: 'rare', baseValue: 360, mass: 2.8, armor: 0.6,
+    description: 'Caçador ágil. Engorda ao comer peixes atraídos por iscas.', size: { w: 35, h: 14 }, swimSpeed: 48,
+    palette: { ...sharkBase.palette, main: '#71a7b8', light: '#d1fff2', accent: '#4be6c4' } },
+  { ...sharkBase, id: 'tigerShark', name: 'Tubarão-Tigre', rarity: 'legendary', baseValue: 1200, mass: 5, armor: 1.2,
+    description: 'Minichefe voraz. Alimente-o para criar um troféu gigante, depois vença a disputa.', size: { w: 58, h: 21 }, swimSpeed: 42,
+    palette: { ...sharkBase.palette, main: '#a9934c', dark: '#4b432c', light: '#f5e0a2', accent: '#ff9345' } },
+);
 
 /** Species that count for the catalog, orders and "new species" (not objects). */
 export const isCreature = (def: SpeciesDefinition) => !def.special.includes('object');
