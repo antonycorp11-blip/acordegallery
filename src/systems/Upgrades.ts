@@ -33,10 +33,10 @@ const pct = (v: number) => `${Math.round(v * 100)}%`;
 /** Human readable contribution of `n` stat levels. */
 export const STAT_TEXT: Record<StatKey, (n: number) => string> = {
   runTime: (n) => `+${n * CONFIG.run.secondsPerTimeLevel}s de mergulho`,
-  strikeSpeed: (n) => `golpe ${Math.round(n * 7)}% mais rápido`,
-  recovery: (n) => `recarga ${Math.round(n * 5.5)}% menor`,
+  strikeSpeed: (n) => `reduz ${Math.round((1 - strikeMult(n)) * 100)}% da espera até a velocidade máxima`,
+  recovery: (n) => `reduz ${Math.round((1 - cooldownMult(n)) * 100)}% da espera até a recarga mínima`,
   opening: (n) => `+${(n * 1.3).toFixed(1)} px de abertura`,
-  strength: (n) => `+${(n * 0.5).toFixed(1)} de força`,
+  strength: (n) => `${n} nível(is) de força · +0,5 por nível, ganho acelerado após 6 níveis somados`,
   precision: (n) => `+${n} px de tolerância`,
   multi: (n) => `+${n} alvo(s) por golpe`,
   lateral: (n) => `+${pct((n * CONFIG.movement.speedPerLevel) / CONFIG.movement.baseSpeed)} de velocidade lateral`,
@@ -241,8 +241,15 @@ export const UPGRADES_BY_ID: Record<string, UpgradeDef> = Object.fromEntries(UPG
 export const childrenOf = (id: string) => UPGRADES.filter((u) => u.parent === id);
 
 // ── effect curves (exported for tests); `l` = total stat levels
-export const strikeMult = (l: number) => Math.max(0.45, 1 - 0.07 * l);
-export const cooldownMult = (l: number) => Math.max(0.55, 1 - 0.055 * l);
+export const strikeMult = (l: number) => Math.pow(0.86, l);
+export const cooldownMult = (l: number) => Math.pow(0.88, l);
+
+// Preserve the first guardian's progression, then outgrow giant/armored prey.
+export const strengthBonus = (l: number) => 0.5 * l + 0.04 * Math.pow(Math.max(0, l - 6), 2);
+
+// Approach the timing floor smoothly so every purchased level still helps.
+const upgradedTiming = (base: number, floor: number, mult: number) =>
+  Math.min(base, floor) + Math.max(0, base - floor) * mult;
 export const densityMult = (l: number) => 1 + 0.16 * l;
 export const luckValue = (l: number) => 1 - Math.pow(0.86, l);
 export const variantMult = (l: number) => 1 + 0.3 * l;
@@ -391,11 +398,11 @@ export function computeStats(save: SaveData): RunStats {
   return {
     claw,
     runSeconds: CONFIG.run.baseSeconds + L('runTime') * CONFIG.run.secondsPerTimeLevel,
-    strikeMs: Math.max(c.minStrikeMs, claw.strikeMs * strikeMult(L('strikeSpeed'))),
-    retractMs: Math.max(c.minRetractMs, claw.retractMs * strikeMult(L('strikeSpeed'))),
-    cooldownMs: Math.max(c.minCooldownMs, claw.cooldownMs * cooldownMult(L('recovery'))),
+    strikeMs: upgradedTiming(claw.strikeMs, c.minStrikeMs, strikeMult(L('strikeSpeed'))),
+    retractMs: upgradedTiming(claw.retractMs, c.minRetractMs, strikeMult(L('strikeSpeed'))),
+    cooldownMs: upgradedTiming(claw.cooldownMs, c.minCooldownMs, cooldownMult(L('recovery'))),
     opening: claw.opening + L('opening') * 1.3,
-    strength: claw.strength + L('strength') * 0.5,
+    strength: claw.strength + strengthBonus(L('strength')),
     precision: L('precision'),
     maxTargets: claw.maxTargets + L('multi'),
     reach: claw.reach,

@@ -1,4 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { BOSSES } from '../src/entities/Boss';
+import { SPECIES, VARIANTS, strengthRequired, type VariantId } from '../src/entities/Species';
+import { sanitizeSave } from '../src/core/Save';
 import { CONFIG } from '../src/config';
 import { defaultSave } from '../src/core/Save';
 import { CLAWS_BY_ID } from '../src/entities/ClawsCatalog';
@@ -168,5 +171,66 @@ describe('computeStats applies real effects', () => {
     expect(fast.strikeMs).toBeLessThan(heavy.strikeMs);
     expect(heavy.strength).toBeGreaterThan(fast.strength);
     expect(heavy.opening).toBeGreaterThan(fast.opening);
+  });
+});
+
+describe('capture progression across the full tree', () => {
+  it('can reach each guardian using only strength nodes unlocked before it', () => {
+    const s = defaultSave();
+    for (const boss of BOSSES) {
+      for (const u of treeNodes('main')) {
+        if (u.stat === 'strength' && (!u.requiresBoss || s.bosses.includes(u.requiresBoss))) {
+          s.upgrades[u.id] = u.maxLevel;
+        }
+      }
+      expect(computeStats(s).strength, boss.id).toBeGreaterThanOrEqual(boss.strength);
+      s.bosses.push(boss.id);
+    }
+  });
+
+  it('a fully invested main tree can hold every species and variant with any claw, without prestige', () => {
+    const s = defaultSave();
+    for (const u of treeNodes('main')) s.upgrades[u.id] = u.maxLevel;
+    for (const claw of Object.values(CLAWS_BY_ID)) {
+      s.equippedClaw = claw.id;
+      for (const species of SPECIES) {
+        for (const variant of Object.keys(VARIANTS) as VariantId[]) {
+          expect(computeStats(s).strength, claw.id + '/' + species.id + '/' + variant)
+            .toBeGreaterThanOrEqual(strengthRequired(species, variant));
+        }
+      }
+    }
+  });
+
+  it('every speed and recovery purchase improves actual timings for every claw', () => {
+    for (const claw of Object.values(CLAWS_BY_ID)) {
+      for (const stat of ['strikeSpeed', 'recovery'] as const) {
+        const s = defaultSave();
+        s.equippedClaw = claw.id;
+        for (const u of treeNodes('main').filter((u) => u.stat === stat)) {
+          for (let l = 1; l <= u.maxLevel; l++) {
+            const before = computeStats(s);
+            s.upgrades[u.id] = l;
+            const after = computeStats(s);
+            if (stat === 'strikeSpeed') {
+              expect(after.strikeMs).toBeLessThan(before.strikeMs);
+              expect(after.retractMs).toBeLessThan(before.retractMs);
+            } else expect(after.cooldownMs).toBeLessThan(before.cooldownMs);
+          }
+        }
+      }
+    }
+  });
+
+  it('recalculates existing saves without losing progress or requiring a reset', () => {
+    const s = defaultSave();
+    Object.assign(s.upgrades, { strength: 3, strength2: 3, strength3: 5, strength4: 5 });
+    s.coins = 12345;
+    const loaded = sanitizeSave(JSON.parse(JSON.stringify(s)));
+    expect(loaded).toEqual(s);
+    expect(computeStats(loaded).strength).toBeCloseTo(14.4);
+    expect(computeStats(loaded).strength).toBeGreaterThanOrEqual(strengthRequired(
+      SPECIES.find((sp) => sp.id === 'lanternLeviathan')!, 'giant',
+    ));
   });
 });
